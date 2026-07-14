@@ -2,8 +2,37 @@
 
 import { useState } from "react";
 
+const ARTISTIC_TYPES = [
+  {
+    value: "book",
+    label: "Book",
+  },
+  {
+    value: "film",
+    label: "Film",
+  },
+  {
+    value: "performance",
+    label: "Performance",
+  },
+  {
+    value: "exhibition",
+    label: "Exhibition",
+  },
+  {
+    value: "music",
+    label: "Music",
+  },
+  {
+    value: "other",
+    label: "Other",
+  },
+];
+
 const emptyForm = {
-  date: new Date().toISOString().slice(0, 10),
+  date: new Date()
+    .toISOString()
+    .slice(0, 10),
 
   state: {
     body_state: "",
@@ -22,12 +51,40 @@ const emptyForm = {
   learning_time: "",
   learning_subject: "",
 
+  artistic_input: {
+    type: "",
+    title: "",
+    creator: "",
+    note: "",
+  },
+
   observation: "",
   alignment: "",
   tomorrow: [],
 
   is_public: true,
 };
+
+function makeEmptyForm() {
+  return {
+    ...emptyForm,
+
+    state: {
+      ...emptyForm.state,
+    },
+
+    work: {
+      ...emptyForm.work,
+      items: [],
+    },
+
+    artistic_input: {
+      ...emptyForm.artistic_input,
+    },
+
+    tomorrow: [],
+  };
+}
 
 function textToLines(text) {
   return String(text || "")
@@ -51,32 +108,48 @@ function parseLearning(initial) {
       ? initial.learning[0]
       : "";
 
-  const match = String(firstEntry).match(
-    /^\s*(\d+(?:\.\d+)?\s*(?:h|hr|hrs|hour|hours|m|min|mins|minute|minutes))\s*(?:—|-|:)?\s*(.*)$/i
-  );
+  const match =
+    String(firstEntry).match(
+      /^\s*(\d+(?:\.\d+)?\s*(?:h|hr|hrs|hour|hours|m|min|mins|minute|minutes))\s*(?:—|-|:)?\s*(.*)$/i
+    );
 
   if (!match) {
     return {
       learning_time: "",
-      learning_subject: firstEntry,
+      learning_subject:
+        firstEntry,
     };
   }
 
   return {
-    learning_time: match[1] || "",
-    learning_subject: match[2] || "",
+    learning_time:
+      match[1] || "",
+
+    learning_subject:
+      match[2] || "",
   };
 }
 
 function prepareInitialForm(initial) {
   if (!initial) {
-    return structuredClone(emptyForm);
+    return makeEmptyForm();
   }
 
-  const learning = parseLearning(initial);
+  const learning =
+    parseLearning(initial);
+
+  const artisticInput =
+    initial.artistic_input &&
+    typeof initial.artistic_input ===
+      "object" &&
+    !Array.isArray(
+      initial.artistic_input
+    )
+      ? initial.artistic_input
+      : {};
 
   return {
-    ...structuredClone(emptyForm),
+    ...makeEmptyForm(),
     ...initial,
 
     state: {
@@ -87,17 +160,32 @@ function prepareInitialForm(initial) {
     work: {
       ...emptyForm.work,
       ...(initial.work || {}),
-      items: Array.isArray(initial.work?.items)
-        ? initial.work.items
-        : [],
+
+      items:
+        Array.isArray(
+          initial.work?.items
+        )
+          ? initial.work.items
+          : [],
     },
 
-    learning_time: learning.learning_time,
-    learning_subject: learning.learning_subject,
+    learning_time:
+      learning.learning_time,
 
-    tomorrow: Array.isArray(initial.tomorrow)
-      ? initial.tomorrow
-      : [],
+    learning_subject:
+      learning.learning_subject,
+
+    artistic_input: {
+      ...emptyForm.artistic_input,
+      ...artisticInput,
+    },
+
+    tomorrow:
+      Array.isArray(
+        initial.tomorrow
+      )
+        ? initial.tomorrow
+        : [],
 
     is_public: true,
   };
@@ -107,20 +195,28 @@ export default function LogForm({
   initial,
   onSubmit,
 }) {
-  const [form, setForm] = useState(() =>
-    prepareInitialForm(initial)
-  );
+  const [form, setForm] =
+    useState(() =>
+      prepareInitialForm(initial)
+    );
 
-  const updateField = (key, value) => {
+  const updateField = (
+    key,
+    value
+  ) => {
     setForm((previous) => ({
       ...previous,
       [key]: value,
     }));
   };
 
-  const updateState = (key, value) => {
+  const updateState = (
+    key,
+    value
+  ) => {
     setForm((previous) => ({
       ...previous,
+
       state: {
         ...previous.state,
         [key]: value,
@@ -128,9 +224,13 @@ export default function LogForm({
     }));
   };
 
-  const updateWork = (key, value) => {
+  const updateWork = (
+    key,
+    value
+  ) => {
     setForm((previous) => ({
       ...previous,
+
       work: {
         ...previous.work,
         [key]: value,
@@ -138,7 +238,36 @@ export default function LogForm({
     }));
   };
 
-  const handleSubmit = (event) => {
+  const updateArtisticInput = (
+    key,
+    value
+  ) => {
+    setForm((previous) => ({
+      ...previous,
+
+      artistic_input: {
+        ...previous.artistic_input,
+        [key]: value,
+      },
+    }));
+  };
+
+  const selectArtisticType = (
+    type
+  ) => {
+    updateArtisticInput(
+      "type",
+
+      form.artistic_input.type ===
+        type
+        ? ""
+        : type
+    );
+  };
+
+  const handleSubmit = (
+    event
+  ) => {
     event.preventDefault();
 
     const learningEntry = [
@@ -148,10 +277,26 @@ export default function LogForm({
       .filter(Boolean)
       .join(" — ");
 
+    const hasArtisticInput =
+      Boolean(
+        form.artistic_input.type
+      ) ||
+      Boolean(
+        form.artistic_input.title
+      ) ||
+      Boolean(
+        form.artistic_input.creator
+      ) ||
+      Boolean(
+        form.artistic_input.note
+      );
+
     const payload = {
       date: form.date,
 
-      pace: initial?.pace || "Normal",
+      pace:
+        initial?.pace ||
+        "Normal",
 
       state: {
         body_state:
@@ -179,11 +324,13 @@ export default function LogForm({
           "",
 
         humidity:
-          initial?.state?.humidity ||
+          initial?.state
+            ?.humidity ||
           "",
 
         pressure:
-          initial?.state?.pressure ||
+          initial?.state
+            ?.pressure ||
           "",
 
         wind:
@@ -191,31 +338,65 @@ export default function LogForm({
           "",
 
         sunrise:
-          initial?.state?.sunrise ||
+          initial?.state
+            ?.sunrise ||
           "",
 
         sunset:
-          initial?.state?.sunset ||
+          initial?.state
+            ?.sunset ||
           "",
       },
 
       work: {
-        time: form.work.time,
-        project: form.work.project,
-        items: textToLines(
-          form.work.items
-        ),
+        time:
+          form.work.time,
+
+        project:
+          form.work.project,
+
+        items:
+          textToLines(
+            form.work.items
+          ),
       },
 
-      learning: learningEntry
-        ? [learningEntry]
-        : [],
+      learning:
+        learningEntry
+          ? [learningEntry]
+          : [],
+
+      artistic_input:
+        hasArtisticInput
+          ? {
+              type:
+                form
+                  .artistic_input
+                  .type,
+
+              title:
+                form
+                  .artistic_input
+                  .title,
+
+              creator:
+                form
+                  .artistic_input
+                  .creator,
+
+              note:
+                form
+                  .artistic_input
+                  .note,
+            }
+          : {},
 
       body:
         initial?.body || [],
 
       nourishment:
-        initial?.nourishment || {},
+        initial?.nourishment ||
+        {},
 
       media:
         initial?.media || [],
@@ -227,7 +408,9 @@ export default function LogForm({
         form.alignment,
 
       tomorrow:
-        textToLines(form.tomorrow),
+        textToLines(
+          form.tomorrow
+        ),
 
       is_public: true,
     };
@@ -236,7 +419,9 @@ export default function LogForm({
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form
+      onSubmit={handleSubmit}
+    >
       <div className="grid two">
         <label>
           Date
@@ -267,7 +452,8 @@ export default function LogForm({
             step="1"
             placeholder="1–10"
             value={
-              form.state.body_state
+              form.state
+                .body_state
             }
             onChange={(event) =>
               updateState(
@@ -347,7 +533,8 @@ export default function LogForm({
             step="0.01"
             placeholder="Optional"
             value={
-              form.state.temperature
+              form.state
+                .temperature
             }
             onChange={(event) =>
               updateState(
@@ -457,6 +644,117 @@ export default function LogForm({
           />
         </label>
       </div>
+
+      <h2>
+        Artistic Input
+      </h2>
+
+      <p className="muted">
+        A book, film,
+        performance, exhibition,
+        music, or other artistic
+        reference encountered today.
+      </p>
+
+      <h3>Type</h3>
+
+      <div className="artistic-type-list">
+        {ARTISTIC_TYPES.map(
+          (item) => {
+            const checked =
+              form
+                .artistic_input
+                .type ===
+              item.value;
+
+            return (
+              <label
+                className={
+                  checked
+                    ? "artistic-type selected"
+                    : "artistic-type"
+                }
+                key={item.value}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() =>
+                    selectArtisticType(
+                      item.value
+                    )
+                  }
+                />
+
+                <span>
+                  {item.label}
+                </span>
+              </label>
+            );
+          }
+        )}
+      </div>
+
+      <div className="grid two">
+        <label>
+          Title
+
+          <input
+            type="text"
+            placeholder="Title of the work"
+            value={
+              form
+                .artistic_input
+                .title
+            }
+            onChange={(event) =>
+              updateArtisticInput(
+                "title",
+                event.target.value
+              )
+            }
+          />
+        </label>
+
+        <label>
+          Creator
+
+          <input
+            type="text"
+            placeholder="Artist, author, director..."
+            value={
+              form
+                .artistic_input
+                .creator
+            }
+            onChange={(event) =>
+              updateArtisticInput(
+                "creator",
+                event.target.value
+              )
+            }
+          />
+        </label>
+      </div>
+
+      <label>
+        Reference Note
+
+        <textarea
+          placeholder="What stayed with you, or why this reference matters."
+          value={
+            form
+              .artistic_input
+              .note
+          }
+          onChange={(event) =>
+            updateArtisticInput(
+              "note",
+              event.target.value
+            )
+          }
+        />
+      </label>
 
       <h2>Notes</h2>
 
