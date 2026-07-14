@@ -1,17 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { supabase } from "../lib/supabaseClient";
-
-const BUCKET_NAME = "softsystems-media";
-
-function safeFileName(fileName) {
-  return fileName
-    .normalize("NFKD")
-    .replace(/[^\w.-]+/g, "_")
-    .replace(/_+/g, "_");
-}
-
 function getMediaType(file) {
   if (file.type.startsWith("image/")) {
     return "image";
@@ -33,13 +21,12 @@ function getMediaType(file) {
 }
 
 export default function MediaUploader({
-  media = [],
-  onChange,
+  selectedFiles = [],
+  existingMedia = [],
+  onFilesChange,
+  onRemoveExisting,
 }) {
-  const [uploading, setUploading] =
-    useState(false);
-
-  const uploadFiles = async (event) => {
+  const selectFiles = (event) => {
     const files = Array.from(
       event.target.files || []
     );
@@ -48,98 +35,27 @@ export default function MediaUploader({
       return;
     }
 
-    setUploading(true);
+    const newItems = files.map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      name: file.name,
+      type: getMediaType(file),
+      mime_type: file.type,
+      size: file.size,
+    }));
 
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    onFilesChange([
+      ...selectedFiles,
+      ...newItems,
+    ]);
 
-      if (!session) {
-        throw new Error(
-          "You must be logged in to upload files."
-        );
-      }
-
-      const uploadedItems = [];
-
-      for (const file of files) {
-        const cleanName = safeFileName(
-          file.name
-        );
-
-        const uniqueName =
-          `${Date.now()}-${crypto.randomUUID()}-${cleanName}`;
-
-        const filePath =
-          `${session.user.id}/${uniqueName}`;
-
-        const { error } = await supabase
-          .storage
-          .from(BUCKET_NAME)
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-            contentType: file.type,
-          });
-
-        if (error) {
-          throw error;
-        }
-
-        uploadedItems.push({
-          bucket: BUCKET_NAME,
-          path: filePath,
-          name: file.name,
-          type: getMediaType(file),
-          mime_type: file.type,
-          size: file.size,
-        });
-      }
-
-      onChange([
-        ...media,
-        ...uploadedItems,
-      ]);
-    } catch (error) {
-      console.error(error);
-      alert(
-        error.message ||
-          "File upload failed."
-      );
-    } finally {
-      setUploading(false);
-      event.target.value = "";
-    }
+    event.target.value = "";
   };
 
-  const removeItem = async (item) => {
-    const confirmed = window.confirm(
-      `Delete ${item.name}?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    if (item.path) {
-      const { error } = await supabase
-        .storage
-        .from(
-          item.bucket || BUCKET_NAME
-        )
-        .remove([item.path]);
-
-      if (error) {
-        alert(error.message);
-        return;
-      }
-    }
-
-    onChange(
-      media.filter(
-        (current) =>
-          current.path !== item.path
+  const removeSelected = (id) => {
+    onFilesChange(
+      selectedFiles.filter(
+        (item) => item.id !== id
       )
     );
   };
@@ -165,23 +81,22 @@ export default function MediaUploader({
             video/mp4,
             application/pdf
           "
-          onChange={uploadFiles}
-          disabled={uploading}
+          onChange={selectFiles}
         />
       </label>
 
       <p className="muted">
-        MP3, WAV, JPG, PNG, MOV, MP4,
-        and PDF
+        Files will upload when you press
+        Save Daily.
       </p>
 
-      {uploading && (
-        <p>Uploading…</p>
-      )}
-
-      {media.length > 0 && (
+      {existingMedia.length > 0 && (
         <div className="media-list">
-          {media.map(
+          <p className="block-title">
+            Saved Files
+          </p>
+
+          {existingMedia.map(
             (item, index) => (
               <div
                 className="media-item"
@@ -211,7 +126,7 @@ export default function MediaUploader({
                 <button
                   type="button"
                   onClick={() =>
-                    removeItem(item)
+                    onRemoveExisting(item)
                   }
                 >
                   Remove
@@ -219,6 +134,45 @@ export default function MediaUploader({
               </div>
             )
           )}
+        </div>
+      )}
+
+      {selectedFiles.length > 0 && (
+        <div className="media-list">
+          <p className="block-title">
+            Waiting to Upload
+          </p>
+
+          {selectedFiles.map((item) => (
+            <div
+              className="media-item"
+              key={item.id}
+            >
+              <div>
+                <p>
+                  {item.type} — {item.name}
+                </p>
+
+                <p className="muted">
+                  {(
+                    item.size /
+                    1024 /
+                    1024
+                  ).toFixed(2)}
+                  MB
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  removeSelected(item.id)
+                }
+              >
+                Remove
+              </button>
+            </div>
+          ))}
         </div>
       )}
     </section>
