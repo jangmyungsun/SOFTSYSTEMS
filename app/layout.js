@@ -3,7 +3,7 @@ import Navigation from '../components/Navigation';
 
 export const metadata = {
   title: 'SOFTSYSTEMS',
-  description: 'A living operating system for artistic practice.',
+  description: 'A living operating system',
 };
 
 export default function RootLayout({ children }) {
