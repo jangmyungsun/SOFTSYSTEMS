@@ -1,3 +1,5 @@
+import MediaPreview from "./MediaPreview";
+
 export default function EntryCard({
   log,
   admin = false,
@@ -5,76 +7,130 @@ export default function EntryCard({
   onDelete,
   onToggle,
 }) {
-  const environment = log.environment || {};
+  const environment =
+    log.environment &&
+    typeof log.environment === "object"
+      ? log.environment
+      : {};
+
+  const state =
+    log.state &&
+    typeof log.state === "object"
+      ? log.state
+      : {};
+
+  const work =
+    log.work &&
+    typeof log.work === "object"
+      ? log.work
+      : {};
 
   const weather =
     environment.weather ||
-    log.state?.weather ||
+    state.weather ||
     "";
 
   const weatherTemperature =
     environment.temperature ??
-    log.state?.weather_temperature ??
+    state.weather_temperature ??
     "";
 
   const humidity =
     environment.humidity ??
-    log.state?.humidity ??
+    state.humidity ??
     "";
 
   const pressure =
     environment.pressure ??
-    log.state?.pressure ??
+    state.pressure ??
     "";
 
   const wind =
     environment.wind ??
-    log.state?.wind ??
+    state.wind ??
     "";
 
   const sunrise =
     environment.sunrise ||
-    log.state?.sunrise ||
+    state.sunrise ||
     "";
 
   const sunset =
     environment.sunset ||
-    log.state?.sunset ||
+    state.sunset ||
     "";
 
-  const learningText = Array.isArray(log.learning)
-    ? log.learning
-    : [];
+  const temperatureUnit =
+    environment.units?.temperature ||
+    "";
 
-  const mediaItems = Array.isArray(log.media)
-    ? log.media
-    : [];
+  const humidityUnit =
+    environment.units?.humidity ||
+    "";
 
-  const tomorrowItems = Array.isArray(log.tomorrow)
-    ? log.tomorrow
-    : [];
-  
+  const pressureUnit =
+    environment.units?.pressure ||
+    "";
+
+  const windUnit =
+    environment.units?.wind ||
+    "";
+
+  const learningItems =
+    Array.isArray(log.learning)
+      ? log.learning
+      : [];
+
+  const mediaItems =
+    Array.isArray(log.media)
+      ? log.media
+      : [];
+
+  const tomorrowItems =
+    Array.isArray(log.tomorrow)
+      ? log.tomorrow
+      : [];
+
+  const makingItems =
+    Array.isArray(work.items)
+      ? work.items
+      : [];
+
   const aiAnalysis =
-  log.ai_analysis &&
-  typeof log.ai_analysis ===
-    "object"
-    ? log.ai_analysis
-    : null;
+    log.ai_analysis &&
+    typeof log.ai_analysis === "object" &&
+    !Array.isArray(log.ai_analysis)
+      ? log.ai_analysis
+      : null;
 
   const hasEnvironmentData =
-    weather ||
+    Boolean(weather) ||
     weatherTemperature !== "" ||
     humidity !== "" ||
     pressure !== "" ||
     wind !== "" ||
-    sunrise ||
-    sunset;
+    Boolean(sunrise) ||
+    Boolean(sunset);
+
+  const hasBodyData =
+    state.body_state !== "" ||
+    state.energy !== "" ||
+    state.mood !== "" ||
+    state.weight !== "" ||
+    state.temperature !== "";
+
+  const hasMakingData =
+    Boolean(work.time) ||
+    Boolean(work.project) ||
+    makingItems.length > 0;
 
   return (
     <article className="entry">
       <div className="entry-head">
         <div>
-          <p className="eyebrow">Daily</p>
+          <p className="eyebrow">
+            Daily
+          </p>
 
           <div className="entry-date">
             {log.date}
@@ -102,32 +158,46 @@ export default function EntryCard({
             Body
           </p>
 
-          <p>
-            Body State —{" "}
-            {log.state?.body_state || ""}
-          </p>
+          {hasBodyData ? (
+            <>
+              {state.body_state !== "" && (
+                <p>
+                  Body State —{" "}
+                  {state.body_state}
+                </p>
+              )}
 
-          <p>
-            Energy —{" "}
-            {log.state?.energy || ""}
-          </p>
+              {state.energy !== "" && (
+                <p>
+                  Energy —{" "}
+                  {state.energy}
+                </p>
+              )}
 
-          <p>
-            Mood —{" "}
-            {log.state?.mood || ""}
-          </p>
+              {state.mood !== "" && (
+                <p>
+                  Mood —{" "}
+                  {state.mood}
+                </p>
+              )}
 
-          {log.state?.weight && (
-            <p>
-              Weight —{" "}
-              {log.state.weight}
-            </p>
-          )}
+              {state.weight !== "" && (
+                <p>
+                  Weight —{" "}
+                  {state.weight}
+                </p>
+              )}
 
-          {log.state?.temperature && (
-            <p>
-              Body Temperature —{" "}
-              {log.state.temperature}
+              {state.temperature !== "" && (
+                <p>
+                  Body Temperature —{" "}
+                  {state.temperature}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="muted">
+              No body data recorded.
             </p>
           )}
         </section>
@@ -141,7 +211,8 @@ export default function EntryCard({
             <>
               {weather && (
                 <p>
-                  Weather — {weather}
+                  Weather —{" "}
+                  {weather}
                 </p>
               )}
 
@@ -149,36 +220,45 @@ export default function EntryCard({
                 <p>
                   Temperature —{" "}
                   {weatherTemperature}
+                  {temperatureUnit}
                 </p>
               )}
 
               {humidity !== "" && (
                 <p>
-                  Humidity — {humidity}
+                  Humidity —{" "}
+                  {humidity}
+                  {humidityUnit}
                 </p>
               )}
 
               {pressure !== "" && (
                 <p>
-                  Pressure — {pressure}
+                  Pressure —{" "}
+                  {pressure}
+                  {pressureUnit}
                 </p>
               )}
 
               {wind !== "" && (
                 <p>
-                  Wind — {wind}
+                  Wind —{" "}
+                  {wind}
+                  {windUnit}
                 </p>
               )}
 
               {sunrise && (
                 <p>
-                  Sunrise — {sunrise}
+                  Sunrise —{" "}
+                  {sunrise}
                 </p>
               )}
 
               {sunset && (
                 <p>
-                  Sunset — {sunset}
+                  Sunset —{" "}
+                  {sunset}
                 </p>
               )}
             </>
@@ -194,37 +274,37 @@ export default function EntryCard({
             Making
           </p>
 
-          {log.work?.time && (
-            <p>
-              Time — {log.work.time}
+          {hasMakingData ? (
+            <>
+              {work.time && (
+                <p>
+                  Time —{" "}
+                  {work.time}
+                </p>
+              )}
+
+              {work.project && (
+                <p>
+                  Project —{" "}
+                  {work.project}
+                </p>
+              )}
+
+              {makingItems.map(
+                (item, index) => (
+                  <p
+                    key={`${item}-${index}`}
+                  >
+                    {item}
+                  </p>
+                )
+              )}
+            </>
+          ) : (
+            <p className="muted">
+              No Making record.
             </p>
           )}
-
-          {log.work?.project && (
-            <p>
-              Project —{" "}
-              {log.work.project}
-            </p>
-          )}
-
-          {(log.work?.items || []).map(
-            (item, index) => (
-              <p
-                key={`${item}-${index}`}
-              >
-                {item}
-              </p>
-            )
-          )}
-
-          {!log.work?.time &&
-            !log.work?.project &&
-            !(log.work?.items || [])
-              .length && (
-              <p className="muted">
-                No Making record.
-              </p>
-            )}
         </section>
 
         <section className="block">
@@ -232,8 +312,8 @@ export default function EntryCard({
             Learning
           </p>
 
-          {learningText.length > 0 ? (
-            learningText.map(
+          {learningItems.length > 0 ? (
+            learningItems.map(
               (item, index) => (
                 <p
                   key={`${item}-${index}`}
@@ -255,36 +335,18 @@ export default function EntryCard({
           </p>
 
           {mediaItems.length > 0 ? (
-            <div className="media-list">
+            <div className="media-gallery">
               {mediaItems.map(
                 (item, index) => (
-                  <div
-                    className="media-item"
+                  <MediaPreview
                     key={
+                      item.path ||
                       item.id ||
                       `${item.name || "media"}-${index}`
                     }
-                  >
-                    <p>
-                      {item.type ||
-                        "media"}{" "}
-                      —{" "}
-                      {item.name ||
-                        item.file_name ||
-                        ""}
-                    </p>
-
-                    {item.url && (
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="button-link"
-                      >
-                        Open
-                      </a>
-                    )}
-                  </div>
+                    logId={log.id}
+                    item={item}
+                  />
                 )
               )}
             </div>
@@ -338,6 +400,151 @@ export default function EntryCard({
             </p>
           )}
         </section>
+
+        {aiAnalysis?.summary && (
+          <section className="block full ai-reading">
+            <p className="block-title">
+              System Reading
+            </p>
+
+            <p className="ai-summary">
+              {aiAnalysis.summary}
+            </p>
+
+            {aiAnalysis.relationship && (
+              <p className="muted">
+                {aiAnalysis.relationship}
+              </p>
+            )}
+
+            <div className="ai-groups">
+              {Array.isArray(
+                aiAnalysis.emotions
+              ) &&
+                aiAnalysis.emotions.length >
+                  0 && (
+                  <div>
+                    <p className="block-title">
+                      Emotions
+                    </p>
+
+                    <div className="tag-list">
+                      {aiAnalysis.emotions.map(
+                        (item, index) => (
+                          <span
+                            className="tag"
+                            key={`${item}-${index}`}
+                          >
+                            {item}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {Array.isArray(
+                aiAnalysis.themes
+              ) &&
+                aiAnalysis.themes.length >
+                  0 && (
+                  <div>
+                    <p className="block-title">
+                      Themes
+                    </p>
+
+                    <div className="tag-list">
+                      {aiAnalysis.themes.map(
+                        (item, index) => (
+                          <span
+                            className="tag"
+                            key={`${item}-${index}`}
+                          >
+                            {item}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {Array.isArray(
+                aiAnalysis.keywords
+              ) &&
+                aiAnalysis.keywords.length >
+                  0 && (
+                  <div>
+                    <p className="block-title">
+                      Keywords
+                    </p>
+
+                    <div className="tag-list">
+                      {aiAnalysis.keywords.map(
+                        (item, index) => (
+                          <span
+                            className="tag"
+                            key={`${item}-${index}`}
+                          >
+                            {item}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {Array.isArray(
+                aiAnalysis.body_signals
+              ) &&
+                aiAnalysis.body_signals
+                  .length > 0 && (
+                  <div>
+                    <p className="block-title">
+                      Body Signals
+                    </p>
+
+                    <div className="tag-list">
+                      {aiAnalysis.body_signals.map(
+                        (item, index) => (
+                          <span
+                            className="tag"
+                            key={`${item}-${index}`}
+                          >
+                            {item}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {Array.isArray(
+                aiAnalysis.practice_signals
+              ) &&
+                aiAnalysis.practice_signals
+                  .length > 0 && (
+                  <div>
+                    <p className="block-title">
+                      Practice Signals
+                    </p>
+
+                    <div className="tag-list">
+                      {aiAnalysis.practice_signals.map(
+                        (item, index) => (
+                          <span
+                            className="tag"
+                            key={`${item}-${index}`}
+                          >
+                            {item}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+            </div>
+          </section>
+        )}
 
         {admin && (
           <section className="block full">
