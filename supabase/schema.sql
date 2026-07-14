@@ -84,3 +84,5 @@ drop policy if exists "owner updates own videos" on public.video_archive;
 create policy "owner updates own videos" on public.video_archive for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 drop policy if exists "owner deletes own videos" on public.video_archive;
 create policy "owner deletes own videos" on public.video_archive for delete to authenticated using (auth.uid() = user_id);
+alter table public.field_logs
+add column if not exists media jsonb default '[]'::jsonb;
