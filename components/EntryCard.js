@@ -53,6 +53,13 @@ export default function EntryCard({
   const tomorrowItems = Array.isArray(log.tomorrow)
     ? log.tomorrow
     : [];
+  
+  const aiAnalysis =
+  log.ai_analysis &&
+  typeof log.ai_analysis ===
+    "object"
+    ? log.ai_analysis
+    : null;
 
   const hasEnvironmentData =
     weather ||
