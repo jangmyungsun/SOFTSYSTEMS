@@ -1,11 +1,16 @@
-import './globals.css';
-import Navigation from '../components/Navigation';
+<section className="panel hero">
+  <p className="eyebrow">SOFTSYSTEMS</p>
 
-export const metadata = {
-  title: 'SOFTSYSTEMS',
-  description: 'A living operating system for artistic practice.',
-};
+  <h1>
+    A living operating system
+    <br />
+    for artistic practice
+  </h1>
 
+  <p className="subtitle">
+    A living archive of body, environment, practice, and creation.
+  </p>
+</section>
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
