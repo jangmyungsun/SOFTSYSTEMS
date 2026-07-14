@@ -18,8 +18,6 @@ export default function RootLayout({ children }) {
 
             <h1>
               A living operating system
-              <br />
-              for artistic practice
             </h1>
 
             <p className="subtitle">
