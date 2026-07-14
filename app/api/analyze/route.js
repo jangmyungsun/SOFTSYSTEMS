@@ -56,7 +56,7 @@ const ANALYSIS_SCHEMA = {
     relationship: {
       type: "string",
       description:
-        "A careful observation about the relationship between body, environment, and artistic practice.",
+        "A careful observation about the relationship among body, environment, artistic input, and artistic practice.",
     },
   },
 
@@ -74,8 +74,26 @@ const ANALYSIS_SCHEMA = {
 };
 
 function makeAnalysisInput(log) {
+  const mediaItems = Array.isArray(log.media)
+    ? log.media
+    : [];
+
+  const learningItems = Array.isArray(log.learning)
+    ? log.learning
+    : [];
+
+  const tomorrowItems = Array.isArray(log.tomorrow)
+    ? log.tomorrow
+    : [];
+
+  const makingItems = Array.isArray(
+    log.work?.items
+  )
+    ? log.work.items
+    : [];
+
   return {
-    date: log.date,
+    date: log.date || "",
 
     body: {
       body_state:
@@ -95,7 +113,10 @@ function makeAnalysisInput(log) {
     },
 
     environment:
-      log.environment || {},
+      log.environment &&
+      typeof log.environment === "object"
+        ? log.environment
+        : {},
 
     making: {
       time:
@@ -105,26 +126,26 @@ function makeAnalysisInput(log) {
         log.work?.project || "",
 
       notes:
-        log.work?.items || [],
+        makingItems,
     },
 
     learning:
-      log.learning || [],
-    
-artistic_input: {
-  type:
-    log.artistic_input?.type || "",
+      learningItems,
 
-  title:
-    log.artistic_input?.title || "",
+    artistic_input: {
+      type:
+        log.artistic_input?.type || "",
 
-  creator:
-    log.artistic_input?.creator || "",
+      title:
+        log.artistic_input?.title || "",
 
-  note:
-    log.artistic_input?.note || "",
-},
-    
+      creator:
+        log.artistic_input?.creator || "",
+
+      note:
+        log.artistic_input?.note || "",
+    },
+
     observation:
       log.observation || "",
 
@@ -132,15 +153,18 @@ artistic_input: {
       log.alignment || "",
 
     tomorrow:
-      log.tomorrow || [],
+      tomorrowItems,
 
     media:
-      (log.media || []).map(
-        (item) => ({
-          type: item.type,
-          name: item.name,
-        })
-      ),
+      mediaItems.map((item) => ({
+        type:
+          item?.type || "",
+
+        name:
+          item?.name ||
+          item?.file_name ||
+          "",
+      })),
   };
 }
 
@@ -170,10 +194,6 @@ export async function POST(request) {
       );
     }
 
-    /*
-     * 요청자가 실제 Supabase 로그인
-     * 사용자인지 확인한다.
-     */
     const {
       data: userData,
       error: userError,
@@ -197,10 +217,11 @@ export async function POST(request) {
       );
     }
 
-    const body =
+    const requestBody =
       await request.json();
 
-    const log = body.log;
+    const log =
+      requestBody?.log;
 
     if (!log) {
       return NextResponse.json(
@@ -217,12 +238,13 @@ export async function POST(request) {
     const analysisInput =
       makeAnalysisInput(log);
 
+    const model =
+      process.env.OPENAI_MODEL ||
+      "gpt-5.6";
+
     const response =
       await openai.responses.create({
-        model:
-          process.env
-            .OPENAI_MODEL ||
-          "gpt-5.6",
+        model,
 
         input: [
           {
@@ -232,18 +254,37 @@ export async function POST(request) {
 You are the interpretive layer of SOFTSYSTEMS.
 
 SOFTSYSTEMS is not a productivity tool.
-It is an artistic ecology that observes relationships among body, environment, practice, memory, and creation.
+It is an artistic ecology that observes relationships among body, environment, practice, memory, artistic references, media, and creation.
 
 Your task is to carefully interpret one Daily record.
+
+The Artistic Input may include a book, film, performance, exhibition, music work, or another reference.
+
+Do not summarize the artistic work itself unless that summary is directly necessary.
+
+Instead, observe how the artistic input may relate to:
+- body state;
+- energy and mood;
+- environment;
+- observation;
+- making;
+- learning;
+- alignment;
+- recurring artistic concerns.
+
+Treat the artistic input as one signal within the day, not as proof of causation.
 
 Do not give generic motivation.
 Do not praise productivity.
 Do not make medical diagnoses.
 Do not exaggerate patterns from one entry.
+Do not claim that one artistic reference caused a body state or creative outcome.
 
 Use calm, precise, observational language.
 Treat uncertainty honestly.
 Focus on signals and relationships that may become meaningful when compared over time.
+
+When appropriate, include the title, creator, medium, or central concern of the artistic input in themes or keywords.
 
 Return all labels and observations in English.
             `.trim(),
@@ -264,9 +305,12 @@ Return all labels and observations in English.
         text: {
           format: {
             type: "json_schema",
+
             name:
               "softsystems_daily_analysis",
+
             strict: true,
+
             schema:
               ANALYSIS_SCHEMA,
           },
@@ -291,10 +335,7 @@ Return all labels and observations in English.
         analyzed_at:
           new Date().toISOString(),
 
-        model:
-          process.env
-            .OPENAI_MODEL ||
-          "gpt-5.6",
+        model,
       },
     });
   } catch (error) {
@@ -306,7 +347,7 @@ Return all labels and observations in English.
     return NextResponse.json(
       {
         error:
-          error.message ||
+          error?.message ||
           "AI analysis failed.",
       },
       {
