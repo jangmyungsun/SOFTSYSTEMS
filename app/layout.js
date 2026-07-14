@@ -1,16 +1,11 @@
-<section className="panel hero">
-  <p className="eyebrow">SOFTSYSTEMS</p>
+import './globals.css';
+import Navigation from '../components/Navigation';
 
-  <h1>
-    A living operating system
-    <br />
-    for artistic practice
-  </h1>
+export const metadata = {
+  title: 'SOFTSYSTEMS',
+  description: 'A living operating system for artistic practice.',
+};
 
-  <p className="subtitle">
-    A living archive of body, environment, practice, and creation.
-  </p>
-</section>
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
@@ -21,15 +16,14 @@ export default function RootLayout({ children }) {
           <section className="panel hero">
             <p className="eyebrow">SOFTSYSTEMS</p>
 
-            <h1 className="hero-title">
-              A living archive
+            <h1>
+              A living operating system
               <br />
-              for artistic practice.
+              for artistic practice
             </h1>
 
             <p className="subtitle">
-              Body, environment, practice, memory, and creation—woven together
-              as one evolving system.
+              A living archive of body, environment, practice, and creation.
             </p>
           </section>
 
