@@ -5,8 +5,6 @@ import { useState } from "react";
 const emptyForm = {
   date: new Date().toISOString().slice(0, 10),
 
-  is_public: true,
-
   state: {
     body_state: "",
     energy: "",
@@ -21,18 +19,14 @@ const emptyForm = {
     items: [],
   },
 
-  learning: {
-    time: "",
-    subject: "",
-  },
+  learning_time: "",
+  learning_subject: "",
 
   observation: "",
   alignment: "",
   tomorrow: [],
 
-  media: [],
-
-  environment: {},
+  is_public: true,
 };
 
 function textToLines(text) {
@@ -43,20 +37,28 @@ function textToLines(text) {
 }
 
 function linesToText(lines) {
-  return Array.isArray(lines) ? lines.join("\n") : String(lines || "");
+  if (Array.isArray(lines)) {
+    return lines.join("\n");
+  }
+
+  return String(lines || "");
 }
 
 function parseLearning(initial) {
-  const first = initial?.learning?.[0] || "";
+  const firstEntry =
+    Array.isArray(initial?.learning) &&
+    initial.learning.length > 0
+      ? initial.learning[0]
+      : "";
 
-  const match = String(first).match(
+  const match = String(firstEntry).match(
     /^\s*(\d+(?:\.\d+)?\s*(?:h|hr|hrs|hour|hours|m|min|mins|minute|minutes))\s*(?:—|-|:)?\s*(.*)$/i
   );
 
   if (!match) {
     return {
       learning_time: "",
-      learning_subject: first,
+      learning_subject: firstEntry,
     };
   }
 
@@ -67,12 +69,14 @@ function parseLearning(initial) {
 }
 
 function prepareInitialForm(initial) {
-  if (!initial) return emptyForm;
+  if (!initial) {
+    return structuredClone(emptyForm);
+  }
 
   const learning = parseLearning(initial);
 
   return {
-    ...emptyForm,
+    ...structuredClone(emptyForm),
     ...initial,
 
     state: {
@@ -83,18 +87,29 @@ function prepareInitialForm(initial) {
     work: {
       ...emptyForm.work,
       ...(initial.work || {}),
+      items: Array.isArray(initial.work?.items)
+        ? initial.work.items
+        : [],
     },
 
     learning_time: learning.learning_time,
     learning_subject: learning.learning_subject,
 
-    media: initial.media || [],
-    tomorrow: initial.tomorrow || [],
+    tomorrow: Array.isArray(initial.tomorrow)
+      ? initial.tomorrow
+      : [],
+
+    is_public: true,
   };
 }
 
-export default function LogForm({ initial, onSubmit }) {
-  const [form, setForm] = useState(() => prepareInitialForm(initial));
+export default function LogForm({
+  initial,
+  onSubmit,
+}) {
+  const [form, setForm] = useState(() =>
+    prepareInitialForm(initial)
+  );
 
   const updateField = (key, value) => {
     setForm((previous) => ({
@@ -136,69 +151,85 @@ export default function LogForm({ initial, onSubmit }) {
     const payload = {
       date: form.date,
 
-      /*
-       * 현재 데이터베이스 호환성을 위해 mode 값은 유지한다.
-       * Daily 화면에서는 따로 입력받지 않고 기본값으로 저장한다.
-       */
       pace: initial?.pace || "Normal",
 
       state: {
-        body_state: form.state.body_state,
-        energy: form.state.energy,
-        mood: form.state.mood,
-        weight: form.state.weight,
-        temperature: form.state.temperature,
+        body_state:
+          form.state.body_state,
 
-        /*
-         * 자동 날씨 연동 전까지 기존 환경 데이터가 있다면 보존한다.
-         */
-        weather: initial?.state?.weather || "",
+        energy:
+          form.state.energy,
+
+        mood:
+          form.state.mood,
+
+        weight:
+          form.state.weight,
+
+        temperature:
+          form.state.temperature,
+
+        weather:
+          initial?.state?.weather ||
+          "",
+
         weather_temperature:
-          initial?.state?.weather_temperature || "",
-        humidity: initial?.state?.humidity || "",
-        pressure: initial?.state?.pressure || "",
-        wind: initial?.state?.wind || "",
-        sunrise: initial?.state?.sunrise || "",
-        sunset: initial?.state?.sunset || "",
+          initial?.state
+            ?.weather_temperature ||
+          "",
+
+        humidity:
+          initial?.state?.humidity ||
+          "",
+
+        pressure:
+          initial?.state?.pressure ||
+          "",
+
+        wind:
+          initial?.state?.wind ||
+          "",
+
+        sunrise:
+          initial?.state?.sunrise ||
+          "",
+
+        sunset:
+          initial?.state?.sunset ||
+          "",
       },
 
-      /*
-       * 기존 field_logs 테이블과의 호환을 위해
-       * Making 데이터는 work 안에 저장한다.
-       */
       work: {
         time: form.work.time,
         project: form.work.project,
-        items: textToLines(form.work.items),
+        items: textToLines(
+          form.work.items
+        ),
       },
 
-      /*
-       * 기존 데이터 분석 함수가 시간을 읽을 수 있도록
-       * "1h — Coding" 형식으로 저장한다.
-       */
-      learning: learningEntry ? [learningEntry] : [],
+      learning: learningEntry
+        ? [learningEntry]
+        : [],
 
-      /*
-       * 실제 파일 업로드는 Supabase Storage 연결 단계에서 추가한다.
-       * 현재는 기존 media 데이터를 보존한다.
-       */
-      media: form.media || [],
+      body:
+        initial?.body || [],
 
-      /*
-       * 기존 body 배열은 예전 기록의 호환을 위해 유지한다.
-       */
-      body: initial?.body || [],
+      nourishment:
+        initial?.nourishment || {},
 
-      /*
-       * Nourishment 입력은 제거하지만 기존 값은 삭제하지 않는다.
-       */
-      nourishment: initial?.nourishment || {},
+      media:
+        initial?.media || [],
 
-      observation: form.observation,
-      alignment: form.alignment,
-      tomorrow: textToLines(form.tomorrow),
+      observation:
+        form.observation,
 
-      is_public: form.is_public,
+      alignment:
+        form.alignment,
+
+      tomorrow:
+        textToLines(form.tomorrow),
+
+      is_public: true,
     };
 
     onSubmit(payload);
@@ -209,29 +240,17 @@ export default function LogForm({ initial, onSubmit }) {
       <div className="grid two">
         <label>
           Date
+
           <input
             type="date"
             value={form.date}
             onChange={(event) =>
-              updateField("date", event.target.value)
-            }
-          />
-        </label>
-
-        <label>
-          Visibility
-          <select
-            value={form.is_public ? "public" : "private"}
-            onChange={(event) =>
               updateField(
-                "is_public",
-                event.target.value === "public"
+                "date",
+                event.target.value
               )
             }
-          >
-            <option value="private">Private</option>
-            <option value="public">Public</option>
-          </select>
+          />
         </label>
       </div>
 
@@ -240,71 +259,101 @@ export default function LogForm({ initial, onSubmit }) {
       <div className="grid three">
         <label>
           Body State
+
           <input
             type="number"
             min="1"
             max="10"
             step="1"
             placeholder="1–10"
-            value={form.state.body_state}
+            value={
+              form.state.body_state
+            }
             onChange={(event) =>
-              updateState("body_state", event.target.value)
+              updateState(
+                "body_state",
+                event.target.value
+              )
             }
           />
         </label>
 
         <label>
           Energy
+
           <input
             type="number"
             min="1"
             max="10"
             step="1"
             placeholder="1–10"
-            value={form.state.energy}
+            value={
+              form.state.energy
+            }
             onChange={(event) =>
-              updateState("energy", event.target.value)
+              updateState(
+                "energy",
+                event.target.value
+              )
             }
           />
         </label>
 
         <label>
           Mood
+
           <input
             type="number"
             min="1"
             max="10"
             step="1"
             placeholder="1–10"
-            value={form.state.mood}
+            value={
+              form.state.mood
+            }
             onChange={(event) =>
-              updateState("mood", event.target.value)
+              updateState(
+                "mood",
+                event.target.value
+              )
             }
           />
         </label>
 
         <label>
           Weight
+
           <input
             type="number"
             step="0.1"
             placeholder="Optional"
-            value={form.state.weight}
+            value={
+              form.state.weight
+            }
             onChange={(event) =>
-              updateState("weight", event.target.value)
+              updateState(
+                "weight",
+                event.target.value
+              )
             }
           />
         </label>
 
         <label>
           Body Temperature
+
           <input
             type="number"
             step="0.01"
             placeholder="Optional"
-            value={form.state.temperature}
+            value={
+              form.state.temperature
+            }
             onChange={(event) =>
-              updateState("temperature", event.target.value)
+              updateState(
+                "temperature",
+                event.target.value
+              )
             }
           />
         </label>
@@ -317,24 +366,36 @@ export default function LogForm({ initial, onSubmit }) {
       <div className="grid two">
         <label>
           Time
+
           <input
             type="text"
             placeholder="Example: 2h 30m"
-            value={form.work.time}
+            value={
+              form.work.time
+            }
             onChange={(event) =>
-              updateWork("time", event.target.value)
+              updateWork(
+                "time",
+                event.target.value
+              )
             }
           />
         </label>
 
         <label>
           Project
+
           <input
             type="text"
             placeholder="Project name"
-            value={form.work.project}
+            value={
+              form.work.project
+            }
             onChange={(event) =>
-              updateWork("project", event.target.value)
+              updateWork(
+                "project",
+                event.target.value
+              )
             }
           />
         </label>
@@ -342,11 +403,17 @@ export default function LogForm({ initial, onSubmit }) {
 
       <label>
         Making Notes
+
         <textarea
           placeholder="One item per line"
-          value={linesToText(form.work.items)}
+          value={linesToText(
+            form.work.items
+          )}
           onChange={(event) =>
-            updateWork("items", event.target.value)
+            updateWork(
+              "items",
+              event.target.value
+            )
           }
         />
       </label>
@@ -356,10 +423,13 @@ export default function LogForm({ initial, onSubmit }) {
       <div className="grid two">
         <label>
           Time
+
           <input
             type="text"
             placeholder="Example: 1h"
-            value={form.learning_time}
+            value={
+              form.learning_time
+            }
             onChange={(event) =>
               updateField(
                 "learning_time",
@@ -371,10 +441,13 @@ export default function LogForm({ initial, onSubmit }) {
 
         <label>
           Subject
+
           <input
             type="text"
             placeholder="English, coding, reading..."
-            value={form.learning_subject}
+            value={
+              form.learning_subject
+            }
             onChange={(event) =>
               updateField(
                 "learning_subject",
@@ -389,8 +462,11 @@ export default function LogForm({ initial, onSubmit }) {
 
       <label>
         Observation
+
         <textarea
-          value={form.observation}
+          value={
+            form.observation
+          }
           onChange={(event) =>
             updateField(
               "observation",
@@ -402,8 +478,11 @@ export default function LogForm({ initial, onSubmit }) {
 
       <label>
         Alignment
+
         <textarea
-          value={form.alignment}
+          value={
+            form.alignment
+          }
           onChange={(event) =>
             updateField(
               "alignment",
@@ -415,9 +494,12 @@ export default function LogForm({ initial, onSubmit }) {
 
       <label>
         Tomorrow
+
         <textarea
           placeholder="One item per line"
-          value={linesToText(form.tomorrow)}
+          value={linesToText(
+            form.tomorrow
+          )}
           onChange={(event) =>
             updateField(
               "tomorrow",
@@ -428,7 +510,10 @@ export default function LogForm({ initial, onSubmit }) {
       </label>
 
       <div className="actions">
-        <button className="primary" type="submit">
+        <button
+          className="primary"
+          type="submit"
+        >
           Save Daily
         </button>
       </div>
