@@ -14,6 +14,35 @@ import MediaUploader from "../../components/MediaUploader";
 import VideoForm from "../../components/VideoForm";
 import VideoCard from "../../components/VideoCard";
 
+const BUCKET_NAME = "softsystems-media";
+
+function safeFileName(fileName) {
+  return String(fileName || "")
+    .normalize("NFKD")
+    .replace(/[^\w.-]+/g, "_")
+    .replace(/_+/g, "_");
+}
+
+function getMediaType(file) {
+  if (file.type.startsWith("image/")) {
+    return "image";
+  }
+
+  if (file.type.startsWith("audio/")) {
+    return "audio";
+  }
+
+  if (file.type.startsWith("video/")) {
+    return "video";
+  }
+
+  if (file.type === "application/pdf") {
+    return "pdf";
+  }
+
+  return "file";
+}
+
 export default function DailyPage() {
   const [session, setSession] =
     useState(null);
@@ -27,28 +56,48 @@ export default function DailyPage() {
   const [editing, setEditing] =
     useState(null);
 
-  const [selectedFiles, setSelectedFiles] =
-  useState([]);
+  /*
+   * 아직 Storage에 업로드하지 않은 파일.
+   * Save Daily를 누를 때 업로드된다.
+   */
+  const [
+    selectedFiles,
+    setSelectedFiles,
+  ] = useState([]);
 
-const [existingMedia, setExistingMedia] =
-  useState([]);
+  /*
+   * 이미 Storage와 Daily 기록에 저장된 파일.
+   */
+  const [
+    existingMedia,
+    setExistingMedia,
+  ] = useState([]);
 
-  const [environment, setEnvironment] =
-    useState(null);
+  const [
+    environment,
+    setEnvironment,
+  ] = useState(null);
 
   const [
     weatherStatus,
     setWeatherStatus,
   ] = useState("idle");
 
+  const [saving, setSaving] =
+    useState(false);
+
   const load = async () => {
     const {
-      data: { session: currentSession },
+      data: {
+        session: currentSession,
+      },
     } = await supabase.auth.getSession();
 
     setSession(currentSession);
 
     if (!currentSession) {
+      setLogs([]);
+      setVideos([]);
       return;
     }
 
@@ -64,6 +113,7 @@ const [existingMedia, setExistingMedia] =
 
     if (logError) {
       console.error(logError);
+      alert(logError.message);
     }
 
     setLogs(rows || []);
@@ -110,65 +160,188 @@ const [existingMedia, setExistingMedia] =
     collectWeather();
   }, []);
 
+  const uploadSelectedFiles =
+    async () => {
+      if (!selectedFiles.length) {
+        return [];
+      }
+
+      if (!session) {
+        throw new Error(
+          "You must be logged in."
+        );
+      }
+
+      const uploadedItems = [];
+
+      for (const item of selectedFiles) {
+        const file = item.file;
+
+        if (!file) {
+          continue;
+        }
+
+        const cleanName =
+          safeFileName(file.name);
+
+        const uniqueName =
+          `${Date.now()}-` +
+          `${crypto.randomUUID()}-` +
+          cleanName;
+
+        const dateFolder =
+          new Date()
+            .toISOString()
+            .slice(0, 10);
+
+        const filePath =
+          `${session.user.id}/` +
+          `${dateFolder}/` +
+          uniqueName;
+
+        const {
+          error: uploadError,
+        } = await supabase
+          .storage
+          .from(BUCKET_NAME)
+          .upload(
+            filePath,
+            file,
+            {
+              cacheControl: "3600",
+              upsert: false,
+              contentType:
+                file.type ||
+                "application/octet-stream",
+            }
+          );
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        uploadedItems.push({
+          bucket: BUCKET_NAME,
+          path: filePath,
+          name: file.name,
+          type: getMediaType(file),
+          mime_type: file.type,
+          size: file.size,
+          uploaded_at:
+            new Date().toISOString(),
+        });
+      }
+
+      return uploadedItems;
+    };
+
   const saveLog = async (payload) => {
     if (!session) {
       alert("Please log in first.");
       return;
     }
 
-    const finalPayload = {
-      ...payload,
+    let newlyUploadedMedia = [];
+
+    try {
+      setSaving(true);
 
       /*
-       * 자동 수집된 환경 데이터를
-       * environment 컬럼에 저장한다.
+       * Save Daily를 누르는 순간
+       * 선택한 파일들을 Storage에 업로드.
        */
-      environment:
-        environment ||
-        editing?.environment ||
-        {},
+      newlyUploadedMedia =
+        await uploadSelectedFiles();
+
+      const finalMedia = [
+        ...existingMedia,
+        ...newlyUploadedMedia,
+      ];
+
+      const finalPayload = {
+        ...payload,
+
+        environment:
+          environment ||
+          editing?.environment ||
+          {},
+
+        media: finalMedia,
+      };
+
+      let result;
+
+      if (editing) {
+        result = await supabase
+          .from("field_logs")
+          .update(finalPayload)
+          .eq("id", editing.id);
+      } else {
+        result = await supabase
+          .from("field_logs")
+          .insert({
+            ...finalPayload,
+            user_id:
+              session.user.id,
+          });
+      }
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      setEditing(null);
+      setSelectedFiles([]);
+      setExistingMedia([]);
+
+      await load();
+      await collectWeather();
+
+      alert("Daily saved.");
+    } catch (error) {
+      console.error(error);
 
       /*
-       * Supabase Storage에 업로드된
-       * 파일 메타데이터를 저장한다.
+       * 파일은 올라갔는데 DB 저장이 실패한 경우,
+       * 방금 올린 파일을 다시 삭제.
        */
-      media,
-    };
+      const rollbackPaths =
+        newlyUploadedMedia
+          .map(
+            (item) => item.path
+          )
+          .filter(Boolean);
 
-    let result;
+      if (rollbackPaths.length) {
+        const {
+          error: rollbackError,
+        } = await supabase
+          .storage
+          .from(BUCKET_NAME)
+          .remove(rollbackPaths);
 
-    if (editing) {
-      result = await supabase
-        .from("field_logs")
-        .update(finalPayload)
-        .eq("id", editing.id);
-    } else {
-      result = await supabase
-        .from("field_logs")
-        .insert({
-          ...finalPayload,
-          user_id: session.user.id,
-        });
+        if (rollbackError) {
+          console.error(
+            rollbackError
+          );
+        }
+      }
+
+      alert(
+        error.message ||
+          "Daily could not be saved."
+      );
+    } finally {
+      setSaving(false);
     }
-
-    if (result.error) {
-      console.error(result.error);
-      alert(result.error.message);
-      return;
-    }
-
-    setEditing(null);
-    setMedia([]);
-    await collectWeather();
-    await load();
-
-    alert("Daily saved.");
   };
 
   const startEditing = (log) => {
     setEditing(log);
 
-    setMedia(
+    setSelectedFiles([]);
+
+    setExistingMedia(
       Array.isArray(log.media)
         ? log.media
         : []
@@ -186,15 +359,47 @@ const [existingMedia, setExistingMedia] =
 
   const cancelEditing = () => {
     setEditing(null);
-    setMedia([]);
+    setSelectedFiles([]);
+    setExistingMedia([]);
     collectWeather();
   };
 
+  const removeExistingMedia =
+    async (item) => {
+      const confirmed =
+        window.confirm(
+          `Remove ${item.name}?`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      /*
+       * 여기서는 Storage에서 바로 삭제하지 않고
+       * 화면과 다음 저장 payload에서만 제외한다.
+       *
+       * Save Daily를 누르기 전 취소할 가능성이 있으므로
+       * 즉시 삭제하지 않는 편이 안전하다.
+       */
+      setExistingMedia(
+        (current) =>
+          current.filter(
+            (mediaItem) =>
+              mediaItem.path !==
+              item.path
+          )
+      );
+    };
+
   const toggleLog = async (log) => {
-    const { error } = await supabase
+    const {
+      error,
+    } = await supabase
       .from("field_logs")
       .update({
-        is_public: !log.is_public,
+        is_public:
+          !log.is_public,
       })
       .eq("id", log.id);
 
@@ -216,30 +421,42 @@ const [existingMedia, setExistingMedia] =
       return;
     }
 
-    /*
-     * 연결된 Storage 파일부터 삭제한다.
-     */
     const paths = (
       Array.isArray(log.media)
         ? log.media
         : []
     )
-      .map((item) => item.path)
+      .map(
+        (item) => item.path
+      )
       .filter(Boolean);
 
+    /*
+     * Daily 기록 삭제 전에
+     * 연결된 Storage 파일 삭제.
+     */
     if (paths.length) {
-      const { error: storageError } =
-        await supabase
-          .storage
-          .from("softsystems-media")
-          .remove(paths);
+      const {
+        error: storageError,
+      } = await supabase
+        .storage
+        .from(BUCKET_NAME)
+        .remove(paths);
 
       if (storageError) {
-        console.error(storageError);
+        console.error(
+          storageError
+        );
+
+        alert(
+          `Media deletion warning: ${storageError.message}`
+        );
       }
     }
 
-    const { error } = await supabase
+    const {
+      error,
+    } = await supabase
       .from("field_logs")
       .delete()
       .eq("id", log.id);
@@ -252,16 +469,22 @@ const [existingMedia, setExistingMedia] =
     await load();
   };
 
-  const saveVideo = async (payload) => {
+  const saveVideo = async (
+    payload
+  ) => {
     if (!session) {
+      alert("Please log in first.");
       return;
     }
 
-    const { error } = await supabase
+    const {
+      error,
+    } = await supabase
       .from("video_archive")
       .insert({
         ...payload,
-        user_id: session.user.id,
+        user_id:
+          session.user.id,
       });
 
     if (error) {
@@ -272,8 +495,12 @@ const [existingMedia, setExistingMedia] =
     await load();
   };
 
-  const toggleVideo = async (video) => {
-    const { error } = await supabase
+  const toggleVideo = async (
+    video
+  ) => {
+    const {
+      error,
+    } = await supabase
       .from("video_archive")
       .update({
         is_public:
@@ -289,7 +516,9 @@ const [existingMedia, setExistingMedia] =
     await load();
   };
 
-  const deleteVideo = async (video) => {
+  const deleteVideo = async (
+    video
+  ) => {
     const confirmed =
       window.confirm(
         "Delete this video record?"
@@ -299,7 +528,9 @@ const [existingMedia, setExistingMedia] =
       return;
     }
 
-    const { error } = await supabase
+    const {
+      error,
+    } = await supabase
       .from("video_archive")
       .delete()
       .eq("id", video.id);
@@ -325,7 +556,8 @@ const [existingMedia, setExistingMedia] =
         ),
       ],
       {
-        type: "application/json",
+        type:
+          "application/json",
       }
     );
 
@@ -375,7 +607,9 @@ const [existingMedia, setExistingMedia] =
           {editing && (
             <button
               type="button"
-              onClick={cancelEditing}
+              onClick={
+                cancelEditing
+              }
             >
               Cancel Edit
             </button>
@@ -399,13 +633,16 @@ const [existingMedia, setExistingMedia] =
             <>
               <p className="muted">
                 Weather could not be
-                collected. Check browser
-                location permission.
+                collected. Check your
+                browser location
+                permission.
               </p>
 
               <button
                 type="button"
-                onClick={collectWeather}
+                onClick={
+                  collectWeather
+                }
               >
                 Try Again
               </button>
@@ -416,12 +653,16 @@ const [existingMedia, setExistingMedia] =
             <div className="grid three">
               <p>
                 Weather —{" "}
-                {environment.weather}
+                {
+                  environment.weather
+                }
               </p>
 
               <p>
                 Temperature —{" "}
-                {environment.temperature}
+                {
+                  environment.temperature
+                }
                 {
                   environment.units
                     ?.temperature
@@ -430,7 +671,9 @@ const [existingMedia, setExistingMedia] =
 
               <p>
                 Humidity —{" "}
-                {environment.humidity}
+                {
+                  environment.humidity
+                }
                 {
                   environment.units
                     ?.humidity
@@ -439,7 +682,9 @@ const [existingMedia, setExistingMedia] =
 
               <p>
                 Pressure —{" "}
-                {environment.pressure}
+                {
+                  environment.pressure
+                }
                 {
                   environment.units
                     ?.pressure
@@ -450,18 +695,23 @@ const [existingMedia, setExistingMedia] =
                 Wind —{" "}
                 {environment.wind}
                 {
-                  environment.units?.wind
+                  environment.units
+                    ?.wind
                 }
               </p>
 
               <p>
                 Sunrise —{" "}
-                {environment.sunrise}
+                {
+                  environment.sunrise
+                }
               </p>
 
               <p>
                 Sunset —{" "}
-                {environment.sunset}
+                {
+                  environment.sunset
+                }
               </p>
             </div>
           )}
@@ -479,9 +729,26 @@ const [existingMedia, setExistingMedia] =
         <h2>Collection</h2>
 
         <MediaUploader
-          media={media}
-          onChange={setMedia}
+          selectedFiles={
+            selectedFiles
+          }
+          existingMedia={
+            existingMedia
+          }
+          onFilesChange={
+            setSelectedFiles
+          }
+          onRemoveExisting={
+            removeExistingMedia
+          }
         />
+
+        {saving && (
+          <p className="muted">
+            Uploading files and
+            saving Daily…
+          </p>
+        )}
       </section>
 
       <section className="panel">
@@ -528,16 +795,28 @@ const [existingMedia, setExistingMedia] =
         <h2>Video Archive</h2>
 
         <div className="video-grid">
-          {videos.map((video) => (
-            <VideoCard
-              key={video.id}
-              video={video}
-              admin
-              onToggle={toggleVideo}
-              onDelete={deleteVideo}
-            />
-          ))}
+          {videos.map(
+            (video) => (
+              <VideoCard
+                key={video.id}
+                video={video}
+                admin
+                onToggle={
+                  toggleVideo
+                }
+                onDelete={
+                  deleteVideo
+                }
+              />
+            )
+          )}
         </div>
+
+        {!videos.length && (
+          <p className="muted">
+            No videos yet.
+          </p>
+        )}
       </section>
     </>
   );
