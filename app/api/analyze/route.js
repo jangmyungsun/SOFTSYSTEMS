@@ -110,7 +110,21 @@ function makeAnalysisInput(log) {
 
     learning:
       log.learning || [],
+    
+artistic_input: {
+  type:
+    log.artistic_input?.type || "",
 
+  title:
+    log.artistic_input?.title || "",
+
+  creator:
+    log.artistic_input?.creator || "",
+
+  note:
+    log.artistic_input?.note || "",
+},
+    
     observation:
       log.observation || "",
 
