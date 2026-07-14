@@ -25,6 +25,20 @@ export default function EntryCard({
       ? log.work
       : {};
 
+  const artisticInput =
+    log.artistic_input &&
+    typeof log.artistic_input === "object" &&
+    !Array.isArray(log.artistic_input)
+      ? log.artistic_input
+      : {};
+
+  const aiAnalysis =
+    log.ai_analysis &&
+    typeof log.ai_analysis === "object" &&
+    !Array.isArray(log.ai_analysis)
+      ? log.ai_analysis
+      : null;
+
   const weather =
     environment.weather ||
     state.weather ||
@@ -96,25 +110,12 @@ export default function EntryCard({
       ? work.items
       : [];
 
-  const aiAnalysis =
-    log.ai_analysis &&
-    typeof log.ai_analysis === "object" &&
-    !Array.isArray(log.ai_analysis)
-      ? log.ai_analysis
-      : null;
-const artisticInput =
-  log.artistic_input &&
-  typeof log.artistic_input === "object" &&
-  !Array.isArray(log.artistic_input)
-    ? log.artistic_input
-    : {};
+  const hasArtisticInput =
+    Boolean(artisticInput.type) ||
+    Boolean(artisticInput.title) ||
+    Boolean(artisticInput.creator) ||
+    Boolean(artisticInput.note);
 
-const hasArtisticInput =
-  Boolean(artisticInput.type) ||
-  Boolean(artisticInput.title) ||
-  Boolean(artisticInput.creator) ||
-  Boolean(artisticInput.note);
-  
   const hasEnvironmentData =
     Boolean(weather) ||
     weatherTemperature !== "" ||
@@ -135,6 +136,17 @@ const hasArtisticInput =
     Boolean(work.time) ||
     Boolean(work.project) ||
     makingItems.length > 0;
+
+  const formatArtisticType = (type) => {
+    if (!type) {
+      return "";
+    }
+
+    return (
+      type.charAt(0).toUpperCase() +
+      type.slice(1)
+    );
+  };
 
   return (
     <article className="entry">
@@ -337,6 +349,50 @@ const hasArtisticInput =
           ) : (
             <p className="muted">
               No Learning record.
+            </p>
+          )}
+        </section>
+
+        <section className="block full">
+          <p className="block-title">
+            Artistic Input
+          </p>
+
+          {hasArtisticInput ? (
+            <>
+              {artisticInput.type && (
+                <p>
+                  Type —{" "}
+                  {formatArtisticType(
+                    artisticInput.type
+                  )}
+                </p>
+              )}
+
+              {artisticInput.title && (
+                <p>
+                  Title —{" "}
+                  {artisticInput.title}
+                </p>
+              )}
+
+              {artisticInput.creator && (
+                <p>
+                  Creator —{" "}
+                  {artisticInput.creator}
+                </p>
+              )}
+
+              {artisticInput.note && (
+                <p>
+                  Reference Note —{" "}
+                  {artisticInput.note}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="muted">
+              No artistic input recorded.
             </p>
           )}
         </section>
