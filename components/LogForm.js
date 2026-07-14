@@ -306,18 +306,6 @@ export default function LogForm({ initial, onSubmit }) {
         </label>
       </div>
 
-      <h2>Environment</h2>
-
-      <section className="block">
-        <p className="block-title">Automatic Weather Data</p>
-
-        <p className="muted">
-          Weather, temperature, humidity, pressure, wind,
-          sunrise, and sunset will be collected automatically
-          after the weather connection is added.
-        </p>
-      </section>
-
       <h2>Practice</h2>
 
       <h3>Making</h3>
@@ -392,28 +380,6 @@ export default function LogForm({ initial, onSubmit }) {
           />
         </label>
       </div>
-
-      <h2>Collection</h2>
-
-      <section className="block">
-        <p className="block-title">Media Files</p>
-
-        <p className="muted">
-          MP3, WAV, JPG, PNG, MOV, and PDF upload will be
-          enabled after Supabase Storage is connected.
-        </p>
-
-        {form.media?.length > 0 && (
-          <div>
-            {form.media.map((item, index) => (
-              <p key={`${item.name || "media"}-${index}`}>
-                {item.type || "media"} —{" "}
-                {item.name || item.url || ""}
-              </p>
-            ))}
-          </div>
-        )}
-      </section>
 
       <h2>Notes</h2>
 
