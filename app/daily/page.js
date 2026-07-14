@@ -5,8 +5,13 @@ import {
   useState,
 } from "react";
 
-import { supabase } from "../../lib/supabaseClient";
-import { getCurrentWeather } from "../../lib/weather";
+import {
+  supabase,
+} from "../../lib/supabaseClient";
+
+import {
+  getCurrentWeather,
+} from "../../lib/weather";
 
 import EntryCard from "../../components/EntryCard";
 import LogForm from "../../components/LogForm";
@@ -14,7 +19,8 @@ import MediaUploader from "../../components/MediaUploader";
 import VideoForm from "../../components/VideoForm";
 import VideoCard from "../../components/VideoCard";
 
-const BUCKET_NAME = "softsystems-media";
+const BUCKET_NAME =
+  "softsystems-media";
 
 function safeFileName(fileName) {
   return String(fileName || "")
@@ -24,19 +30,28 @@ function safeFileName(fileName) {
 }
 
 function getMediaType(file) {
-  if (file.type.startsWith("image/")) {
+  if (
+    file.type.startsWith("image/")
+  ) {
     return "image";
   }
 
-  if (file.type.startsWith("audio/")) {
+  if (
+    file.type.startsWith("audio/")
+  ) {
     return "audio";
   }
 
-  if (file.type.startsWith("video/")) {
+  if (
+    file.type.startsWith("video/")
+  ) {
     return "video";
   }
 
-  if (file.type === "application/pdf") {
+  if (
+    file.type ===
+    "application/pdf"
+  ) {
     return "pdf";
   }
 
@@ -44,21 +59,29 @@ function getMediaType(file) {
 }
 
 export default function DailyPage() {
-  const [session, setSession] =
-    useState(null);
+  const [
+    session,
+    setSession,
+  ] = useState(null);
 
-  const [logs, setLogs] =
-    useState([]);
+  const [
+    logs,
+    setLogs,
+  ] = useState([]);
 
-  const [videos, setVideos] =
-    useState([]);
+  const [
+    videos,
+    setVideos,
+  ] = useState([]);
 
-  const [editing, setEditing] =
-    useState(null);
+  const [
+    editing,
+    setEditing,
+  ] = useState(null);
 
   /*
-   * 아직 Storage에 업로드하지 않은 파일.
-   * Save Daily를 누를 때 업로드된다.
+   * 아직 Supabase Storage에
+   * 업로드하지 않은 파일.
    */
   const [
     selectedFiles,
@@ -66,7 +89,8 @@ export default function DailyPage() {
   ] = useState([]);
 
   /*
-   * 이미 Storage와 Daily 기록에 저장된 파일.
+   * 이미 Storage와 Daily 기록에
+   * 연결되어 있는 파일.
    */
   const [
     existingMedia,
@@ -83,15 +107,27 @@ export default function DailyPage() {
     setWeatherStatus,
   ] = useState("idle");
 
-  const [saving, setSaving] =
-    useState(false);
+  const [
+    saving,
+    setSaving,
+  ] = useState(false);
 
+  const [
+    saveStatus,
+    setSaveStatus,
+  ] = useState("");
+
+  /*
+   * 로그인 상태와 기존 데이터를
+   * Supabase에서 불러온다.
+   */
   const load = async () => {
     const {
       data: {
         session: currentSession,
       },
-    } = await supabase.auth.getSession();
+    } =
+      await supabase.auth.getSession();
 
     setSession(currentSession);
 
@@ -112,7 +148,11 @@ export default function DailyPage() {
       });
 
     if (logError) {
-      console.error(logError);
+      console.error(
+        "Daily load error:",
+        logError
+      );
+
       alert(logError.message);
     }
 
@@ -129,28 +169,47 @@ export default function DailyPage() {
       });
 
     if (videoError) {
-      console.error(videoError);
+      console.error(
+        "Video load error:",
+        videoError
+      );
     }
 
     setVideos(videoRows || []);
   };
 
-  const collectWeather = async () => {
-    setWeatherStatus("loading");
+  /*
+   * 현재 위치를 바탕으로
+   * 날씨 데이터를 자동 수집한다.
+   */
+  const collectWeather =
+    async () => {
+      setWeatherStatus(
+        "loading"
+      );
 
-    try {
-      const weather =
-        await getCurrentWeather();
+      try {
+        const weather =
+          await getCurrentWeather();
 
-      setEnvironment(weather);
-      setWeatherStatus("success");
-    } catch (error) {
-      console.error(error);
+        setEnvironment(weather);
 
-      setEnvironment(null);
-      setWeatherStatus("error");
-    }
-  };
+        setWeatherStatus(
+          "success"
+        );
+      } catch (error) {
+        console.error(
+          "Weather error:",
+          error
+        );
+
+        setEnvironment(null);
+
+        setWeatherStatus(
+          "error"
+        );
+      }
+    };
 
   useEffect(() => {
     load();
@@ -160,9 +219,15 @@ export default function DailyPage() {
     collectWeather();
   }, []);
 
+  /*
+   * Save Daily를 누른 시점에
+   * 선택된 파일들을 업로드한다.
+   */
   const uploadSelectedFiles =
     async () => {
-      if (!selectedFiles.length) {
+      if (
+        !selectedFiles.length
+      ) {
         return [];
       }
 
@@ -174,7 +239,9 @@ export default function DailyPage() {
 
       const uploadedItems = [];
 
-      for (const item of selectedFiles) {
+      for (
+        const item of selectedFiles
+      ) {
         const file = item.file;
 
         if (!file) {
@@ -208,8 +275,11 @@ export default function DailyPage() {
             filePath,
             file,
             {
-              cacheControl: "3600",
+              cacheControl:
+                "3600",
+
               upsert: false,
+
               contentType:
                 file.type ||
                 "application/octet-stream",
@@ -221,23 +291,131 @@ export default function DailyPage() {
         }
 
         uploadedItems.push({
-          bucket: BUCKET_NAME,
-          path: filePath,
-          name: file.name,
-          type: getMediaType(file),
-          mime_type: file.type,
-          size: file.size,
+          bucket:
+            BUCKET_NAME,
+
+          path:
+            filePath,
+
+          name:
+            file.name,
+
+          type:
+            getMediaType(file),
+
+          mime_type:
+            file.type,
+
+          size:
+            file.size,
+
           uploaded_at:
-            new Date().toISOString(),
+            new Date()
+              .toISOString(),
         });
       }
 
       return uploadedItems;
     };
 
-  const saveLog = async (payload) => {
+  /*
+   * 저장된 Daily를
+   * /api/analyze 서버 Route로 보내
+   * AI 분석을 생성한다.
+   */
+  const analyzeDaily = async (
+    logId,
+    logPayload
+  ) => {
+    const {
+      data: sessionData,
+    } =
+      await supabase.auth.getSession();
+
+    const accessToken =
+      sessionData?.session
+        ?.access_token;
+
+    if (!accessToken) {
+      throw new Error(
+        "No login session was found."
+      );
+    }
+
+    const response =
+      await fetch(
+        "/api/analyze",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            Authorization:
+              `Bearer ${accessToken}`,
+          },
+
+          body:
+            JSON.stringify({
+              log: logPayload,
+            }),
+        }
+      );
+
+    let result;
+
+    try {
+      result =
+        await response.json();
+    } catch {
+      throw new Error(
+        "The AI server returned an invalid response."
+      );
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        result?.error ||
+          "AI analysis failed."
+      );
+    }
+
+    if (!result?.analysis) {
+      throw new Error(
+        "The AI returned no analysis."
+      );
+    }
+
+    const {
+      error: updateError,
+    } = await supabase
+      .from("field_logs")
+      .update({
+        ai_analysis:
+          result.analysis,
+      })
+      .eq("id", logId);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return result.analysis;
+  };
+
+  /*
+   * 파일 업로드 → Daily 저장
+   * → AI 분석 → 화면 갱신
+   */
+  const saveLog = async (
+    payload
+  ) => {
     if (!session) {
-      alert("Please log in first.");
+      alert(
+        "Please log in first."
+      );
+
       return;
     }
 
@@ -246,10 +424,12 @@ export default function DailyPage() {
     try {
       setSaving(true);
 
-      /*
-       * Save Daily를 누르는 순간
-       * 선택한 파일들을 Storage에 업로드.
-       */
+      setSaveStatus(
+        selectedFiles.length
+          ? "Uploading files…"
+          : "Saving Daily…"
+      );
+
       newlyUploadedMedia =
         await uploadSelectedFiles();
 
@@ -261,71 +441,175 @@ export default function DailyPage() {
       const finalPayload = {
         ...payload,
 
+        /*
+         * 자동 수집된 날씨를
+         * environment 컬럼에 저장.
+         */
         environment:
           environment ||
           editing?.environment ||
           {},
 
-        media: finalMedia,
+        /*
+         * 기존 파일과 새 파일을
+         * 함께 Daily 기록에 연결.
+         */
+        media:
+          finalMedia,
+
+        /*
+         * 모든 Daily는 기본 Public.
+         */
+        is_public:
+          true,
       };
 
-      let result;
+      let savedLogId;
+
+      setSaveStatus(
+        "Saving Daily…"
+      );
 
       if (editing) {
-        result = await supabase
+        const {
+          error: updateError,
+        } = await supabase
           .from("field_logs")
           .update(finalPayload)
-          .eq("id", editing.id);
+          .eq(
+            "id",
+            editing.id
+          );
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        savedLogId =
+          editing.id;
       } else {
-        result = await supabase
+        const {
+          data: insertedLog,
+          error: insertError,
+        } = await supabase
           .from("field_logs")
           .insert({
             ...finalPayload,
+
             user_id:
               session.user.id,
-          });
+          })
+          .select("id")
+          .single();
+
+        if (insertError) {
+          throw insertError;
+        }
+
+        if (!insertedLog?.id) {
+          throw new Error(
+            "The saved Daily ID was not returned."
+          );
+        }
+
+        savedLogId =
+          insertedLog.id;
       }
 
-      if (result.error) {
-        throw result.error;
+      /*
+       * Daily 저장은 완료됐으므로
+       * 이후 AI가 실패해도 기록은 유지한다.
+       */
+      setSaveStatus(
+        "Reading the Daily with AI…"
+      );
+
+      try {
+        await analyzeDaily(
+          savedLogId,
+          finalPayload
+        );
+
+        setSaveStatus(
+          "Daily and AI reading saved."
+        );
+      } catch (
+        analysisError
+      ) {
+        console.error(
+          "AI analysis error:",
+          analysisError
+        );
+
+        setSaveStatus(
+          "Daily saved. AI reading could not be completed."
+        );
+
+        alert(
+          `Daily was saved, but AI analysis failed: ${
+            analysisError.message
+          }`
+        );
       }
 
       setEditing(null);
+
       setSelectedFiles([]);
+
       setExistingMedia([]);
 
       await load();
+
       await collectWeather();
 
-      alert("Daily saved.");
+      alert(
+        "Daily saved."
+      );
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Daily save error:",
+        error
+      );
 
       /*
-       * 파일은 올라갔는데 DB 저장이 실패한 경우,
-       * 방금 올린 파일을 다시 삭제.
+       * 파일 업로드는 성공했지만
+       * Daily DB 저장이 실패한 경우,
+       * 방금 업로드한 파일을 삭제한다.
        */
       const rollbackPaths =
         newlyUploadedMedia
           .map(
-            (item) => item.path
+            (item) =>
+              item.path
           )
           .filter(Boolean);
 
-      if (rollbackPaths.length) {
+      if (
+        rollbackPaths.length
+      ) {
         const {
-          error: rollbackError,
+          error:
+            rollbackError,
         } = await supabase
           .storage
           .from(BUCKET_NAME)
-          .remove(rollbackPaths);
+          .remove(
+            rollbackPaths
+          );
 
-        if (rollbackError) {
+        if (
+          rollbackError
+        ) {
           console.error(
+            "Rollback error:",
             rollbackError
           );
         }
       }
+
+      setSaveStatus(
+        "Daily could not be saved."
+      );
 
       alert(
         error.message ||
@@ -336,20 +620,30 @@ export default function DailyPage() {
     }
   };
 
-  const startEditing = (log) => {
+  /*
+   * 기존 Daily 수정 시작.
+   */
+  const startEditing = (
+    log
+  ) => {
     setEditing(log);
 
     setSelectedFiles([]);
 
     setExistingMedia(
-      Array.isArray(log.media)
+      Array.isArray(
+        log.media
+      )
         ? log.media
         : []
     );
 
     setEnvironment(
-      log.environment || null
+      log.environment ||
+        null
     );
+
+    setSaveStatus("");
 
     window.scrollTo({
       top: 0,
@@ -359,11 +653,20 @@ export default function DailyPage() {
 
   const cancelEditing = () => {
     setEditing(null);
+
     setSelectedFiles([]);
+
     setExistingMedia([]);
+
+    setSaveStatus("");
+
     collectWeather();
   };
 
+  /*
+   * 수정 화면에서 기존 파일을
+   * 다음 저장 대상에서 제외한다.
+   */
   const removeExistingMedia =
     async (item) => {
       const confirmed =
@@ -375,13 +678,6 @@ export default function DailyPage() {
         return;
       }
 
-      /*
-       * 여기서는 Storage에서 바로 삭제하지 않고
-       * 화면과 다음 저장 payload에서만 제외한다.
-       *
-       * Save Daily를 누르기 전 취소할 가능성이 있으므로
-       * 즉시 삭제하지 않는 편이 안전하다.
-       */
       setExistingMedia(
         (current) =>
           current.filter(
@@ -392,7 +688,9 @@ export default function DailyPage() {
       );
     };
 
-  const toggleLog = async (log) => {
+  const toggleLog = async (
+    log
+  ) => {
     const {
       error,
     } = await supabase
@@ -411,7 +709,13 @@ export default function DailyPage() {
     await load();
   };
 
-  const deleteLog = async (log) => {
+  /*
+   * Daily와 연결된 Storage 파일을
+   * 먼저 지운 뒤 DB 기록을 삭제.
+   */
+  const deleteLog = async (
+    log
+  ) => {
     const confirmed =
       window.confirm(
         "Delete this Daily entry?"
@@ -422,19 +726,18 @@ export default function DailyPage() {
     }
 
     const paths = (
-      Array.isArray(log.media)
+      Array.isArray(
+        log.media
+      )
         ? log.media
         : []
     )
       .map(
-        (item) => item.path
+        (item) =>
+          item.path
       )
       .filter(Boolean);
 
-    /*
-     * Daily 기록 삭제 전에
-     * 연결된 Storage 파일 삭제.
-     */
     if (paths.length) {
       const {
         error: storageError,
@@ -445,11 +748,14 @@ export default function DailyPage() {
 
       if (storageError) {
         console.error(
+          "Storage deletion error:",
           storageError
         );
 
         alert(
-          `Media deletion warning: ${storageError.message}`
+          `Media deletion warning: ${
+            storageError.message
+          }`
         );
       }
     }
@@ -473,7 +779,10 @@ export default function DailyPage() {
     payload
   ) => {
     if (!session) {
-      alert("Please log in first.");
+      alert(
+        "Please log in first."
+      );
+
       return;
     }
 
@@ -483,6 +792,7 @@ export default function DailyPage() {
       .from("video_archive")
       .insert({
         ...payload,
+
         user_id:
           session.user.id,
       });
@@ -495,85 +805,101 @@ export default function DailyPage() {
     await load();
   };
 
-  const toggleVideo = async (
-    video
-  ) => {
-    const {
-      error,
-    } = await supabase
-      .from("video_archive")
-      .update({
-        is_public:
-          !video.is_public,
-      })
-      .eq("id", video.id);
+  const toggleVideo =
+    async (video) => {
+      const {
+        error,
+      } = await supabase
+        .from(
+          "video_archive"
+        )
+        .update({
+          is_public:
+            !video.is_public,
+        })
+        .eq(
+          "id",
+          video.id
+        );
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
+      if (error) {
+        alert(error.message);
+        return;
+      }
 
-    await load();
-  };
+      await load();
+    };
 
-  const deleteVideo = async (
-    video
-  ) => {
-    const confirmed =
-      window.confirm(
-        "Delete this video record?"
-      );
+  const deleteVideo =
+    async (video) => {
+      const confirmed =
+        window.confirm(
+          "Delete this video record?"
+        );
 
-    if (!confirmed) {
-      return;
-    }
+      if (!confirmed) {
+        return;
+      }
 
-    const {
-      error,
-    } = await supabase
-      .from("video_archive")
-      .delete()
-      .eq("id", video.id);
+      const {
+        error,
+      } = await supabase
+        .from(
+          "video_archive"
+        )
+        .delete()
+        .eq(
+          "id",
+          video.id
+        );
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
+      if (error) {
+        alert(error.message);
+        return;
+      }
 
-    await load();
-  };
+      await load();
+    };
 
   const exportAll = () => {
-    const blob = new Blob(
-      [
-        JSON.stringify(
-          {
-            logs,
-            videos,
-          },
-          null,
-          2
-        ),
-      ],
-      {
-        type:
-          "application/json",
-      }
-    );
+    const blob =
+      new Blob(
+        [
+          JSON.stringify(
+            {
+              logs,
+              videos,
+            },
+            null,
+            2
+          ),
+        ],
+        {
+          type:
+            "application/json",
+        }
+      );
 
     const url =
-      URL.createObjectURL(blob);
+      URL.createObjectURL(
+        blob
+      );
 
     const link =
-      document.createElement("a");
+      document.createElement(
+        "a"
+      );
 
     link.href = url;
+
     link.download =
       "SOFTSYSTEMS_archive.json";
 
     link.click();
 
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(
+      url
+    );
   };
 
   if (!session) {
@@ -610,6 +936,7 @@ export default function DailyPage() {
               onClick={
                 cancelEditing
               }
+              disabled={saving}
             >
               Cancel Edit
             </button>
@@ -624,7 +951,8 @@ export default function DailyPage() {
           {weatherStatus ===
             "loading" && (
             <p>
-              Collecting weather…
+              Collecting
+              weather…
             </p>
           )}
 
@@ -632,9 +960,10 @@ export default function DailyPage() {
             "error" && (
             <>
               <p className="muted">
-                Weather could not be
-                collected. Check your
-                browser location
+                Weather could not
+                be collected.
+                Check your browser
+                location
                 permission.
               </p>
 
@@ -693,7 +1022,9 @@ export default function DailyPage() {
 
               <p>
                 Wind —{" "}
-                {environment.wind}
+                {
+                  environment.wind
+                }
                 {
                   environment.units
                     ?.wind
@@ -743,16 +1074,17 @@ export default function DailyPage() {
           }
         />
 
-        {saving && (
+        {saveStatus && (
           <p className="muted">
-            Uploading files and
-            saving Daily…
+            {saveStatus}
           </p>
         )}
       </section>
 
       <section className="panel">
-        <h2>Archive Video</h2>
+        <h2>
+          Archive Video
+        </h2>
 
         <VideoForm
           onSubmit={saveVideo}
@@ -765,24 +1097,35 @@ export default function DailyPage() {
             type="button"
             onClick={exportAll}
           >
-            Export Full Archive JSON
+            Export Full
+            Archive JSON
           </button>
         </div>
       </section>
 
       <section className="panel">
-        <h2>Daily Archive</h2>
+        <h2>
+          Daily Archive
+        </h2>
 
-        {logs.map((log) => (
-          <EntryCard
-            key={log.id}
-            log={log}
-            admin
-            onEdit={startEditing}
-            onDelete={deleteLog}
-            onToggle={toggleLog}
-          />
-        ))}
+        {logs.map(
+          (log) => (
+            <EntryCard
+              key={log.id}
+              log={log}
+              admin
+              onEdit={
+                startEditing
+              }
+              onDelete={
+                deleteLog
+              }
+              onToggle={
+                toggleLog
+              }
+            />
+          )
+        )}
 
         {!logs.length && (
           <p className="muted">
@@ -792,13 +1135,17 @@ export default function DailyPage() {
       </section>
 
       <section className="panel">
-        <h2>Video Archive</h2>
+        <h2>
+          Video Archive
+        </h2>
 
         <div className="video-grid">
           {videos.map(
             (video) => (
               <VideoCard
-                key={video.id}
+                key={
+                  video.id
+                }
                 video={video}
                 admin
                 onToggle={
