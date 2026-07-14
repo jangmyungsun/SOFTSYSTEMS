@@ -5,6 +5,8 @@ import { useState } from "react";
 const emptyForm = {
   date: new Date().toISOString().slice(0, 10),
 
+  is_public: true,
+
   state: {
     body_state: "",
     energy: "",
@@ -19,16 +21,18 @@ const emptyForm = {
     items: [],
   },
 
-  learning_time: "",
-  learning_subject: "",
-
-  media: [],
+  learning: {
+    time: "",
+    subject: "",
+  },
 
   observation: "",
   alignment: "",
   tomorrow: [],
 
-  is_public: false,
+  media: [],
+
+  environment: {},
 };
 
 function textToLines(text) {
