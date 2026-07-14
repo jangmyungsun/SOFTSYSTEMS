@@ -27,8 +27,11 @@ export default function DailyPage() {
   const [editing, setEditing] =
     useState(null);
 
-  const [media, setMedia] =
-    useState([]);
+  const [selectedFiles, setSelectedFiles] =
+  useState([]);
+
+const [existingMedia, setExistingMedia] =
+  useState([]);
 
   const [environment, setEnvironment] =
     useState(null);
