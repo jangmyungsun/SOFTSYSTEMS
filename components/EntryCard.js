@@ -102,7 +102,19 @@ export default function EntryCard({
     !Array.isArray(log.ai_analysis)
       ? log.ai_analysis
       : null;
+const artisticInput =
+  log.artistic_input &&
+  typeof log.artistic_input === "object" &&
+  !Array.isArray(log.artistic_input)
+    ? log.artistic_input
+    : {};
 
+const hasArtisticInput =
+  Boolean(artisticInput.type) ||
+  Boolean(artisticInput.title) ||
+  Boolean(artisticInput.creator) ||
+  Boolean(artisticInput.note);
+  
   const hasEnvironmentData =
     Boolean(weather) ||
     weatherTemperature !== "" ||
