@@ -485,3 +485,40 @@ th {
     font-size: 28px;
   }
 }
+/* Artistic Input */
+
+.artistic-type-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.artistic-type {
+  display: flex;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 8px;
+
+  width: auto;
+  padding: 8px 11px;
+
+  border: 1px solid var(--line);
+
+  background: transparent;
+  color: var(--muted);
+
+  cursor: pointer;
+}
+
+.artistic-type input {
+  width: auto;
+  margin: 0;
+}
+
+.artistic-type.selected {
+  border-color: var(--ink);
+
+  background: var(--ink);
+  color: var(--paper);
+}
