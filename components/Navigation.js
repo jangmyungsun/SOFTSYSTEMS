@@ -7,28 +7,32 @@ const links = [
   ["/", "Home"],
   ["/input", "Input"],
   ["/process", "Process"],
-  ["/output", "Output"],
+  ["https://617068.cargo.site/", "Output", true],
   ["/about", "About"],
   ["/letters", "Visitor Letters"],
   ["/login", "Login"],
 ];
 
 export default function Navigation() {
-  const pathname =
-    usePathname();
+  const pathname = usePathname();
 
   return (
     <nav className="nav">
-      {links.map(
-        ([href, label]) => (
+      {links.map(([href, label, external]) =>
+        external ? (
+          <a
+            key={label}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {label} ↗
+          </a>
+        ) : (
           <Link
             key={href}
             href={href}
-            className={
-              pathname === href
-                ? "active"
-                : ""
-            }
+            className={pathname === href ? "active" : ""}
           >
             {label}
           </Link>
