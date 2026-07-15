@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useState,
+} from "react";
 
 const ARTISTIC_TYPES = [
   {
@@ -29,10 +31,15 @@ const ARTISTIC_TYPES = [
   },
 ];
 
-const emptyForm = {
-  date: new Date()
+function getTodayString() {
+  return new Date()
     .toISOString()
-    .slice(0, 10),
+    .slice(0, 10);
+}
+
+const emptyForm = {
+  date:
+    getTodayString(),
 
   state: {
     body_state: "",
@@ -79,7 +86,8 @@ function makeEmptyForm() {
     },
 
     artistic_input: {
-      ...emptyForm.artistic_input,
+      ...emptyForm
+        .artistic_input,
     },
 
     tomorrow: [],
@@ -89,22 +97,25 @@ function makeEmptyForm() {
 function textToLines(text) {
   return String(text || "")
     .split("\n")
-    .map((line) => line.trim())
+    .map(
+      (line) =>
+        line.trim()
+    )
     .filter(Boolean);
 }
 
 function linesToText(lines) {
-  if (Array.isArray(lines)) {
-    return lines.join("\n");
-  }
-
-  return String(lines || "");
+  return Array.isArray(lines)
+    ? lines.join("\n")
+    : String(lines || "");
 }
 
 function parseLearning(initial) {
   const firstEntry =
-    Array.isArray(initial?.learning) &&
-    initial.learning.length > 0
+    Array.isArray(
+      initial?.learning
+    ) &&
+    initial.learning.length
       ? initial.learning[0]
       : "";
 
@@ -130,7 +141,9 @@ function parseLearning(initial) {
   };
 }
 
-function prepareInitialForm(initial) {
+function prepareInitialForm(
+  initial
+) {
   if (!initial) {
     return makeEmptyForm();
   }
@@ -139,8 +152,10 @@ function prepareInitialForm(initial) {
     parseLearning(initial);
 
   const artisticInput =
-    initial.artistic_input &&
-    typeof initial.artistic_input ===
+    initial
+      .artistic_input &&
+    typeof initial
+      .artistic_input ===
       "object" &&
     !Array.isArray(
       initial.artistic_input
@@ -154,18 +169,21 @@ function prepareInitialForm(initial) {
 
     state: {
       ...emptyForm.state,
-      ...(initial.state || {}),
+      ...(initial.state ||
+        {}),
     },
 
     work: {
       ...emptyForm.work,
-      ...(initial.work || {}),
+      ...(initial.work ||
+        {}),
 
       items:
         Array.isArray(
           initial.work?.items
         )
-          ? initial.work.items
+          ? initial.work
+              .items
           : [],
     },
 
@@ -173,10 +191,13 @@ function prepareInitialForm(initial) {
       learning.learning_time,
 
     learning_subject:
-      learning.learning_subject,
+      learning
+        .learning_subject,
 
     artistic_input: {
-      ...emptyForm.artistic_input,
+      ...emptyForm
+        .artistic_input,
+
       ...artisticInput,
     },
 
@@ -194,62 +215,91 @@ function prepareInitialForm(initial) {
 export default function LogForm({
   initial,
   onSubmit,
+  onDateChange,
 }) {
-  const [form, setForm] =
+  const [
+    form,
+    setForm,
+  ] =
     useState(() =>
-      prepareInitialForm(initial)
+      prepareInitialForm(
+        initial
+      )
     );
 
   const updateField = (
     key,
     value
   ) => {
-    setForm((previous) => ({
-      ...previous,
-      [key]: value,
-    }));
+    setForm(
+      (previous) => ({
+        ...previous,
+        [key]: value,
+      })
+    );
   };
 
   const updateState = (
     key,
     value
   ) => {
-    setForm((previous) => ({
-      ...previous,
+    setForm(
+      (previous) => ({
+        ...previous,
 
-      state: {
-        ...previous.state,
-        [key]: value,
-      },
-    }));
+        state: {
+          ...previous.state,
+          [key]: value,
+        },
+      })
+    );
   };
 
   const updateWork = (
     key,
     value
   ) => {
-    setForm((previous) => ({
-      ...previous,
+    setForm(
+      (previous) => ({
+        ...previous,
 
-      work: {
-        ...previous.work,
-        [key]: value,
-      },
-    }));
+        work: {
+          ...previous.work,
+          [key]: value,
+        },
+      })
+    );
   };
 
   const updateArtisticInput = (
     key,
     value
   ) => {
-    setForm((previous) => ({
-      ...previous,
+    setForm(
+      (previous) => ({
+        ...previous,
 
-      artistic_input: {
-        ...previous.artistic_input,
-        [key]: value,
-      },
-    }));
+        artistic_input: {
+          ...previous
+            .artistic_input,
+
+          [key]: value,
+        },
+      })
+    );
+  };
+
+  const changeDate = (
+    value
+  ) => {
+    updateField(
+      "date",
+      value
+    );
+
+    onDateChange?.(
+      value
+    );
   };
 
   const selectArtisticType = (
@@ -258,8 +308,8 @@ export default function LogForm({
     updateArtisticInput(
       "type",
 
-      form.artistic_input.type ===
-        type
+      form.artistic_input
+        .type === type
         ? ""
         : type
     );
@@ -277,22 +327,26 @@ export default function LogForm({
       .filter(Boolean)
       .join(" — ");
 
+    const artisticInput =
+      form.artistic_input;
+
     const hasArtisticInput =
       Boolean(
-        form.artistic_input.type
+        artisticInput.type
       ) ||
       Boolean(
-        form.artistic_input.title
+        artisticInput.title
       ) ||
       Boolean(
-        form.artistic_input.creator
+        artisticInput.creator
       ) ||
       Boolean(
-        form.artistic_input.note
+        artisticInput.note
       );
 
-    const payload = {
-      date: form.date,
+    onSubmit({
+      date:
+        form.date,
 
       pace:
         initial?.pace ||
@@ -300,7 +354,8 @@ export default function LogForm({
 
       state: {
         body_state:
-          form.state.body_state,
+          form.state
+            .body_state,
 
         energy:
           form.state.energy,
@@ -312,40 +367,8 @@ export default function LogForm({
           form.state.weight,
 
         temperature:
-          form.state.temperature,
-
-        weather:
-          initial?.state?.weather ||
-          "",
-
-        weather_temperature:
-          initial?.state
-            ?.weather_temperature ||
-          "",
-
-        humidity:
-          initial?.state
-            ?.humidity ||
-          "",
-
-        pressure:
-          initial?.state
-            ?.pressure ||
-          "",
-
-        wind:
-          initial?.state?.wind ||
-          "",
-
-        sunrise:
-          initial?.state
-            ?.sunrise ||
-          "",
-
-        sunset:
-          initial?.state
-            ?.sunset ||
-          "",
+          form.state
+            .temperature,
       },
 
       work: {
@@ -370,23 +393,19 @@ export default function LogForm({
         hasArtisticInput
           ? {
               type:
-                form
-                  .artistic_input
+                artisticInput
                   .type,
 
               title:
-                form
-                  .artistic_input
+                artisticInput
                   .title,
 
               creator:
-                form
-                  .artistic_input
+                artisticInput
                   .creator,
 
               note:
-                form
-                  .artistic_input
+                artisticInput
                   .note,
             }
           : {},
@@ -395,7 +414,8 @@ export default function LogForm({
         initial?.body || [],
 
       nourishment:
-        initial?.nourishment ||
+        initial
+          ?.nourishment ||
         {},
 
       media:
@@ -413,14 +433,14 @@ export default function LogForm({
         ),
 
       is_public: true,
-    };
-
-    onSubmit(payload);
+    });
   };
 
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={
+        handleSubmit
+      }
     >
       <div className="grid two">
         <label>
@@ -428,11 +448,15 @@ export default function LogForm({
 
           <input
             type="date"
-            value={form.date}
-            onChange={(event) =>
-              updateField(
-                "date",
-                event.target.value
+            value={
+              form.date
+            }
+            onChange={(
+              event
+            ) =>
+              changeDate(
+                event.target
+                  .value
               )
             }
           />
@@ -455,10 +479,13 @@ export default function LogForm({
               form.state
                 .body_state
             }
-            onChange={(event) =>
+            onChange={(
+              event
+            ) =>
               updateState(
                 "body_state",
-                event.target.value
+                event.target
+                  .value
               )
             }
           />
@@ -476,10 +503,13 @@ export default function LogForm({
             value={
               form.state.energy
             }
-            onChange={(event) =>
+            onChange={(
+              event
+            ) =>
               updateState(
                 "energy",
-                event.target.value
+                event.target
+                  .value
               )
             }
           />
@@ -497,10 +527,13 @@ export default function LogForm({
             value={
               form.state.mood
             }
-            onChange={(event) =>
+            onChange={(
+              event
+            ) =>
               updateState(
                 "mood",
-                event.target.value
+                event.target
+                  .value
               )
             }
           />
@@ -516,10 +549,13 @@ export default function LogForm({
             value={
               form.state.weight
             }
-            onChange={(event) =>
+            onChange={(
+              event
+            ) =>
               updateState(
                 "weight",
-                event.target.value
+                event.target
+                  .value
               )
             }
           />
@@ -536,10 +572,13 @@ export default function LogForm({
               form.state
                 .temperature
             }
-            onChange={(event) =>
+            onChange={(
+              event
+            ) =>
               updateState(
                 "temperature",
-                event.target.value
+                event.target
+                  .value
               )
             }
           />
@@ -560,10 +599,13 @@ export default function LogForm({
             value={
               form.work.time
             }
-            onChange={(event) =>
+            onChange={(
+              event
+            ) =>
               updateWork(
                 "time",
-                event.target.value
+                event.target
+                  .value
               )
             }
           />
@@ -576,12 +618,16 @@ export default function LogForm({
             type="text"
             placeholder="Project name"
             value={
-              form.work.project
+              form.work
+                .project
             }
-            onChange={(event) =>
+            onChange={(
+              event
+            ) =>
               updateWork(
                 "project",
-                event.target.value
+                event.target
+                  .value
               )
             }
           />
@@ -596,10 +642,13 @@ export default function LogForm({
           value={linesToText(
             form.work.items
           )}
-          onChange={(event) =>
+          onChange={(
+            event
+          ) =>
             updateWork(
               "items",
-              event.target.value
+              event.target
+                .value
             )
           }
         />
@@ -615,12 +664,16 @@ export default function LogForm({
             type="text"
             placeholder="Example: 1h"
             value={
-              form.learning_time
+              form
+                .learning_time
             }
-            onChange={(event) =>
+            onChange={(
+              event
+            ) =>
               updateField(
                 "learning_time",
-                event.target.value
+                event.target
+                  .value
               )
             }
           />
@@ -633,12 +686,16 @@ export default function LogForm({
             type="text"
             placeholder="English, coding, reading..."
             value={
-              form.learning_subject
+              form
+                .learning_subject
             }
-            onChange={(event) =>
+            onChange={(
+              event
+            ) =>
               updateField(
                 "learning_subject",
-                event.target.value
+                event.target
+                  .value
               )
             }
           />
@@ -648,13 +705,6 @@ export default function LogForm({
       <h2>
         Artistic Input
       </h2>
-
-      <p className="muted">
-        A book, film,
-        performance, exhibition,
-        music, or other artistic
-        reference encountered today.
-      </p>
 
       <h3>Type</h3>
 
@@ -674,11 +724,15 @@ export default function LogForm({
                     ? "artistic-type selected"
                     : "artistic-type"
                 }
-                key={item.value}
+                key={
+                  item.value
+                }
               >
                 <input
                   type="checkbox"
-                  checked={checked}
+                  checked={
+                    checked
+                  }
                   onChange={() =>
                     selectArtisticType(
                       item.value
@@ -687,7 +741,9 @@ export default function LogForm({
                 />
 
                 <span>
-                  {item.label}
+                  {
+                    item.label
+                  }
                 </span>
               </label>
             );
@@ -707,10 +763,13 @@ export default function LogForm({
                 .artistic_input
                 .title
             }
-            onChange={(event) =>
+            onChange={(
+              event
+            ) =>
               updateArtisticInput(
                 "title",
-                event.target.value
+                event.target
+                  .value
               )
             }
           />
@@ -727,10 +786,13 @@ export default function LogForm({
                 .artistic_input
                 .creator
             }
-            onChange={(event) =>
+            onChange={(
+              event
+            ) =>
               updateArtisticInput(
                 "creator",
-                event.target.value
+                event.target
+                  .value
               )
             }
           />
@@ -741,16 +803,19 @@ export default function LogForm({
         Reference Note
 
         <textarea
-          placeholder="What stayed with you, or why this reference matters."
+          placeholder="What stayed with you?"
           value={
             form
               .artistic_input
               .note
           }
-          onChange={(event) =>
+          onChange={(
+            event
+          ) =>
             updateArtisticInput(
               "note",
-              event.target.value
+              event.target
+                .value
             )
           }
         />
@@ -765,10 +830,13 @@ export default function LogForm({
           value={
             form.observation
           }
-          onChange={(event) =>
+          onChange={(
+            event
+          ) =>
             updateField(
               "observation",
-              event.target.value
+              event.target
+                .value
             )
           }
         />
@@ -781,10 +849,13 @@ export default function LogForm({
           value={
             form.alignment
           }
-          onChange={(event) =>
+          onChange={(
+            event
+          ) =>
             updateField(
               "alignment",
-              event.target.value
+              event.target
+                .value
             )
           }
         />
@@ -798,10 +869,13 @@ export default function LogForm({
           value={linesToText(
             form.tomorrow
           )}
-          onChange={(event) =>
+          onChange={(
+            event
+          ) =>
             updateField(
               "tomorrow",
-              event.target.value
+              event.target
+                .value
             )
           }
         />
