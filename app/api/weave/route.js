@@ -12,13 +12,15 @@ const MAX_EDGES = 80;
 const MIN_SIMILARITY = 0.72;
 
 function getObject(value) {
-  return (
+  if (
     value &&
     typeof value === "object" &&
     !Array.isArray(value)
-      ? value
-      : {}
-  );
+  ) {
+    return value;
+  }
+
+  return {};
 }
 
 function getArray(value) {
@@ -28,42 +30,32 @@ function getArray(value) {
 }
 
 function makeEmbeddingText(log) {
-  const ai =
-    getObject(log.ai_analysis);
-
-  const artisticInput =
-    getObject(log.artistic_input);
-
-  const work =
-    getObject(log.work);
-
   const state =
     getObject(log.state);
+
+  const movement =
+    getObject(log.movement);
 
   const environment =
     getObject(log.environment);
 
-  const themes =
-    getArray(ai.themes).join(", ");
+  const work =
+    getObject(log.work);
 
-  const emotions =
-    getArray(ai.emotions).join(", ");
+  const artisticInput =
+    getObject(
+      log.artistic_input
+    );
 
-  const keywords =
-    getArray(ai.keywords).join(", ");
-
-  const bodySignals =
-    getArray(
-      ai.body_signals
-    ).join(", ");
-
-  const practiceSignals =
-    getArray(
-      ai.practice_signals
-    ).join(", ");
+  const ai =
+    getObject(
+      log.ai_analysis
+    );
 
   const makingItems =
-    getArray(work.items).join("\n");
+    getArray(
+      work.items
+    ).join("\n");
 
   const learning =
     getArray(
@@ -74,6 +66,31 @@ function makeEmbeddingText(log) {
     getArray(
       log.tomorrow
     ).join("\n");
+
+  const themes =
+    getArray(
+      ai.themes
+    ).join(", ");
+
+  const emotions =
+    getArray(
+      ai.emotions
+    ).join(", ");
+
+  const keywords =
+    getArray(
+      ai.keywords
+    ).join(", ");
+
+  const bodySignals =
+    getArray(
+      ai.body_signals
+    ).join(", ");
+
+  const practiceSignals =
+    getArray(
+      ai.practice_signals
+    ).join(", ");
 
   const artisticInputText = [
     artisticInput.type
@@ -95,8 +112,100 @@ function makeEmbeddingText(log) {
     .filter(Boolean)
     .join("\n");
 
+  const bodyPracticeText = [
+    movement.type
+      ? `Type: ${movement.type}`
+      : "",
+
+    movement.time
+      ? `Time: ${movement.time}`
+      : "",
+
+    movement.intensity
+      ? `Intensity: ${movement.intensity} out of 5`
+      : "",
+
+    movement.notes
+      ? `Notes: ${movement.notes}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   return [
-    `Date: ${log.date || ""}`,
+    log.date
+      ? `Date: ${log.date}`
+      : "",
+
+    state.body_state !==
+      undefined &&
+    state.body_state !== ""
+      ? `Body state: ${state.body_state}`
+      : "",
+
+    state.energy !==
+      undefined &&
+    state.energy !== ""
+      ? `Energy: ${state.energy}`
+      : "",
+
+    state.mood !==
+      undefined &&
+    state.mood !== ""
+      ? `Mood: ${state.mood}`
+      : "",
+
+    state.weight !==
+      undefined &&
+    state.weight !== ""
+      ? `Weight: ${state.weight}`
+      : "",
+
+    state.temperature !==
+      undefined &&
+    state.temperature !== ""
+      ? `Body temperature: ${state.temperature}`
+      : "",
+
+    bodyPracticeText
+      ? `Body practice:\n${bodyPracticeText}`
+      : "",
+
+    environment.weather
+      ? `Weather: ${environment.weather}`
+      : "",
+
+    environment.temperature !==
+      undefined &&
+    environment.temperature !==
+      null &&
+    environment.temperature !== ""
+      ? `Environment temperature: ${environment.temperature}`
+      : "",
+
+    environment.humidity !==
+      undefined &&
+    environment.humidity !==
+      null &&
+    environment.humidity !== ""
+      ? `Humidity: ${environment.humidity}`
+      : "",
+
+    environment.pressure !==
+      undefined &&
+    environment.pressure !==
+      null &&
+    environment.pressure !== ""
+      ? `Pressure: ${environment.pressure}`
+      : "",
+
+    environment.wind !==
+      undefined &&
+    environment.wind !==
+      null &&
+    environment.wind !== ""
+      ? `Wind: ${environment.wind}`
+      : "",
 
     work.project
       ? `Project: ${work.project}`
@@ -157,36 +266,6 @@ function makeEmbeddingText(log) {
     practiceSignals
       ? `Practice signals: ${practiceSignals}`
       : "",
-
-    environment.weather
-      ? `Weather: ${environment.weather}`
-      : "",
-
-    environment.temperature !==
-      undefined &&
-    environment.temperature !==
-      null
-      ? `Environment temperature: ${environment.temperature}`
-      : "",
-
-    environment.humidity !==
-      undefined &&
-    environment.humidity !==
-      null
-      ? `Humidity: ${environment.humidity}`
-      : "",
-
-    state.body_state
-      ? `Body state: ${state.body_state}`
-      : "",
-
-    state.energy
-      ? `Energy: ${state.energy}`
-      : "",
-
-    state.mood
-      ? `Mood: ${state.mood}`
-      : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -194,18 +273,23 @@ function makeEmbeddingText(log) {
 
 function parseEmbedding(value) {
   if (Array.isArray(value)) {
-    return value.map(Number);
+    return value
+      .map(Number)
+      .filter(
+        Number.isFinite
+      );
   }
 
-  if (typeof value === "string") {
+  if (
+    typeof value === "string"
+  ) {
     return value
       .replace(/^\[/, "")
       .replace(/\]$/, "")
       .split(",")
       .map(Number)
       .filter(
-        (item) =>
-          Number.isFinite(item)
+        Number.isFinite
       );
   }
 
@@ -217,11 +301,15 @@ function cosineSimilarity(
   secondVector
 ) {
   if (
-    !Array.isArray(firstVector) ||
-    !Array.isArray(secondVector) ||
+    !Array.isArray(
+      firstVector
+    ) ||
+    !Array.isArray(
+      secondVector
+    ) ||
+    firstVector.length === 0 ||
     firstVector.length !==
-      secondVector.length ||
-    firstVector.length === 0
+      secondVector.length
   ) {
     return 0;
   }
@@ -269,27 +357,38 @@ function cosineSimilarity(
   return (
     dotProduct /
     (
-      Math.sqrt(firstNorm) *
-      Math.sqrt(secondNorm)
+      Math.sqrt(
+        firstNorm
+      ) *
+      Math.sqrt(
+        secondNorm
+      )
     )
   );
 }
 
 function makeNode(log) {
-  const ai =
-    getObject(log.ai_analysis);
-
-  const work =
-    getObject(log.work);
-
   const state =
     getObject(log.state);
+
+  const movement =
+    getObject(log.movement);
 
   const environment =
     getObject(log.environment);
 
+  const work =
+    getObject(log.work);
+
   const artisticInput =
-    getObject(log.artistic_input);
+    getObject(
+      log.artistic_input
+    );
+
+  const ai =
+    getObject(
+      log.ai_analysis
+    );
 
   return {
     id:
@@ -305,6 +404,7 @@ function makeNode(log) {
       ai.summary ||
       log.observation ||
       artisticInput.title ||
+      movement.notes ||
       "Untitled Daily",
 
     themes:
@@ -315,6 +415,11 @@ function makeNode(log) {
     emotions:
       getArray(
         ai.emotions
+      ),
+
+    keywords:
+      getArray(
+        ai.keywords
       ),
 
     body_state:
@@ -328,6 +433,20 @@ function makeNode(log) {
 
     weather:
       environment.weather || "",
+
+    body_practice: {
+      type:
+        movement.type || "",
+
+      time:
+        movement.time || "",
+
+      intensity:
+        movement.intensity || "",
+
+      notes:
+        movement.notes || "",
+    },
 
     artistic_input: {
       type:
@@ -345,7 +464,9 @@ function makeNode(log) {
   };
 }
 
-export async function POST(request) {
+export async function POST(
+  request
+) {
   try {
     const authorization =
       request.headers.get(
@@ -356,7 +477,9 @@ export async function POST(request) {
       authorization?.startsWith(
         "Bearer "
       )
-        ? authorization.slice(7)
+        ? authorization.slice(
+            7
+          )
         : "";
 
     if (!accessToken) {
@@ -404,6 +527,7 @@ export async function POST(request) {
           id,
           date,
           state,
+          movement,
           environment,
           work,
           learning,
@@ -426,10 +550,15 @@ export async function POST(request) {
         "is_public",
         true
       )
-      .order("date", {
-        ascending: true,
-      })
-      .limit(MAX_LOGS);
+      .order(
+        "date",
+        {
+          ascending: true,
+        }
+      )
+      .limit(
+        MAX_LOGS
+      );
 
     if (logsError) {
       throw logsError;
@@ -451,12 +580,16 @@ export async function POST(request) {
     }
 
     const preparedLogs =
-      logs.map((log) => ({
-        ...log,
+      logs.map(
+        (log) => ({
+          ...log,
 
-        nextEmbeddingText:
-          makeEmbeddingText(log),
-      }));
+          nextEmbeddingText:
+            makeEmbeddingText(
+              log
+            ),
+        })
+      );
 
     const logsNeedingEmbedding =
       preparedLogs.filter(
@@ -548,7 +681,9 @@ export async function POST(request) {
             userData.user.id
           );
 
-        if (updateError) {
+        if (
+          updateError
+        ) {
           throw updateError;
         }
       }
@@ -556,23 +691,25 @@ export async function POST(request) {
 
     const usableLogs =
       preparedLogs
-        .map((log) => ({
-          ...log,
+        .map(
+          (log) => ({
+            ...log,
 
-          parsedEmbedding:
-            parseEmbedding(
-              log.embedding
-            ),
-        }))
-        .filter((log) => {
-          return (
+            parsedEmbedding:
+              parseEmbedding(
+                log.embedding
+              ),
+          })
+        )
+        .filter(
+          (log) =>
             Array.isArray(
               log.parsedEmbedding
             ) &&
-            log.parsedEmbedding
+            log
+              .parsedEmbedding
               .length > 0
-          );
-        });
+        );
 
     const edges = [];
 
@@ -631,7 +768,10 @@ export async function POST(request) {
     }
 
     edges.sort(
-      (firstEdge, secondEdge) =>
+      (
+        firstEdge,
+        secondEdge
+      ) =>
         secondEdge.similarity -
         firstEdge.similarity
     );
@@ -661,6 +801,9 @@ export async function POST(request) {
 
         embedding_model:
           EMBEDDING_MODEL,
+
+        includes_body_practice:
+          true,
 
         includes_artistic_input:
           true,
