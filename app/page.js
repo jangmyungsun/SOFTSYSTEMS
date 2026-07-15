@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -23,9 +24,7 @@ function formatDateTime(value) {
 
   const date = new Date(value);
 
-  if (
-    Number.isNaN(date.getTime())
-  ) {
+  if (Number.isNaN(date.getTime())) {
     return "";
   }
 
@@ -39,6 +38,104 @@ function formatDateTime(value) {
       minute: "2-digit",
     }
   );
+}
+
+function parseDurationToHours(value) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return 0;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value)
+      ? value
+      : 0;
+  }
+
+  const text = String(value)
+    .trim()
+    .toLowerCase();
+
+  if (!text) {
+    return 0;
+  }
+
+  const directNumber = Number(text);
+
+  if (Number.isFinite(directNumber)) {
+    return directNumber;
+  }
+
+  let totalHours = 0;
+
+  const hourMatch = text.match(
+    /(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)/
+  );
+
+  const minuteMatch = text.match(
+    /(\d+(?:\.\d+)?)\s*(?:m|min|mins|minute|minutes)/
+  );
+
+  if (hourMatch) {
+    totalHours += Number(hourMatch[1]);
+  }
+
+  if (minuteMatch) {
+    totalHours +=
+      Number(minuteMatch[1]) / 60;
+  }
+
+  return Number.isFinite(totalHours)
+    ? totalHours
+    : 0;
+}
+
+function isCurrentMonth(dateValue) {
+  if (!dateValue) {
+    return false;
+  }
+
+  const date = new Date(
+    `${dateValue}T12:00:00`
+  );
+
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+
+  const now = new Date();
+
+  return (
+    date.getFullYear() ===
+      now.getFullYear() &&
+    date.getMonth() ===
+      now.getMonth()
+  );
+}
+
+function getMovementAverage(logs) {
+  const monthLogs = logs.filter(
+    (log) =>
+      isCurrentMonth(log.date)
+  );
+
+  if (!monthLogs.length) {
+    return 0;
+  }
+
+  const totalHours = monthLogs.reduce(
+    (sum, log) =>
+      sum +
+      parseDurationToHours(
+        log.movement?.time
+      ),
+    0
+  );
+
+  return totalHours / monthLogs.length;
 }
 
 export default function Home() {
@@ -81,10 +178,7 @@ export default function Home() {
           supabase
             .from("field_logs")
             .select("*")
-            .eq(
-              "is_public",
-              true
-            )
+            .eq("is_public", true)
             .order("date", {
               ascending: false,
             }),
@@ -92,18 +186,13 @@ export default function Home() {
           supabase
             .from("video_archive")
             .select("*")
-            .eq(
-              "is_public",
-              true
-            )
+            .eq("is_public", true)
             .order("date", {
               ascending: false,
             }),
 
           supabase
-            .from(
-              "daily_guidance"
-            )
+            .from("daily_guidance")
             .select(
               `
                 guidance_date,
@@ -112,10 +201,7 @@ export default function Home() {
                 is_public
               `
             )
-            .eq(
-              "is_public",
-              true
-            )
+            .eq("is_public", true)
             .order(
               "guidance_date",
               {
@@ -134,9 +220,7 @@ export default function Home() {
           throw videosResult.error;
         }
 
-        if (
-          guidanceResult.error
-        ) {
+        if (guidanceResult.error) {
           throw guidanceResult.error;
         }
 
@@ -153,8 +237,8 @@ export default function Home() {
 
         const guidanceValue =
           guidanceRow?.guidance &&
-          typeof guidanceRow
-            .guidance === "object" &&
+          typeof guidanceRow.guidance ===
+            "object" &&
           !Array.isArray(
             guidanceRow.guidance
           )
@@ -166,12 +250,10 @@ export default function Home() {
             ...guidanceValue,
 
             guidance_date:
-              guidanceRow
-                .guidance_date,
+              guidanceRow.guidance_date,
 
             generated_at:
-              guidanceRow
-                .generated_at,
+              guidanceRow.generated_at,
           });
         } else {
           setGuidance(null);
@@ -197,6 +279,13 @@ export default function Home() {
   const homeState =
     getHomeState(logs);
 
+  const movementAverage =
+    useMemo(
+      () =>
+        getMovementAverage(logs),
+      [logs]
+    );
+
   const guidanceBasis =
     Array.isArray(
       guidance?.basis
@@ -220,8 +309,11 @@ export default function Home() {
           </div>
 
           <p className="muted">
-            Making / day this
-            month
+            Making{" "}
+            {homeState.making.toFixed(
+              1
+            )}
+            h / day this month
           </p>
 
           <p className="muted">
@@ -229,7 +321,15 @@ export default function Home() {
             {homeState.learning.toFixed(
               1
             )}
-            h / day
+            h / day this month
+          </p>
+
+          <p className="muted">
+            Body Practice{" "}
+            {movementAverage.toFixed(
+              1
+            )}
+            h / day this month
           </p>
         </div>
 
@@ -239,9 +339,7 @@ export default function Home() {
           </p>
 
           <div className="big">
-            {
-              homeState.bodyWeather
-            }
+            {homeState.bodyWeather}
           </div>
 
           <p className="muted">
@@ -255,9 +353,7 @@ export default function Home() {
           </p>
 
           <div className="big">
-            {
-              homeState.energyTone
-            }
+            {homeState.energyTone}
           </div>
 
           <p className="muted">
@@ -320,17 +416,13 @@ export default function Home() {
             <>
               {guidance.state && (
                 <div className="soft-suggestion-state">
-                  {
-                    guidance.state
-                  }
+                  {guidance.state}
                 </div>
               )}
 
               {guidance.reading && (
                 <p className="soft-suggestion-reading">
-                  {
-                    guidance.reading
-                  }
+                  {guidance.reading}
                 </p>
               )}
 
@@ -355,9 +447,7 @@ export default function Home() {
                   </p>
 
                   <p>
-                    {
-                      guidance.avoid
-                    }
+                    {guidance.avoid}
                   </p>
                 </section>
               )}
@@ -407,8 +497,7 @@ export default function Home() {
               <p className="muted">
                 The first suggestion
                 will appear after the
-                nightly system update
-                runs.
+                nightly system update.
               </p>
             </>
           )}
