@@ -226,40 +226,6 @@ export default function InputPage() {
         </p>
       </section>
 
-      <section className="grid two">
-        {INPUT_ITEMS.map(
-          (item) => (
-            <article
-              className="panel"
-              key={item.href}
-            >
-              <p className="eyebrow">
-                {item.eyebrow}
-              </p>
-
-              <h2>
-                {item.title}
-              </h2>
-
-              <p className="subtitle">
-                {
-                  item.description
-                }
-              </p>
-
-              <div className="actions">
-                <Link
-                  href={item.href}
-                  className="primary"
-                >
-                  {item.action}
-                </Link>
-              </div>
-            </article>
-          )
-        )}
-      </section>
-
       {loading && (
         <section className="panel">
           <p className="muted">
