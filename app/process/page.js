@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -11,43 +12,12 @@ import {
   supabase,
 } from "../../lib/supabaseClient";
 
-const PROCESS_ITEMS = [
-  {
-    href: "/stats",
-    eyebrow: "Stats",
-    title: "Accumulated Rhythms",
-    description:
-      "Making, learning, Body Moving, body weather, mind weather, and energy tone across accumulated public records.",
-    action: "Open Stats",
-  },
-
-  {
-    href: "/data",
-    eyebrow: "Data",
-    title: "Numeric Output",
-    description:
-      "Structured body, movement, weather, making, and learning data prepared for CSV, JSON, Max/MSP, and visual mapping.",
-    action: "Open Data",
-  },
-
-  {
-    href: "/system",
-    eyebrow: "System",
-    title: "Period Reading",
-    description:
-      "An AI interpretation of recurring signals, relationships, shifts, and open questions across recent Daily records.",
-    action: "Open System",
-  },
-
-  {
-    href: "/weave",
-    eyebrow: "Weave",
-    title: "Semantic Connections",
-    description:
-      "A network of relationships among Daily records, Body Moving, environment, making, learning, artistic input, and observation.",
-    action: "Open Weave",
-  },
-];
+import {
+  getHomeState,
+  parseNumber,
+  parseWorkHours,
+  getLearningHours,
+} from "../../lib/utils";
 
 function getSafeObject(value) {
   if (
@@ -65,6 +35,243 @@ function getSafeArray(value) {
   return Array.isArray(value)
     ? value
     : [];
+}
+
+function parseDurationHours(value) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return 0;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value)
+      ? value
+      : 0;
+  }
+
+  const text = String(value)
+    .trim()
+    .toLowerCase();
+
+  if (!text) {
+    return 0;
+  }
+
+  const direct =
+    Number(text);
+
+  if (Number.isFinite(direct)) {
+    return direct;
+  }
+
+  let total = 0;
+
+  const hourMatch =
+    text.match(
+      /(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)/
+    );
+
+  const minuteMatch =
+    text.match(
+      /(\d+(?:\.\d+)?)\s*(?:m|min|mins|minute|minutes)/
+    );
+
+  if (hourMatch) {
+    total +=
+      Number(hourMatch[1]);
+  }
+
+  if (minuteMatch) {
+    total +=
+      Number(minuteMatch[1]) /
+      60;
+  }
+
+  return Number.isFinite(total)
+    ? total
+    : 0;
+}
+
+function numericRows(logs) {
+  return logs
+    .slice()
+    .sort((first, second) =>
+      String(first.date)
+        .localeCompare(
+          String(second.date)
+        )
+    )
+    .map((log, index) => {
+      const state =
+        getSafeObject(
+          log.state
+        );
+
+      const movement =
+        getSafeObject(
+          log.movement
+        );
+
+      const environment =
+        getSafeObject(
+          log.environment
+        );
+
+      return {
+        index,
+
+        date:
+          log.date || "",
+
+        body_temperature:
+          parseNumber(
+            state.temperature
+          ),
+
+        weight:
+          parseNumber(
+            state.weight
+          ),
+
+        body_state:
+          parseNumber(
+            state.body_state
+          ),
+
+        energy:
+          parseNumber(
+            state.energy
+          ),
+
+        mood:
+          parseNumber(
+            state.mood
+          ),
+
+        moving_hours:
+          parseDurationHours(
+            movement.time
+          ),
+
+        moving_intensity:
+          parseNumber(
+            movement.intensity
+          ),
+
+        making_hours:
+          parseWorkHours(
+            log.work?.time
+          ),
+
+        learning_hours:
+          getLearningHours(log),
+
+        weather_temperature:
+          parseNumber(
+            environment.temperature ??
+              state.weather_temperature
+          ),
+
+        humidity:
+          parseNumber(
+            environment.humidity ??
+              state.humidity
+          ),
+
+        pressure:
+          parseNumber(
+            environment.pressure ??
+              state.pressure
+          ),
+
+        wind:
+          parseNumber(
+            environment.wind ??
+              state.wind
+          ),
+      };
+    });
+}
+
+const DATA_HEADERS = [
+  "index",
+  "date",
+  "body_temperature",
+  "weight",
+  "body_state",
+  "energy",
+  "mood",
+  "moving_hours",
+  "moving_intensity",
+  "making_hours",
+  "learning_hours",
+  "weather_temperature",
+  "humidity",
+  "pressure",
+  "wind",
+];
+
+function toCSV(rows) {
+  const clean = (value) => {
+    if (
+      value === null ||
+      value === undefined
+    ) {
+      return "";
+    }
+
+    return String(value)
+      .replaceAll(
+        '"',
+        '""'
+      );
+  };
+
+  return [
+    DATA_HEADERS.join(","),
+
+    ...rows.map((row) =>
+      DATA_HEADERS
+        .map(
+          (key) =>
+            `"${clean(
+              row[key]
+            )}"`
+        )
+        .join(",")
+    ),
+  ].join("\n");
+}
+
+function download(
+  filename,
+  text,
+  type
+) {
+  const blob =
+    new Blob(
+      [text],
+      { type }
+    );
+
+  const url =
+    URL.createObjectURL(
+      blob
+    );
+
+  const link =
+    document.createElement(
+      "a"
+    );
+
+  link.href = url;
+  link.download = filename;
+  link.click();
+
+  URL.revokeObjectURL(url);
 }
 
 function formatDateTime(value) {
@@ -97,6 +304,11 @@ function formatDateTime(value) {
 
 export default function ProcessPage() {
   const [
+    logs,
+    setLogs,
+  ] = useState([]);
+
+  const [
     systemSnapshot,
     setSystemSnapshot,
   ] = useState(null);
@@ -117,16 +329,34 @@ export default function ProcessPage() {
   ] = useState("");
 
   useEffect(() => {
-    async function loadProcessPreview() {
+    async function loadProcess() {
       setLoading(true);
       setErrorMessage("");
 
       try {
         const [
+          logsResult,
           systemResult,
           weaveResult,
         ] =
           await Promise.all([
+            supabase
+              .from(
+                "field_logs"
+              )
+              .select("*")
+              .eq(
+                "is_public",
+                true
+              )
+              .order(
+                "date",
+                {
+                  ascending:
+                    true,
+                }
+              ),
+
             supabase
               .from(
                 "system_snapshots"
@@ -183,108 +413,176 @@ export default function ProcessPage() {
               .maybeSingle(),
           ]);
 
-        if (
-          systemResult.error
-        ) {
+        if (logsResult.error) {
+          throw logsResult.error;
+        }
+
+        if (systemResult.error) {
           throw systemResult.error;
         }
 
-        if (
-          weaveResult.error
-        ) {
+        if (weaveResult.error) {
           throw weaveResult.error;
         }
 
-        if (
-          systemResult.data
-        ) {
-          setSystemSnapshot({
-            ...systemResult.data,
-
-            reading:
-              getSafeObject(
-                systemResult
-                  .data
-                  .reading
-              ),
-          });
-        } else {
-          setSystemSnapshot(
-            null
-          );
-        }
-
-        if (
-          weaveResult.data
-        ) {
-          setWeaveSnapshot({
-            ...weaveResult.data,
-
-            nodes:
-              getSafeArray(
-                weaveResult
-                  .data
-                  .nodes
-              ),
-
-            edges:
-              getSafeArray(
-                weaveResult
-                  .data
-                  .edges
-              ),
-
-            meta:
-              getSafeObject(
-                weaveResult
-                  .data
-                  .meta
-              ),
-          });
-        } else {
-          setWeaveSnapshot(
-            null
-          );
-        }
-      } catch (error) {
-        console.error(
-          "Process preview load error:",
-          error
+        setLogs(
+          logsResult.data || []
         );
 
         setSystemSnapshot(
-          null
+          systemResult.data
+            ? {
+                ...systemResult.data,
+
+                reading:
+                  getSafeObject(
+                    systemResult
+                      .data
+                      .reading
+                  ),
+              }
+            : null
         );
 
         setWeaveSnapshot(
-          null
+          weaveResult.data
+            ? {
+                ...weaveResult.data,
+
+                nodes:
+                  getSafeArray(
+                    weaveResult
+                      .data
+                      .nodes
+                  ),
+
+                edges:
+                  getSafeArray(
+                    weaveResult
+                      .data
+                      .edges
+                  ),
+
+                meta:
+                  getSafeObject(
+                    weaveResult
+                      .data
+                      .meta
+                  ),
+              }
+            : null
+        );
+      } catch (error) {
+        console.error(
+          "Process load error:",
+          error
         );
 
         setErrorMessage(
           error?.message ||
-            "The latest Process results could not be loaded."
+            "Process data could not be loaded."
         );
       } finally {
         setLoading(false);
       }
     }
 
-    loadProcessPreview();
+    loadProcess();
   }, []);
+
+  const homeState =
+    getHomeState(logs);
+
+  const rows =
+    useMemo(
+      () =>
+        numericRows(logs),
+      [logs]
+    );
+
+  const making =
+    useMemo(
+      () =>
+        logs.reduce(
+          (sum, log) =>
+            sum +
+            parseWorkHours(
+              log.work?.time
+            ),
+          0
+        ),
+      [logs]
+    );
+
+  const learning =
+    useMemo(
+      () =>
+        logs.reduce(
+          (sum, log) =>
+            sum +
+            getLearningHours(log),
+          0
+        ),
+      [logs]
+    );
+
+  const moving =
+    useMemo(
+      () =>
+        logs.reduce(
+          (sum, log) =>
+            sum +
+            parseDurationHours(
+              log.movement?.time
+            ),
+          0
+        ),
+      [logs]
+    );
+
+  const moodValues =
+    logs
+      .map((log) =>
+        Number(
+          log.state?.mood
+        )
+      )
+      .filter(
+        Number.isFinite
+      );
+
+  const averageMood =
+    moodValues.length
+      ? moodValues.reduce(
+          (sum, value) =>
+            sum + value,
+          0
+        ) /
+        moodValues.length
+      : 0;
+
+  let mindWeather =
+    "Unknown";
+
+  if (averageMood >= 8) {
+    mindWeather = "Clear";
+  } else if (
+    averageMood >= 6
+  ) {
+    mindWeather = "Stable";
+  } else if (
+    averageMood >= 4
+  ) {
+    mindWeather = "Cloudy";
+  } else if (
+    averageMood > 0
+  ) {
+    mindWeather = "Heavy";
+  }
 
   const reading =
     getSafeObject(
       systemSnapshot?.reading
-    );
-
-  const recurringSignals =
-    getSafeArray(
-      reading.recurring_signals
-    );
-
-  const shifts =
-    getSafeArray(
-      reading.shifts
     );
 
   const weaveMeta =
@@ -302,13 +600,6 @@ export default function ProcessPage() {
       weaveSnapshot?.edges
     );
 
-  const recordCount =
-    weaveMeta.record_count ??
-    weaveNodes.length;
-
-  const connectionCount =
-    weaveEdges.length;
-
   return (
     <>
       <section className="panel">
@@ -323,51 +614,18 @@ export default function ProcessPage() {
         </h2>
 
         <p className="subtitle">
-          Stats, Data, System,
-          and Weave organize,
-          interpret, and connect
-          material collected
-          through Input.
+          Accumulated rhythms,
+          numeric data, System
+          readings, and semantic
+          connections generated
+          from Input.
         </p>
-      </section>
-
-      <section className="grid two">
-        {PROCESS_ITEMS.map(
-          (item) => (
-            <article
-              className="panel"
-              key={item.href}
-            >
-              <p className="eyebrow">
-                {item.eyebrow}
-              </p>
-
-              <h2>
-                {item.title}
-              </h2>
-
-              <p className="subtitle">
-                {item.description}
-              </p>
-
-              <div className="actions">
-                <Link
-                  href={item.href}
-                  className="primary"
-                >
-                  {item.action}
-                </Link>
-              </div>
-            </article>
-          )
-        )}
       </section>
 
       {loading && (
         <section className="panel">
           <p className="muted">
-            Loading the latest
-            Process results…
+            Loading Process…
           </p>
         </section>
       )}
@@ -388,6 +646,194 @@ export default function ProcessPage() {
               <div className="entry-head">
                 <div>
                   <p className="eyebrow">
+                    Stats
+                  </p>
+
+                  <h2>
+                    Accumulated
+                    Rhythms
+                  </h2>
+                </div>
+
+                <Link href="/stats">
+                  Open Stats
+                </Link>
+              </div>
+
+              <div className="grid three">
+                <div className="panel">
+                  <p className="label">
+                    Making
+                  </p>
+
+                  <div className="big">
+                    {making.toFixed(
+                      1
+                    )}
+                    h
+                  </div>
+                </div>
+
+                <div className="panel">
+                  <p className="label">
+                    Learning
+                  </p>
+
+                  <div className="big">
+                    {learning.toFixed(
+                      1
+                    )}
+                    h
+                  </div>
+                </div>
+
+                <div className="panel">
+                  <p className="label">
+                    Moving
+                  </p>
+
+                  <div className="big">
+                    {moving.toFixed(
+                      1
+                    )}
+                    h
+                  </div>
+                </div>
+
+                <div className="panel">
+                  <p className="label">
+                    Body Weather
+                  </p>
+
+                  <div className="big">
+                    {
+                      homeState.bodyWeather
+                    }
+                  </div>
+                </div>
+
+                <div className="panel">
+                  <p className="label">
+                    Mind Weather
+                  </p>
+
+                  <div className="big">
+                    {mindWeather}
+                  </div>
+                </div>
+
+                <div className="panel">
+                  <p className="label">
+                    Energy Tone
+                  </p>
+
+                  <div className="big">
+                    {
+                      homeState.energyTone
+                    }
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="panel">
+              <div className="entry-head">
+                <div>
+                  <p className="eyebrow">
+                    Data
+                  </p>
+
+                  <h2>
+                    Numeric Data
+                  </h2>
+                </div>
+
+                <Link href="/data">
+                  Open Data
+                </Link>
+              </div>
+
+              <p className="subtitle">
+                Numeric body,
+                Body Moving,
+                making, learning,
+                and weather data
+                for mapping and
+                external systems.
+              </p>
+
+              <div className="actions">
+                <button
+                  className="primary"
+                  type="button"
+                  onClick={() =>
+                    download(
+                      "SOFTSYSTEM_numeric_data.csv",
+                      toCSV(rows),
+                      "text/csv"
+                    )
+                  }
+                >
+                  Export CSV
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    download(
+                      "SOFTSYSTEM_numeric_data.json",
+                      JSON.stringify(
+                        rows,
+                        null,
+                        2
+                      ),
+                      "application/json"
+                    )
+                  }
+                >
+                  Export JSON
+                </button>
+              </div>
+
+              <div className="block">
+                <p className="block-title">
+                  Mapping Fields
+                </p>
+
+                <p>
+                  body_temperature /
+                  weight /
+                  body_state /
+                  energy / mood
+                </p>
+
+                <p>
+                  moving_hours /
+                  moving_intensity
+                </p>
+
+                <p>
+                  making_hours /
+                  learning_hours
+                </p>
+
+                <p>
+                  weather_temperature /
+                  humidity /
+                  pressure / wind
+                </p>
+              </div>
+
+              <p className="muted">
+                {rows.length} public
+                records available.
+              </p>
+            </section>
+
+            <section className="panel">
+              <div className="entry-head">
+                <div>
+                  <p className="eyebrow">
                     System
                   </p>
 
@@ -404,36 +850,13 @@ export default function ProcessPage() {
 
               {systemSnapshot ? (
                 <>
-                  <div className="grid two">
-                    <div>
-                      <p className="label">
-                        Current Mode
-                      </p>
+                  <p className="label">
+                    Current Mode
+                  </p>
 
-                      <div className="big">
-                        {reading.current_mode ||
-                          "Unresolved"}
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="label">
-                        Period
-                      </p>
-
-                      <div className="big">
-                        {reading.period_days ||
-                          systemSnapshot.period_days ||
-                          0}
-                        d
-                      </div>
-
-                      <p className="muted">
-                        {reading.record_count ||
-                          0}{" "}
-                        records
-                      </p>
-                    </div>
+                  <div className="big">
+                    {reading.current_mode ||
+                      "Unresolved"}
                   </div>
 
                   {reading.overview && (
@@ -446,46 +869,6 @@ export default function ProcessPage() {
                         {
                           reading.overview
                         }
-                      </p>
-                    </div>
-                  )}
-
-                  {recurringSignals.length >
-                    0 && (
-                    <div className="block">
-                      <p className="block-title">
-                        Recurring
-                        Signal
-                      </p>
-
-                      <p>
-                        {
-                          recurringSignals[0]
-                            ?.signal
-                        }
-                      </p>
-
-                      {recurringSignals[0]
-                        ?.evidence && (
-                        <p className="muted">
-                          {
-                            recurringSignals[0]
-                              .evidence
-                          }
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {shifts.length >
-                    0 && (
-                    <div className="block">
-                      <p className="block-title">
-                        Recent Shift
-                      </p>
-
-                      <p>
-                        {shifts[0]}
                       </p>
                     </div>
                   )}
@@ -517,8 +900,7 @@ export default function ProcessPage() {
               ) : (
                 <p className="muted">
                   No public System
-                  reading has been
-                  generated yet.
+                  reading yet.
                 </p>
               )}
             </section>
@@ -543,14 +925,16 @@ export default function ProcessPage() {
 
               {weaveSnapshot ? (
                 <>
-                  <section className="grid three">
+                  <div className="grid three">
                     <div className="panel">
                       <p className="label">
                         Records
                       </p>
 
                       <div className="big">
-                        {recordCount}
+                        {weaveMeta
+                          .record_count ??
+                          weaveNodes.length}
                       </div>
                     </div>
 
@@ -561,7 +945,7 @@ export default function ProcessPage() {
 
                       <div className="big">
                         {
-                          connectionCount
+                          weaveEdges.length
                         }
                       </div>
                     </div>
@@ -576,20 +960,7 @@ export default function ProcessPage() {
                           0.72}
                       </div>
                     </div>
-                  </section>
-
-                  <p className="subtitle">
-                    The latest
-                    semantic network
-                    connects Daily
-                    records through
-                    Body Moving,
-                    environment,
-                    making, learning,
-                    artistic input,
-                    observation, and
-                    recurring themes.
-                  </p>
+                  </div>
 
                   {weaveSnapshot.generated_at && (
                     <p className="muted">
@@ -604,8 +975,7 @@ export default function ProcessPage() {
               ) : (
                 <p className="muted">
                   No public Weave
-                  snapshot has been
-                  generated yet.
+                  snapshot yet.
                 </p>
               )}
             </section>
