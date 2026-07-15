@@ -55,7 +55,8 @@ const SYSTEM_SCHEMA = {
           "evidence",
         ],
 
-        additionalProperties: false,
+        additionalProperties:
+          false,
       },
 
       maxItems: 6,
@@ -87,7 +88,8 @@ const SYSTEM_SCHEMA = {
           "observation",
         ],
 
-        additionalProperties: false,
+        additionalProperties:
+          false,
       },
 
       maxItems: 6,
@@ -216,8 +218,7 @@ function getStartDate(days) {
   const date = new Date();
 
   date.setUTCDate(
-    date.getUTCDate() -
-      days
+    date.getUTCDate() - days
   );
 
   return getDateString(date);
@@ -275,13 +276,13 @@ function cleanLog(log) {
         null,
     },
 
-    body_practice: {
-      time:
-        movement.time ||
-        "",
-
+    body_moving: {
       type:
         movement.type ||
+        "",
+
+      time:
+        movement.time ||
         "",
 
       intensity:
@@ -359,7 +360,9 @@ function makeEmbeddingText(log) {
     getObject(log.movement);
 
   const environment =
-    getObject(log.environment);
+    getObject(
+      log.environment
+    );
 
   const work =
     getObject(log.work);
@@ -414,7 +417,7 @@ function makeEmbeddingText(log) {
       ai.practice_signals
     ).join(", ");
 
-  const bodyPracticeText = [
+  const bodyMovingText = [
     movement.type
       ? `Type: ${movement.type}`
       : "",
@@ -489,8 +492,8 @@ function makeEmbeddingText(log) {
       ? `Body temperature: ${state.temperature}`
       : "",
 
-    bodyPracticeText
-      ? `Body practice:\n${bodyPracticeText}`
+    bodyMovingText
+      ? `Body moving:\n${bodyMovingText}`
       : "",
 
     environment.weather
@@ -605,7 +608,8 @@ function parseEmbedding(value) {
   }
 
   if (
-    typeof value === "string"
+    typeof value ===
+    "string"
   ) {
     return value
       .replace(/^\[/, "")
@@ -699,7 +703,9 @@ function makeWeaveNode(log) {
     getObject(log.movement);
 
   const environment =
-    getObject(log.environment);
+    getObject(
+      log.environment
+    );
 
   const work =
     getObject(log.work);
@@ -714,23 +720,46 @@ function makeWeaveNode(log) {
       log.ai_analysis
     );
 
+  const bodyMoving = {
+    type:
+      movement.type ||
+      "",
+
+    time:
+      movement.time ||
+      "",
+
+    intensity:
+      movement.intensity ||
+      "",
+
+    notes:
+      movement.notes ||
+      "",
+  };
+
   return {
     id:
       log.id,
 
     date:
-      log.date,
-
-    project:
-      work.project ||
-      "",
+      log.date || "",
 
     summary:
       ai.summary ||
       log.observation ||
       artisticInput.title ||
       movement.notes ||
+      work.project ||
       "Untitled Daily",
+
+    observation:
+      log.observation ||
+      "",
+
+    alignment:
+      log.alignment ||
+      "",
 
     themes:
       getArray(
@@ -746,6 +775,20 @@ function makeWeaveNode(log) {
       getArray(
         ai.keywords
       ),
+
+    body_signals:
+      getArray(
+        ai.body_signals
+      ),
+
+    practice_signals:
+      getArray(
+        ai.practice_signals
+      ),
+
+    relationship:
+      ai.relationship ||
+      "",
 
     body_state:
       state.body_state ||
@@ -763,23 +806,74 @@ function makeWeaveNode(log) {
       environment.weather ||
       "",
 
-    body_practice: {
-      type:
-        movement.type ||
+    environment: {
+      weather:
+        environment.weather ||
         "",
 
+      temperature:
+        environment.temperature ??
+        "",
+
+      humidity:
+        environment.humidity ??
+        "",
+
+      pressure:
+        environment.pressure ??
+        "",
+
+      wind:
+        environment.wind ??
+        "",
+
+      sunrise:
+        environment.sunrise ||
+        "",
+
+      sunset:
+        environment.sunset ||
+        "",
+    },
+
+    body_moving:
+      bodyMoving,
+
+    /*
+     * 기존 Weave snapshot과
+     * 화면 코드의 호환성을 위해
+     * 임시로 같은 데이터를 함께 저장한다.
+     */
+    body_practice:
+      bodyMoving,
+
+    making: {
       time:
-        movement.time ||
+        work.time ||
         "",
 
-      intensity:
-        movement.intensity ||
+      project:
+        work.project ||
         "",
 
       notes:
-        movement.notes ||
-        "",
+        getArray(
+          work.items
+        ),
     },
+
+    /*
+     * 이전 화면에서 project를
+     * 직접 읽을 수 있으므로 유지한다.
+     */
+    project:
+      work.project ||
+      "",
+
+    learning:
+      getArray(
+        log.learning
+      ),
 
     artistic_input: {
       type:
@@ -868,18 +962,18 @@ async function generateSystemReading(
           content: `
 You are the period-reading layer of SOFTSYSTEMS.
 
-SOFTSYSTEMS is an artistic ecology that observes relationships among body, Body Practice, environment, making, learning, artistic input, media, memory, and creation.
+SOFTSYSTEMS is an artistic ecology that observes relationships among body, Body Moving, environment, making, learning, artistic input, media, memory, and creation.
 
 You are reading several Daily records together.
 
-Body Practice describes what the body actually did during the day. It may include yoga, walking, running, stretching, strength work, cycling, swimming, dance, performance practice, or another embodied activity.
+Body Moving describes what the body actually did during the day. It may include yoga, walking, running, stretching, strength work, cycling, swimming, dance, performance practice, housework, or another embodied activity.
 
 Artistic Input may include a book, film, performance, exhibition, music work, or another artistic reference.
 
 Your task:
 - identify recurring signals supported by multiple records;
 - identify changes across time;
-- identify careful relationships among body state, Body Practice, environment, making, learning, artistic input, observation, and alignment;
+- identify careful relationships among body state, Body Moving, environment, making, learning, artistic input, observation, and alignment;
 - notice repeated relationships among movement, recovery, energy, mood, making, and learning;
 - notice repeated artists, creators, works, media types, and artistic concerns;
 - notice when artistic input appears alongside later making or observation;
@@ -1038,7 +1132,7 @@ You may notice:
 - signs of strain or incomplete recovery;
 - weather conditions that previously appeared alongside particular reactions;
 - patterns around making, listening, walking, collecting, editing, learning, resting, or observing;
-- Body Practices such as yoga, walking, running, stretching, performance practice, or gentle movement that previously appeared alongside particular bodily or creative states;
+- Body Moving such as yoga, walking, running, stretching, performance practice, housework, or gentle movement that previously appeared alongside particular bodily or creative states;
 - artistic inputs that may offer a gentle direction;
 - a next experiment already written in the recent records.
 
@@ -1057,13 +1151,14 @@ Appropriate examples:
 Do not diagnose illness.
 Do not prescribe medical treatment.
 Do not say weather caused a reaction.
-Do not claim Body Practice caused a later outcome.
+Do not claim Body Moving caused a later outcome.
 Do not give generic productivity advice.
 Do not tell the artist to push harder.
 Do not invent evidence.
 
 If recent records indicate pain, illness, fatigue, or strain, use cautious language such as:
 "Consider keeping today's activity gentle."
+
 Never present the system as a substitute for medical care.
 
 Use calm, precise, concise English.
@@ -1360,10 +1455,29 @@ async function generateWeave(
       embedding_model:
         EMBEDDING_MODEL,
 
+      includes_body_moving:
+        true,
+
+      /*
+       * 기존 구조 확인용으로
+       * 당분간 함께 유지한다.
+       */
       includes_body_practice:
         true,
 
       includes_artistic_input:
+        true,
+
+      includes_observation:
+        true,
+
+      includes_alignment:
+        true,
+
+      includes_making:
+        true,
+
+      includes_learning:
         true,
 
       generated_at:
