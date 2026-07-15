@@ -110,6 +110,16 @@ export default function ArchivePage() {
   ] = useState(false);
 
   const [
+    embedding,
+    setEmbedding,
+  ] = useState(false);
+
+  const [
+    embeddingStatus,
+    setEmbeddingStatus,
+  ] = useState("");
+
+  const [
     errorMessage,
     setErrorMessage,
   ] = useState("");
@@ -134,6 +144,9 @@ export default function ArchivePage() {
     setSearchText,
   ] = useState("");
 
+  /*
+   * 로그인 상태 확인
+   */
   useEffect(() => {
     let mounted = true;
 
@@ -142,7 +155,8 @@ export default function ArchivePage() {
         data,
         error,
       } =
-        await supabase.auth.getUser();
+        await supabase.auth
+          .getUser();
 
       if (!mounted) {
         return;
@@ -169,25 +183,34 @@ export default function ArchivePage() {
       data:
         authListener,
     } =
-      supabase.auth.onAuthStateChange(
-        (
-          _event,
-          session
-        ) => {
-          if (!mounted) {
-            return;
+      supabase.auth
+        .onAuthStateChange(
+          (
+            _event,
+            session
+          ) => {
+            if (!mounted) {
+              return;
+            }
+
+            setUser(
+              session?.user ||
+              null
+            );
+
+            setAuthLoading(
+              false
+            );
+
+            setEditingEntry(
+              null
+            );
+
+            setShowForm(
+              false
+            );
           }
-
-          setUser(
-            session?.user ||
-            null
-          );
-
-          setAuthLoading(
-            false
-          );
-        }
-      );
+        );
 
     return () => {
       mounted = false;
@@ -198,6 +221,9 @@ export default function ArchivePage() {
     };
   }, []);
 
+  /*
+   * 통합 Archive와 기존 Video Archive 불러오기
+   */
   const loadArchive =
     useCallback(
       async () => {
@@ -273,6 +299,10 @@ export default function ArchivePage() {
           );
         }
 
+        /*
+         * 기존 video_archive가 없거나
+         * 접근할 수 없는 환경도 허용한다.
+         */
         if (
           videosResult.error
         ) {
@@ -306,6 +336,9 @@ export default function ArchivePage() {
     loadArchive,
   ]);
 
+  /*
+   * 필터 및 일반 검색
+   */
   const filteredEntries =
     useMemo(() => {
       const normalizedSearch =
@@ -358,6 +391,7 @@ export default function ArchivePage() {
   const startNewEntry = () => {
     setEditingEntry(null);
     setShowForm(true);
+    setEmbeddingStatus("");
 
     window.setTimeout(
       () => {
@@ -378,6 +412,7 @@ export default function ArchivePage() {
     );
 
     setShowForm(true);
+    setEmbeddingStatus("");
 
     window.setTimeout(
       () => {
@@ -395,6 +430,178 @@ export default function ArchivePage() {
     setShowForm(false);
   };
 
+  /*
+   * 현재 로그인 세션의 Access Token
+   */
+  const getAccessToken =
+    async () => {
+      const {
+        data,
+        error,
+      } =
+        await supabase.auth
+          .getSession();
+
+      if (error) {
+        throw error;
+      }
+
+      const accessToken =
+        data?.session
+          ?.access_token;
+
+      if (!accessToken) {
+        throw new Error(
+          "No login session was found."
+        );
+      }
+
+      return accessToken;
+    };
+
+  /*
+   * Archive 한 개 embedding 생성
+   */
+  const embedArchiveEntry =
+    async (entryId) => {
+      const accessToken =
+        await getAccessToken();
+
+      const response =
+        await fetch(
+          "/api/archive/embed",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${accessToken}`,
+            },
+
+            body:
+              JSON.stringify({
+                entry_id:
+                  entryId,
+              }),
+          }
+        );
+
+      let result;
+
+      try {
+        result =
+          await response.json();
+      } catch {
+        throw new Error(
+          "The Archive memory server returned an invalid response."
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          result?.error ||
+            "Archive embedding failed."
+        );
+      }
+
+      return result;
+    };
+
+  /*
+   * 기존 Archive 전체 embedding 생성
+   */
+  const embedAllArchive =
+    async () => {
+      if (!user) {
+        window.alert(
+          "Please sign in first."
+        );
+
+        return;
+      }
+
+      setEmbedding(true);
+
+      setEmbeddingStatus(
+        "Reading Archive entries…"
+      );
+
+      setErrorMessage("");
+
+      try {
+        const accessToken =
+          await getAccessToken();
+
+        const response =
+          await fetch(
+            "/api/archive/embed",
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${accessToken}`,
+              },
+
+              body:
+                JSON.stringify({
+                  all: true,
+                }),
+            }
+          );
+
+        let result;
+
+        try {
+          result =
+            await response.json();
+        } catch {
+          throw new Error(
+            "The Archive memory server returned an invalid response."
+          );
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            result?.error ||
+              "Archive embedding failed."
+          );
+        }
+
+        setEmbeddingStatus(
+          `${result.processed || 0} Archive entries processed. ` +
+            `${result.skipped || 0} skipped. ` +
+            `${result.failed || 0} failed.`
+        );
+
+        await loadArchive();
+      } catch (error) {
+        console.error(
+          "Archive embedding error:",
+          error
+        );
+
+        setEmbeddingStatus(
+          error?.message ||
+            "Archive embedding failed."
+        );
+      } finally {
+        setEmbedding(false);
+      }
+    };
+
+  /*
+   * Archive 저장 및 수정
+   *
+   * DB 저장 후 embedding 생성.
+   * embedding 실패 시 원문 데이터는 유지된다.
+   */
   const saveEntry =
     async (values) => {
       if (!user) {
@@ -407,10 +614,14 @@ export default function ArchivePage() {
 
       setSubmitting(true);
       setErrorMessage("");
+      setEmbeddingStatus("");
 
       try {
+        let savedEntryId = "";
+
         if (editingEntry) {
           const {
+            data,
             error,
           } = await supabase
             .from(
@@ -445,13 +656,20 @@ export default function ArchivePage() {
             .eq(
               "user_id",
               user.id
-            );
+            )
+            .select("id")
+            .single();
 
           if (error) {
             throw error;
           }
+
+          savedEntryId =
+            data?.id ||
+            editingEntry.id;
         } else {
           const {
+            data,
             error,
           } = await supabase
             .from(
@@ -481,11 +699,53 @@ export default function ArchivePage() {
 
               is_public:
                 values.is_public,
-            });
+            })
+            .select("id")
+            .single();
 
           if (error) {
             throw error;
           }
+
+          if (!data?.id) {
+            throw new Error(
+              "The saved Archive ID was not returned."
+            );
+          }
+
+          savedEntryId =
+            data.id;
+        }
+
+        setEmbeddingStatus(
+          "Creating Archive memory…"
+        );
+
+        try {
+          await embedArchiveEntry(
+            savedEntryId
+          );
+
+          setEmbeddingStatus(
+            "Archive and semantic memory saved."
+          );
+        } catch (
+          embeddingError
+        ) {
+          console.error(
+            "Archive embedding error:",
+            embeddingError
+          );
+
+          setEmbeddingStatus(
+            "Archive saved. Semantic memory could not be created."
+          );
+
+          window.alert(
+            `Archive was saved, but semantic memory failed: ${
+              embeddingError.message
+            }`
+          );
         }
 
         closeForm();
@@ -499,13 +759,16 @@ export default function ArchivePage() {
 
         setErrorMessage(
           error?.message ||
-          "The Archive entry could not be saved."
+            "The Archive entry could not be saved."
         );
       } finally {
         setSubmitting(false);
       }
     };
 
+  /*
+   * Archive 삭제
+   */
   const deleteEntry =
     async (entry) => {
       if (!user) {
@@ -522,6 +785,7 @@ export default function ArchivePage() {
       }
 
       setErrorMessage("");
+      setEmbeddingStatus("");
 
       const {
         error,
@@ -562,6 +826,9 @@ export default function ArchivePage() {
       await loadArchive();
     };
 
+  /*
+   * 공개 / 비공개 전환
+   */
   const toggleVisibility =
     async (entry) => {
       if (!user) {
@@ -569,6 +836,7 @@ export default function ArchivePage() {
       }
 
       setErrorMessage("");
+      setEmbeddingStatus("");
 
       const {
         error,
@@ -632,12 +900,31 @@ export default function ArchivePage() {
           {user && (
             <div className="actions">
               <button
+                type="button"
+                onClick={
+                  embedAllArchive
+                }
+                disabled={
+                  embedding ||
+                  submitting
+                }
+              >
+                {embedding
+                  ? "Reading Archive…"
+                  : "Update Archive Memory"}
+              </button>
+
+              <button
                 className="primary"
                 type="button"
                 onClick={
                   showForm
                     ? closeForm
                     : startNewEntry
+                }
+                disabled={
+                  submitting ||
+                  embedding
                 }
               >
                 {showForm
@@ -658,6 +945,14 @@ export default function ArchivePage() {
             </p>
           )}
       </section>
+
+      {embeddingStatus && (
+        <section className="panel">
+          <p className="muted">
+            {embeddingStatus}
+          </p>
+        </section>
+      )}
 
       {errorMessage && (
         <section className="panel">
