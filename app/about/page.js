@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 export default function AboutPage() {
   return (
     <>
@@ -13,39 +11,65 @@ export default function AboutPage() {
         </h1>
 
         <p className="subtitle">
-          Sound-based media artist translating bodily states,
-          sensations, and everyday environments into sound,
-          image, text, video, performance, and digital systems.
+          Sound-based media artist
+          working with body,
+          sensation, everyday life,
+          and systems of
+          observation.
         </p>
       </section>
 
       <section className="panel">
         <h2>
-          Artist Statement
+          Practice
         </h2>
 
         <p>
-          My practice begins with observing the body.
-          Rather than treating the body as a subject to represent,
-          I approach it as a living system that continuously senses,
-          adapts, remembers, and responds.
+          Jang Myung Sun is a
+          sound-based media artist
+          who translates bodily
+          states, sensations, and
+          everyday environments
+          into sound, image, text,
+          video, performance, and
+          digital systems.
         </p>
 
         <p>
-          Through sound, writing, moving images,
-          performance, and digital tools,
-          I translate these subtle changes into
-          forms that can be revisited,
-          connected, and shared.
+          Her work begins with the
+          body as a sensing and
+          responsive system. Rather
+          than treating the body as
+          an object of
+          representation, she
+          observes how it reacts,
+          adapts, remembers, and
+          connects with its
+          surroundings.
+        </p>
+      </section>
+
+      <section className="panel">
+        <h2>
+          SOFTSYSTEMS
+        </h2>
+
+        <p>
+          SOFTSYSTEMS is an
+          evolving artistic
+          ecology that gathers
+          Daily records, writing,
+          media, body data, and
+          creative processes.
         </p>
 
         <p>
-          SOFTSYSTEMS is an evolving ecology for
-          observing relationships among the body,
-          environment, memory, and artistic practice.
-          Instead of measuring productivity,
-          it supports long-term observation of
-          creative life through accumulated records.
+          Through Input, Process,
+          and Output, the system
+          traces relationships
+          among body,
+          environment, memory,
+          and artistic practice.
         </p>
       </section>
 
@@ -54,7 +78,7 @@ export default function AboutPage() {
           Contact
         </h2>
 
-        <div className="grid two">
+        <div className="grid three">
           <div>
             <p className="label">
               Email
@@ -89,7 +113,7 @@ export default function AboutPage() {
               target="_blank"
               rel="noreferrer"
             >
-              617068.cargo.site ↗
+              View Portfolio ↗
             </a>
           </div>
         </div>
