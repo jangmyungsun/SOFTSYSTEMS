@@ -325,7 +325,7 @@ export default function Home() {
           </p>
 
           <p className="muted">
-            Body Practice{" "}
+            Body Moving {" "}
             {movementAverage.toFixed(
               1
             )}
