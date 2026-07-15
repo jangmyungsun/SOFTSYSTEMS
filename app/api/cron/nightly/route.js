@@ -695,6 +695,119 @@ function cosineSimilarity(
   );
 }
 
+const MAX_ARCHIVE_MATCHES = 5;
+const MIN_ARCHIVE_SIMILARITY = 0.35;
+const MAX_ARCHIVE_BODY_LENGTH = 2500;
+
+async function findRelevantArchive(logs) {
+  const searchText = logs
+    .map(makeEmbeddingText)
+    .join("\n\n---\n\n")
+    .slice(0, 24000);
+
+  if (!searchText) {
+    return [];
+  }
+
+  const embeddingResponse =
+    await openai.embeddings.create({
+      model: EMBEDDING_MODEL,
+      input: searchText,
+    });
+
+  const queryEmbedding =
+    embeddingResponse.data?.[0]?.embedding;
+
+  if (!queryEmbedding) {
+    return [];
+  }
+
+  const {
+    data: archiveEntries,
+    error,
+  } = await supabaseAdmin
+    .from("archive_entries")
+    .select(`
+      id,
+      title,
+      type,
+      entry_date,
+      body,
+      tags,
+      embedding
+    `)
+    .not("embedding", "is", null);
+
+  if (error) {
+    throw error;
+  }
+
+  return (archiveEntries || [])
+    .map((entry) => {
+      const archiveEmbedding =
+        parseEmbedding(
+          entry.embedding
+        );
+
+      if (!archiveEmbedding) {
+        return null;
+      }
+
+      return {
+        similarity:
+          cosineSimilarity(
+            queryEmbedding,
+            archiveEmbedding
+          ),
+        entry,
+      };
+    })
+    .filter(Boolean)
+    .filter(
+      (item) =>
+        item.similarity >=
+        MIN_ARCHIVE_SIMILARITY
+    )
+    .sort(
+      (a, b) =>
+        b.similarity -
+        a.similarity
+    )
+    .slice(
+      0,
+      MAX_ARCHIVE_MATCHES
+    )
+    .map((item) => ({
+      title:
+        item.entry.title,
+
+      type:
+        item.entry.type,
+
+      date:
+        item.entry.entry_date,
+
+      tags:
+        getArray(
+          item.entry.tags
+        ),
+
+      body: String(
+        item.entry.body || ""
+      ).slice(
+        0,
+        MAX_ARCHIVE_BODY_LENGTH
+      ),
+
+      similarity:
+        Number(
+          item.similarity.toFixed(
+            3
+          )
+        ),
+    }));
+}
+
 function makeWeaveNode(log) {
   const state =
     getObject(log.state);
