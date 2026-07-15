@@ -142,22 +142,16 @@ function getMovementAverage(logs) {
 }
 
 function normalizeTags(value) {
-  if (
-    Array.isArray(value)
-  ) {
+  if (Array.isArray(value)) {
     return value;
   }
 
-  if (
-    typeof value === "string"
-  ) {
+  if (typeof value === "string") {
     try {
       const parsed =
         JSON.parse(value);
 
-      return Array.isArray(
-        parsed
-      )
+      return Array.isArray(parsed)
         ? parsed
         : [];
     } catch {
@@ -261,7 +255,7 @@ export default function Home() {
                     false,
                 }
               )
-              .limit(1),
+              .limit(3),
 
             supabase
               .from(
@@ -510,7 +504,7 @@ export default function Home() {
 
         {archiveEntries.length >
           0 && (
-          <div className="archive-grid archive-grid-single">
+          <div className="archive-grid">
             {archiveEntries.map(
               (entry) => (
                 <ArchiveCard
