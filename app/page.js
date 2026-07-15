@@ -15,16 +15,21 @@ import {
 } from "../lib/utils";
 
 import EntryCard from "../components/EntryCard";
-import VideoCard from "../components/VideoCard";
+import ArchiveCard from "../components/ArchiveCard";
 
 function formatDateTime(value) {
   if (!value) {
     return "";
   }
 
-  const date = new Date(value);
+  const date =
+    new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return "";
   }
 
@@ -40,7 +45,9 @@ function formatDateTime(value) {
   );
 }
 
-function parseDurationToHours(value) {
+function parseDurationToHours(
+  value
+) {
   if (
     value === null ||
     value === undefined ||
@@ -49,64 +56,92 @@ function parseDurationToHours(value) {
     return 0;
   }
 
-  if (typeof value === "number") {
-    return Number.isFinite(value)
+  if (
+    typeof value ===
+    "number"
+  ) {
+    return Number.isFinite(
+      value
+    )
       ? value
       : 0;
   }
 
-  const text = String(value)
-    .trim()
-    .toLowerCase();
+  const text =
+    String(value)
+      .trim()
+      .toLowerCase();
 
   if (!text) {
     return 0;
   }
 
-  const directNumber = Number(text);
+  const directNumber =
+    Number(text);
 
-  if (Number.isFinite(directNumber)) {
+  if (
+    Number.isFinite(
+      directNumber
+    )
+  ) {
     return directNumber;
   }
 
   let totalHours = 0;
 
-  const hourMatch = text.match(
-    /(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)/
-  );
+  const hourMatch =
+    text.match(
+      /(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)/
+    );
 
-  const minuteMatch = text.match(
-    /(\d+(?:\.\d+)?)\s*(?:m|min|mins|minute|minutes)/
-  );
+  const minuteMatch =
+    text.match(
+      /(\d+(?:\.\d+)?)\s*(?:m|min|mins|minute|minutes)/
+    );
 
   if (hourMatch) {
-    totalHours += Number(hourMatch[1]);
+    totalHours +=
+      Number(
+        hourMatch[1]
+      );
   }
 
   if (minuteMatch) {
     totalHours +=
-      Number(minuteMatch[1]) / 60;
+      Number(
+        minuteMatch[1]
+      ) / 60;
   }
 
-  return Number.isFinite(totalHours)
+  return Number.isFinite(
+    totalHours
+  )
     ? totalHours
     : 0;
 }
 
-function isCurrentMonth(dateValue) {
+function isCurrentMonth(
+  dateValue
+) {
   if (!dateValue) {
     return false;
   }
 
-  const date = new Date(
-    `${dateValue}T12:00:00`
-  );
+  const date =
+    new Date(
+      `${dateValue}T12:00:00`
+    );
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return false;
   }
 
-  const now = new Date();
+  const now =
+    new Date();
 
   return (
     date.getFullYear() ===
@@ -116,26 +151,90 @@ function isCurrentMonth(dateValue) {
   );
 }
 
-function getMovementAverage(logs) {
-  const monthLogs = logs.filter(
-    (log) =>
-      isCurrentMonth(log.date)
-  );
+function getMovementAverage(
+  logs
+) {
+  const monthLogs =
+    logs.filter(
+      (log) =>
+        isCurrentMonth(
+          log.date
+        )
+    );
 
-  if (!monthLogs.length) {
+  if (
+    !monthLogs.length
+  ) {
     return 0;
   }
 
-  const totalHours = monthLogs.reduce(
-    (sum, log) =>
-      sum +
-      parseDurationToHours(
-        log.movement?.time
-      ),
-    0
-  );
+  const totalHours =
+    monthLogs.reduce(
+      (
+        sum,
+        log
+      ) =>
+        sum +
+        parseDurationToHours(
+          log.movement
+            ?.time
+        ),
+      0
+    );
 
-  return totalHours / monthLogs.length;
+  return (
+    totalHours /
+    monthLogs.length
+  );
+}
+
+function normalizeTags(
+  value
+) {
+  if (
+    Array.isArray(value)
+  ) {
+    return value;
+  }
+
+  if (
+    typeof value ===
+    "string"
+  ) {
+    try {
+      const parsed =
+        JSON.parse(
+          value
+        );
+
+      return Array.isArray(
+        parsed
+      )
+        ? parsed
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+function normalizeArchiveEntry(
+  entry
+) {
+  return {
+    ...entry,
+
+    tags:
+      normalizeTags(
+        entry?.tags
+      ),
+
+    is_public:
+      entry?.is_public !==
+      false,
+  };
 }
 
 export default function Home() {
@@ -145,8 +244,8 @@ export default function Home() {
   ] = useState([]);
 
   const [
-    videos,
-    setVideos,
+    archiveEntries,
+    setArchiveEntries,
   ] = useState([]);
 
   const [
@@ -172,72 +271,119 @@ export default function Home() {
       try {
         const [
           logsResult,
-          videosResult,
+          archiveResult,
           guidanceResult,
-        ] = await Promise.all([
-          supabase
-            .from("field_logs")
-            .select("*")
-            .eq("is_public", true)
-            .order("date", {
-              ascending: false,
-            }),
+        ] =
+          await Promise.all([
+            supabase
+              .from(
+                "field_logs"
+              )
+              .select("*")
+              .eq(
+                "is_public",
+                true
+              )
+              .order(
+                "date",
+                {
+                  ascending:
+                    false,
+                }
+              ),
 
-          supabase
-            .from("video_archive")
-            .select("*")
-            .eq("is_public", true)
-            .order("date", {
-              ascending: false,
-            }),
+            supabase
+              .from(
+                "archive_entries"
+              )
+              .select("*")
+              .eq(
+                "is_public",
+                true
+              )
+              .order(
+                "entry_date",
+                {
+                  ascending:
+                    false,
+                }
+              )
+              .order(
+                "created_at",
+                {
+                  ascending:
+                    false,
+                }
+              )
+              .limit(3),
 
-          supabase
-            .from("daily_guidance")
-            .select(
-              `
-                guidance_date,
-                guidance,
-                generated_at,
-                is_public
-              `
-            )
-            .eq("is_public", true)
-            .order(
-              "guidance_date",
-              {
-                ascending: false,
-              }
-            )
-            .limit(1)
-            .maybeSingle(),
-        ]);
+            supabase
+              .from(
+                "daily_guidance"
+              )
+              .select(
+                `
+                  guidance_date,
+                  guidance,
+                  generated_at,
+                  is_public
+                `
+              )
+              .eq(
+                "is_public",
+                true
+              )
+              .order(
+                "guidance_date",
+                {
+                  ascending:
+                    false,
+                }
+              )
+              .limit(1)
+              .maybeSingle(),
+          ]);
 
-        if (logsResult.error) {
+        if (
+          logsResult.error
+        ) {
           throw logsResult.error;
         }
 
-        if (videosResult.error) {
-          throw videosResult.error;
+        if (
+          archiveResult.error
+        ) {
+          throw archiveResult.error;
         }
 
-        if (guidanceResult.error) {
+        if (
+          guidanceResult.error
+        ) {
           throw guidanceResult.error;
         }
 
         setLogs(
-          logsResult.data || []
+          logsResult.data ||
+          []
         );
 
-        setVideos(
-          videosResult.data || []
+        setArchiveEntries(
+          (
+            archiveResult.data ||
+            []
+          ).map(
+            normalizeArchiveEntry
+          )
         );
 
         const guidanceRow =
           guidanceResult.data;
 
         const guidanceValue =
-          guidanceRow?.guidance &&
-          typeof guidanceRow.guidance ===
+          guidanceRow
+            ?.guidance &&
+          typeof guidanceRow
+            .guidance ===
             "object" &&
           !Array.isArray(
             guidanceRow.guidance
@@ -245,18 +391,24 @@ export default function Home() {
             ? guidanceRow.guidance
             : null;
 
-        if (guidanceValue) {
+        if (
+          guidanceValue
+        ) {
           setGuidance({
             ...guidanceValue,
 
             guidance_date:
-              guidanceRow.guidance_date,
+              guidanceRow
+                .guidance_date,
 
             generated_at:
-              guidanceRow.generated_at,
+              guidanceRow
+                .generated_at,
           });
         } else {
-          setGuidance(null);
+          setGuidance(
+            null
+          );
         }
       } catch (error) {
         console.error(
@@ -269,7 +421,9 @@ export default function Home() {
             "The Home page could not be loaded."
         );
       } finally {
-        setLoading(false);
+        setLoading(
+          false
+        );
       }
     }
 
@@ -277,12 +431,16 @@ export default function Home() {
   }, []);
 
   const homeState =
-    getHomeState(logs);
+    getHomeState(
+      logs
+    );
 
   const movementAverage =
     useMemo(
       () =>
-        getMovementAverage(logs),
+        getMovementAverage(
+          logs
+        ),
       [logs]
     );
 
@@ -325,7 +483,7 @@ export default function Home() {
           </p>
 
           <p className="muted">
-            Body Moving {" "}
+            Body Moving{" "}
             {movementAverage.toFixed(
               1
             )}
@@ -339,7 +497,9 @@ export default function Home() {
           </p>
 
           <div className="big">
-            {homeState.bodyWeather}
+            {
+              homeState.bodyWeather
+            }
           </div>
 
           <p className="muted">
@@ -353,7 +513,9 @@ export default function Home() {
           </p>
 
           <div className="big">
-            {homeState.energyTone}
+            {
+              homeState.energyTone
+            }
           </div>
 
           <p className="muted">
@@ -390,7 +552,8 @@ export default function Home() {
             <span className="badge">
               Updated{" "}
               {formatDateTime(
-                guidance.generated_at
+                guidance
+                  .generated_at
               )}
             </span>
           )}
@@ -416,25 +579,32 @@ export default function Home() {
             <>
               {guidance.state && (
                 <div className="soft-suggestion-state">
-                  {guidance.state}
+                  {
+                    guidance.state
+                  }
                 </div>
               )}
 
               {guidance.reading && (
                 <p className="soft-suggestion-reading">
-                  {guidance.reading}
+                  {
+                    guidance.reading
+                  }
                 </p>
               )}
 
-              {guidance.suggested_gesture && (
+              {guidance
+                .suggested_gesture && (
                 <section className="soft-suggestion-gesture">
                   <p className="block-title">
-                    Suggested Gesture
+                    Suggested
+                    Gesture
                   </p>
 
                   <p>
                     {
-                      guidance.suggested_gesture
+                      guidance
+                        .suggested_gesture
                     }
                   </p>
                 </section>
@@ -447,7 +617,9 @@ export default function Home() {
                   </p>
 
                   <p>
-                    {guidance.avoid}
+                    {
+                      guidance.avoid
+                    }
                   </p>
                 </section>
               )}
@@ -474,10 +646,12 @@ export default function Home() {
                 </section>
               )}
 
-              {guidance.confidence_note && (
+              {guidance
+                .confidence_note && (
                 <p className="muted">
                   {
-                    guidance.confidence_note
+                    guidance
+                      .confidence_note
                   }
                 </p>
               )}
@@ -495,25 +669,35 @@ export default function Home() {
               </p>
 
               <p className="muted">
-                The first suggestion
-                will appear after the
-                nightly system update.
+                The first
+                suggestion will
+                appear after the
+                nightly system
+                update.
               </p>
             </>
           )}
       </section>
 
       <section className="panel">
-        <h2>Latest Daily</h2>
+        <h2>
+          Latest Daily
+        </h2>
 
         {logs
           .slice(0, 1)
-          .map((log) => (
-            <EntryCard
-              key={log.id}
-              log={log}
-            />
-          ))}
+          .map(
+            (log) => (
+              <EntryCard
+                key={
+                  log.id
+                }
+                log={
+                  log
+                }
+              />
+            )
+          )}
 
         {!logs.length &&
           !loading && (
@@ -525,26 +709,48 @@ export default function Home() {
       </section>
 
       <section className="panel">
-        <h2>
-          Latest Archive
-        </h2>
+        <div className="entry-head">
+          <div>
+            <p className="eyebrow">
+              Archive
+            </p>
 
-        <div className="video-grid">
-          {videos
-            .slice(0, 3)
-            .map((video) => (
-              <VideoCard
-                key={video.id}
-                video={video}
-              />
-            ))}
+            <h2>
+              Latest Archive
+            </h2>
+
+            <p className="subtitle">
+              Recent writing,
+              videos, reflections,
+              project records, and
+              references.
+            </p>
+          </div>
         </div>
 
-        {!videos.length &&
+        {archiveEntries.length >
+          0 && (
+          <div className="archive-grid">
+            {archiveEntries.map(
+              (entry) => (
+                <ArchiveCard
+                  key={
+                    entry.id
+                  }
+                  entry={
+                    entry
+                  }
+                />
+              )
+            )}
+          </div>
+        )}
+
+        {!archiveEntries.length &&
           !loading && (
             <p className="muted">
               No public Archive
-              videos yet.
+              entries yet.
             </p>
           )}
       </section>
