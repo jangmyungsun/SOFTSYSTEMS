@@ -273,10 +273,6 @@ export default function ArchivePage() {
           );
         }
 
-        /*
-         * 기존 video_archive 테이블이
-         * 아직 없는 환경도 고려한다.
-         */
         if (
           videosResult.error
         ) {
@@ -619,16 +615,17 @@ export default function ArchivePage() {
             </p>
 
             <h2>
-              Writing, Images,
-              Videos, and Process
+              Writing, Videos,
+              and Process
             </h2>
 
             <p className="subtitle">
-              A shared memory layer
-              for essays,
-              reflections, project
-              records, videos, and
-              references.
+              Essays,
+              reflections,
+              project records,
+              videos, and
+              references collected
+              in one memory layer.
             </p>
           </div>
 
@@ -783,38 +780,43 @@ export default function ArchivePage() {
         )}
 
       {!loading &&
-        filteredEntries.map(
-          (entry) => {
-            const ownsEntry =
-              Boolean(
-                user &&
-                  entry.user_id ===
-                    user.id
-              );
+        filteredEntries.length >
+          0 && (
+          <section className="archive-grid">
+            {filteredEntries.map(
+              (entry) => {
+                const ownsEntry =
+                  Boolean(
+                    user &&
+                      entry.user_id ===
+                        user.id
+                  );
 
-            return (
-              <ArchiveCard
-                key={
-                  entry.id
-                }
-                entry={
-                  entry
-                }
-                admin={
-                  ownsEntry
-                }
-                onEdit={
-                  startEditing
-                }
-                onDelete={
-                  deleteEntry
-                }
-                onToggle={
-                  toggleVisibility
-                }
-              />
-            );
-          }
+                return (
+                  <ArchiveCard
+                    key={
+                      entry.id
+                    }
+                    entry={
+                      entry
+                    }
+                    admin={
+                      ownsEntry
+                    }
+                    onEdit={
+                      startEditing
+                    }
+                    onDelete={
+                      deleteEntry
+                    }
+                    onToggle={
+                      toggleVisibility
+                    }
+                  />
+                );
+              }
+            )}
+          </section>
         )}
 
       {legacyVideos.length >
@@ -832,13 +834,13 @@ export default function ArchivePage() {
               </h2>
 
               <p className="subtitle">
-                Videos stored in the
-                original
+                Videos stored in
+                the original
                 video_archive
-                table remain visible
-                until they are moved
-                into the unified
-                Archive.
+                table remain here
+                until they are
+                moved into the
+                unified Archive.
               </p>
             </div>
           </div>
