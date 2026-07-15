@@ -1023,7 +1023,11 @@ async function generateSystemReading(
       .map(
         cleanLog
       );
-
+  const relatedArchive =
+  await findRelevantArchive(
+    logs
+  );
+  
   if (!records.length) {
     return {
       current_mode:
