@@ -4,74 +4,36 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  {
-    href: "/",
-    label: "Home",
-  },
-
-  {
-    href: "/input",
-    label: "Input",
-  },
-
-  {
-    href: "/process",
-    label: "Process",
-  },
-
-  {
-    href: "https://617068.cargo.site/",
-    label: "Output ↗",
-    external: true,
-  },
-
-  {
-    href: "/about",
-    label: "About",
-  },
-
-  {
-    href: "/login",
-    label: "Login",
-  },
+  ["/", "Home"],
+  ["/input", "Input"],
+  ["/process", "Process"],
+  ["/output", "Output"],
+  ["/about", "About"],
+  ["/letters", "Visitor Letters"],
+  ["/login", "Login"],
 ];
 
 export default function Navigation() {
-  const pathname = usePathname();
+  const pathname =
+    usePathname();
 
   return (
     <nav className="nav">
-      {links.map((link) => {
-        if (link.external) {
-          return (
-            <a
-              key={link.href}
-              href={link.href}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {link.label}
-            </a>
-          );
-        }
-
-        const active =
-          pathname === link.href ||
-          (link.href !== "/" &&
-            pathname.startsWith(link.href));
-
-        return (
+      {links.map(
+        ([href, label]) => (
           <Link
-            key={link.href}
-            href={link.href}
+            key={href}
+            href={href}
             className={
-              active ? "active" : ""
+              pathname === href
+                ? "active"
+                : ""
             }
           >
-            {link.label}
+            {label}
           </Link>
-        );
-      })}
+        )
+      )}
     </nav>
   );
 }
