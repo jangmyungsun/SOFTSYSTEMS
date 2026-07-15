@@ -23,6 +23,7 @@ const INPUT_ITEMS = [
       "Essays, reflections, project logs, videos, and references collected as a long-term memory layer.",
     action: "Open Archive",
   },
+
   {
     href: "/daily",
     eyebrow: "Daily",
@@ -75,9 +76,9 @@ function normalizeArchiveEntry(entry) {
 
 export default function InputPage() {
   const [
-    latestArchive,
-    setLatestArchive,
-  ] = useState(null);
+    latestArchives,
+    setLatestArchives,
+  ] = useState([]);
 
   const [
     latestDaily,
@@ -128,8 +129,7 @@ export default function InputPage() {
                     false,
                 }
               )
-              .limit(1)
-              .maybeSingle(),
+              .limit(3),
 
             supabase
               .from(
@@ -163,10 +163,15 @@ export default function InputPage() {
           throw dailyResult.error;
         }
 
-        setLatestArchive(
-          normalizeArchiveEntry(
-            archiveResult.data
+        setLatestArchives(
+          (
+            archiveResult.data ||
+            []
           )
+            .map(
+              normalizeArchiveEntry
+            )
+            .filter(Boolean)
         );
 
         setLatestDaily(
@@ -179,8 +184,8 @@ export default function InputPage() {
           error
         );
 
-        setLatestArchive(
-          null
+        setLatestArchives(
+          []
         );
 
         setLatestDaily(
@@ -293,13 +298,21 @@ export default function InputPage() {
                 </Link>
               </div>
 
-              {latestArchive ? (
-                <div className="archive-grid archive-grid-single">
-                  <ArchiveCard
-                    entry={
-                      latestArchive
-                    }
-                  />
+              {latestArchives.length >
+              0 ? (
+                <div className="archive-grid">
+                  {latestArchives.map(
+                    (entry) => (
+                      <ArchiveCard
+                        key={
+                          entry.id
+                        }
+                        entry={
+                          entry
+                        }
+                      />
+                    )
+                  )}
                 </div>
               ) : (
                 <p className="muted">
