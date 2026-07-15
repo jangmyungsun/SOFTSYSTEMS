@@ -1,5 +1,20 @@
 import MediaPreview from "./MediaPreview";
 
+function formatLabel(value) {
+  if (!value) {
+    return "";
+  }
+
+  return String(value)
+    .split("-")
+    .map(
+      (word) =>
+        word.charAt(0).toUpperCase() +
+        word.slice(1)
+    )
+    .join(" ");
+}
+
 export default function EntryCard({
   log,
   admin = false,
@@ -9,19 +24,29 @@ export default function EntryCard({
 }) {
   const environment =
     log.environment &&
-    typeof log.environment === "object"
+    typeof log.environment === "object" &&
+    !Array.isArray(log.environment)
       ? log.environment
       : {};
 
   const state =
     log.state &&
-    typeof log.state === "object"
+    typeof log.state === "object" &&
+    !Array.isArray(log.state)
       ? log.state
+      : {};
+
+  const movement =
+    log.movement &&
+    typeof log.movement === "object" &&
+    !Array.isArray(log.movement)
+      ? log.movement
       : {};
 
   const work =
     log.work &&
-    typeof log.work === "object"
+    typeof log.work === "object" &&
+    !Array.isArray(log.work)
       ? log.work
       : {};
 
@@ -110,11 +135,18 @@ export default function EntryCard({
       ? work.items
       : [];
 
-  const hasArtisticInput =
-    Boolean(artisticInput.type) ||
-    Boolean(artisticInput.title) ||
-    Boolean(artisticInput.creator) ||
-    Boolean(artisticInput.note);
+  const hasBodyData =
+    state.body_state !== "" ||
+    state.energy !== "" ||
+    state.mood !== "" ||
+    state.weight !== "" ||
+    state.temperature !== "";
+
+  const hasMovement =
+    Boolean(movement.time) ||
+    Boolean(movement.type) ||
+    Boolean(movement.intensity) ||
+    Boolean(movement.notes);
 
   const hasEnvironmentData =
     Boolean(weather) ||
@@ -125,28 +157,16 @@ export default function EntryCard({
     Boolean(sunrise) ||
     Boolean(sunset);
 
-  const hasBodyData =
-    state.body_state !== "" ||
-    state.energy !== "" ||
-    state.mood !== "" ||
-    state.weight !== "" ||
-    state.temperature !== "";
-
   const hasMakingData =
     Boolean(work.time) ||
     Boolean(work.project) ||
     makingItems.length > 0;
 
-  const formatArtisticType = (type) => {
-    if (!type) {
-      return "";
-    }
-
-    return (
-      type.charAt(0).toUpperCase() +
-      type.slice(1)
-    );
-  };
+  const hasArtisticInput =
+    Boolean(artisticInput.type) ||
+    Boolean(artisticInput.title) ||
+    Boolean(artisticInput.creator) ||
+    Boolean(artisticInput.note);
 
   return (
     <article className="entry">
@@ -222,6 +242,50 @@ export default function EntryCard({
           ) : (
             <p className="muted">
               No body data recorded.
+            </p>
+          )}
+        </section>
+
+        <section className="block">
+          <p className="block-title">
+            Body Practice
+          </p>
+
+          {hasMovement ? (
+            <>
+              {movement.type && (
+                <p>
+                  Type —{" "}
+                  {formatLabel(
+                    movement.type
+                  )}
+                </p>
+              )}
+
+              {movement.time && (
+                <p>
+                  Time —{" "}
+                  {movement.time}
+                </p>
+              )}
+
+              {movement.intensity && (
+                <p>
+                  Intensity —{" "}
+                  {movement.intensity}/5
+                </p>
+              )}
+
+              {movement.notes && (
+                <p>
+                  Notes —{" "}
+                  {movement.notes}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="muted">
+              No body practice recorded.
             </p>
           )}
         </section>
@@ -363,7 +427,7 @@ export default function EntryCard({
               {artisticInput.type && (
                 <p>
                   Type —{" "}
-                  {formatArtisticType(
+                  {formatLabel(
                     artisticInput.type
                   )}
                 </p>
@@ -564,8 +628,8 @@ export default function EntryCard({
               {Array.isArray(
                 aiAnalysis.body_signals
               ) &&
-                aiAnalysis.body_signals
-                  .length > 0 && (
+                aiAnalysis.body_signals.length >
+                  0 && (
                   <div>
                     <p className="block-title">
                       Body Signals
@@ -589,8 +653,8 @@ export default function EntryCard({
               {Array.isArray(
                 aiAnalysis.practice_signals
               ) &&
-                aiAnalysis.practice_signals
-                  .length > 0 && (
+                aiAnalysis.practice_signals.length >
+                  0 && (
                   <div>
                     <p className="block-title">
                       Practice Signals
