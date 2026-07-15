@@ -19,19 +19,20 @@ const MAX_LOGS = 100;
 const MAX_EDGES = 80;
 const MIN_SIMILARITY = 0.72;
 
-/*
- * System 분석 결과 형식
- */
 const SYSTEM_SCHEMA = {
   type: "object",
 
   properties: {
     current_mode: {
       type: "string",
+      description:
+        "A concise name for the current mode of the artistic ecology.",
     },
 
     overview: {
       type: "string",
+      description:
+        "A precise two-to-four sentence reading of the recent period.",
     },
 
     recurring_signals: {
@@ -105,10 +106,14 @@ const SYSTEM_SCHEMA = {
 
     open_question: {
       type: "string",
+      description:
+        "One open-ended question for continued observation rather than productivity advice.",
     },
 
     confidence_note: {
       type: "string",
+      description:
+        "A brief statement describing the limits of the available evidence.",
     },
   },
 
@@ -125,9 +130,6 @@ const SYSTEM_SCHEMA = {
   additionalProperties: false,
 };
 
-/*
- * Home 추천 결과 형식
- */
 const GUIDANCE_SCHEMA = {
   type: "object",
 
@@ -141,19 +143,19 @@ const GUIDANCE_SCHEMA = {
     reading: {
       type: "string",
       description:
-        "A careful interpretation of the recent records.",
+        "A careful interpretation of recent records.",
     },
 
     suggested_gesture: {
       type: "string",
       description:
-        "One small, concrete, low-pressure action for today.",
+        "One small, specific, low-pressure action for today.",
     },
 
     avoid: {
       type: "string",
       description:
-        "An optional form of intensity to avoid or reduce.",
+        "A form of intensity that may be useful to avoid or reduce.",
     },
 
     basis: {
@@ -168,6 +170,8 @@ const GUIDANCE_SCHEMA = {
 
     confidence_note: {
       type: "string",
+      description:
+        "A short statement about uncertainty or limited data.",
     },
   },
 
@@ -201,7 +205,9 @@ function getArray(value) {
     : [];
 }
 
-function getDateString(date = new Date()) {
+function getDateString(
+  date = new Date()
+) {
   return date
     .toISOString()
     .slice(0, 10);
@@ -211,18 +217,19 @@ function getStartDate(days) {
   const date = new Date();
 
   date.setUTCDate(
-    date.getUTCDate() - days
+    date.getUTCDate() -
+      days
   );
 
   return getDateString(date);
 }
 
-/*
- * OpenAI에 전달할 기록을 정리한다.
- */
 function cleanLog(log) {
   const state =
     getObject(log.state);
+
+  const movement =
+    getObject(log.movement);
 
   const environment =
     getObject(log.environment);
@@ -231,82 +238,126 @@ function cleanLog(log) {
     getObject(log.work);
 
   const artisticInput =
-    getObject(log.artistic_input);
+    getObject(
+      log.artistic_input
+    );
 
   const aiAnalysis =
-    getObject(log.ai_analysis);
+    getObject(
+      log.ai_analysis
+    );
 
   return {
-    id: log.id,
-    date: log.date,
+    id:
+      log.id,
+
+    date:
+      log.date || "",
 
     body: {
       body_state:
-        state.body_state || null,
+        state.body_state ||
+        null,
 
       energy:
-        state.energy || null,
+        state.energy ||
+        null,
 
       mood:
-        state.mood || null,
+        state.mood ||
+        null,
 
       weight:
-        state.weight || null,
+        state.weight ||
+        null,
 
       temperature:
-        state.temperature || null,
+        state.temperature ||
+        null,
+    },
+
+    body_practice: {
+      time:
+        movement.time ||
+        "",
+
+      type:
+        movement.type ||
+        "",
+
+      intensity:
+        movement.intensity ||
+        "",
+
+      notes:
+        movement.notes ||
+        "",
     },
 
     environment,
 
     making: {
       time:
-        work.time || "",
+        work.time ||
+        "",
 
       project:
-        work.project || "",
+        work.project ||
+        "",
 
       notes:
-        getArray(work.items),
+        getArray(
+          work.items
+        ),
     },
 
     learning:
-      getArray(log.learning),
+      getArray(
+        log.learning
+      ),
 
     artistic_input: {
       type:
-        artisticInput.type || "",
+        artisticInput.type ||
+        "",
 
       title:
-        artisticInput.title || "",
+        artisticInput.title ||
+        "",
 
       creator:
-        artisticInput.creator || "",
+        artisticInput.creator ||
+        "",
 
       note:
-        artisticInput.note || "",
+        artisticInput.note ||
+        "",
     },
 
     observation:
-      log.observation || "",
+      log.observation ||
+      "",
 
     alignment:
-      log.alignment || "",
+      log.alignment ||
+      "",
 
     tomorrow:
-      getArray(log.tomorrow),
+      getArray(
+        log.tomorrow
+      ),
 
     ai_analysis:
       aiAnalysis,
   };
 }
 
-/*
- * Weave embedding에 들어갈 의미 텍스트
- */
 function makeEmbeddingText(log) {
   const state =
     getObject(log.state);
+
+  const movement =
+    getObject(log.movement);
 
   const environment =
     getObject(log.environment);
@@ -315,42 +366,74 @@ function makeEmbeddingText(log) {
     getObject(log.work);
 
   const artisticInput =
-    getObject(log.artistic_input);
+    getObject(
+      log.artistic_input
+    );
 
   const ai =
-    getObject(log.ai_analysis);
+    getObject(
+      log.ai_analysis
+    );
 
   const makingItems =
-    getArray(work.items)
-      .join("\n");
+    getArray(
+      work.items
+    ).join("\n");
 
   const learning =
-    getArray(log.learning)
-      .join("\n");
+    getArray(
+      log.learning
+    ).join("\n");
 
   const tomorrow =
-    getArray(log.tomorrow)
-      .join("\n");
+    getArray(
+      log.tomorrow
+    ).join("\n");
 
   const themes =
-    getArray(ai.themes)
-      .join(", ");
+    getArray(
+      ai.themes
+    ).join(", ");
 
   const emotions =
-    getArray(ai.emotions)
-      .join(", ");
+    getArray(
+      ai.emotions
+    ).join(", ");
 
   const keywords =
-    getArray(ai.keywords)
-      .join(", ");
+    getArray(
+      ai.keywords
+    ).join(", ");
 
   const bodySignals =
-    getArray(ai.body_signals)
-      .join(", ");
+    getArray(
+      ai.body_signals
+    ).join(", ");
 
   const practiceSignals =
-    getArray(ai.practice_signals)
-      .join(", ");
+    getArray(
+      ai.practice_signals
+    ).join(", ");
+
+  const bodyPracticeText = [
+    movement.type
+      ? `Type: ${movement.type}`
+      : "",
+
+    movement.time
+      ? `Time: ${movement.time}`
+      : "",
+
+    movement.intensity
+      ? `Intensity: ${movement.intensity} out of 5`
+      : "",
+
+    movement.notes
+      ? `Notes: ${movement.notes}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const artisticInputText = [
     artisticInput.type
@@ -375,6 +458,76 @@ function makeEmbeddingText(log) {
   return [
     log.date
       ? `Date: ${log.date}`
+      : "",
+
+    state.body_state !==
+      undefined &&
+    state.body_state !== ""
+      ? `Body state: ${state.body_state}`
+      : "",
+
+    state.energy !==
+      undefined &&
+    state.energy !== ""
+      ? `Energy: ${state.energy}`
+      : "",
+
+    state.mood !==
+      undefined &&
+    state.mood !== ""
+      ? `Mood: ${state.mood}`
+      : "",
+
+    state.weight !==
+      undefined &&
+    state.weight !== ""
+      ? `Weight: ${state.weight}`
+      : "",
+
+    state.temperature !==
+      undefined &&
+    state.temperature !== ""
+      ? `Body temperature: ${state.temperature}`
+      : "",
+
+    bodyPracticeText
+      ? `Body practice:\n${bodyPracticeText}`
+      : "",
+
+    environment.weather
+      ? `Weather: ${environment.weather}`
+      : "",
+
+    environment.temperature !==
+      undefined &&
+    environment.temperature !==
+      null &&
+    environment.temperature !== ""
+      ? `Environment temperature: ${environment.temperature}`
+      : "",
+
+    environment.humidity !==
+      undefined &&
+    environment.humidity !==
+      null &&
+    environment.humidity !== ""
+      ? `Humidity: ${environment.humidity}`
+      : "",
+
+    environment.pressure !==
+      undefined &&
+    environment.pressure !==
+      null &&
+    environment.pressure !== ""
+      ? `Pressure: ${environment.pressure}`
+      : "",
+
+    environment.wind !==
+      undefined &&
+    environment.wind !==
+      null &&
+    environment.wind !== ""
+      ? `Wind: ${environment.wind}`
       : "",
 
     work.project
@@ -436,51 +589,33 @@ function makeEmbeddingText(log) {
     practiceSignals
       ? `Practice signals: ${practiceSignals}`
       : "",
-
-    environment.weather
-      ? `Weather: ${environment.weather}`
-      : "",
-
-    environment.temperature !==
-      undefined &&
-    environment.temperature !== null
-      ? `Environment temperature: ${environment.temperature}`
-      : "",
-
-    environment.humidity !==
-      undefined &&
-    environment.humidity !== null
-      ? `Humidity: ${environment.humidity}`
-      : "",
-
-    state.body_state
-      ? `Body state: ${state.body_state}`
-      : "",
-
-    state.energy
-      ? `Energy: ${state.energy}`
-      : "",
-
-    state.mood
-      ? `Mood: ${state.mood}`
-      : "",
   ]
     .filter(Boolean)
     .join("\n");
 }
 
 function parseEmbedding(value) {
-  if (Array.isArray(value)) {
-    return value.map(Number);
+  if (
+    Array.isArray(value)
+  ) {
+    return value
+      .map(Number)
+      .filter(
+        Number.isFinite
+      );
   }
 
-  if (typeof value === "string") {
+  if (
+    typeof value === "string"
+  ) {
     return value
       .replace(/^\[/, "")
       .replace(/\]$/, "")
       .split(",")
       .map(Number)
-      .filter(Number.isFinite);
+      .filter(
+        Number.isFinite
+      );
   }
 
   return null;
@@ -491,8 +626,12 @@ function cosineSimilarity(
   secondVector
 ) {
   if (
-    !Array.isArray(firstVector) ||
-    !Array.isArray(secondVector) ||
+    !Array.isArray(
+      firstVector
+    ) ||
+    !Array.isArray(
+      secondVector
+    ) ||
     firstVector.length === 0 ||
     firstVector.length !==
       secondVector.length
@@ -506,34 +645,49 @@ function cosineSimilarity(
 
   for (
     let index = 0;
-    index < firstVector.length;
+    index <
+    firstVector.length;
     index += 1
   ) {
     const firstValue =
-      Number(firstVector[index]);
+      Number(
+        firstVector[index]
+      );
 
     const secondValue =
-      Number(secondVector[index]);
+      Number(
+        secondVector[index]
+      );
 
     dotProduct +=
-      firstValue * secondValue;
+      firstValue *
+      secondValue;
 
     firstNorm +=
-      firstValue * firstValue;
+      firstValue *
+      firstValue;
 
     secondNorm +=
-      secondValue * secondValue;
+      secondValue *
+      secondValue;
   }
 
-  if (!firstNorm || !secondNorm) {
+  if (
+    !firstNorm ||
+    !secondNorm
+  ) {
     return 0;
   }
 
   return (
     dotProduct /
     (
-      Math.sqrt(firstNorm) *
-      Math.sqrt(secondNorm)
+      Math.sqrt(
+        firstNorm
+      ) *
+      Math.sqrt(
+        secondNorm
+      )
     )
   );
 }
@@ -542,6 +696,9 @@ function makeWeaveNode(log) {
   const state =
     getObject(log.state);
 
+  const movement =
+    getObject(log.movement);
+
   const environment =
     getObject(log.environment);
 
@@ -549,65 +706,105 @@ function makeWeaveNode(log) {
     getObject(log.work);
 
   const artisticInput =
-    getObject(log.artistic_input);
+    getObject(
+      log.artistic_input
+    );
 
   const ai =
-    getObject(log.ai_analysis);
+    getObject(
+      log.ai_analysis
+    );
 
   return {
-    id: log.id,
-    date: log.date,
+    id:
+      log.id,
+
+    date:
+      log.date,
 
     project:
-      work.project || "",
+      work.project ||
+      "",
 
     summary:
       ai.summary ||
       log.observation ||
       artisticInput.title ||
+      movement.notes ||
       "Untitled Daily",
 
     themes:
-      getArray(ai.themes),
+      getArray(
+        ai.themes
+      ),
 
     emotions:
-      getArray(ai.emotions),
+      getArray(
+        ai.emotions
+      ),
 
     keywords:
-      getArray(ai.keywords),
+      getArray(
+        ai.keywords
+      ),
 
     body_state:
-      state.body_state || "",
+      state.body_state ||
+      "",
 
     energy:
-      state.energy || "",
+      state.energy ||
+      "",
 
     mood:
-      state.mood || "",
+      state.mood ||
+      "",
 
     weather:
-      environment.weather || "",
+      environment.weather ||
+      "",
+
+    body_practice: {
+      type:
+        movement.type ||
+        "",
+
+      time:
+        movement.time ||
+        "",
+
+      intensity:
+        movement.intensity ||
+        "",
+
+      notes:
+        movement.notes ||
+        "",
+    },
 
     artistic_input: {
       type:
-        artisticInput.type || "",
+        artisticInput.type ||
+        "",
 
       title:
-        artisticInput.title || "",
+        artisticInput.title ||
+        "",
 
       creator:
-        artisticInput.creator || "",
+        artisticInput.creator ||
+        "",
 
       note:
-        artisticInput.note || "",
+        artisticInput.note ||
+        "",
     },
   };
 }
 
-/*
- * 최근 기록을 이용해 System Reading 생성
- */
-async function generateSystemReading(logs) {
+async function generateSystemReading(
+  logs
+) {
   const records =
     logs
       .filter(
@@ -617,7 +814,9 @@ async function generateSystemReading(logs) {
             SYSTEM_PERIOD_DAYS
           )
       )
-      .map(cleanLog);
+      .map(
+        cleanLog
+      );
 
   if (!records.length) {
     return {
@@ -625,58 +824,85 @@ async function generateSystemReading(logs) {
         "Not enough material",
 
       overview:
-        "The system has not gathered enough recent material for a period reading.",
+        "The system has not gathered enough recent material for a grounded period reading.",
 
-      recurring_signals: [],
-      relationships: [],
-      shifts: [],
+      recurring_signals:
+        [],
+
+      relationships:
+        [],
+
+      shifts:
+        [],
 
       open_question:
         "What is beginning to repeat?",
 
       confidence_note:
         "No recent Daily records were available.",
+
+      period_days:
+        SYSTEM_PERIOD_DAYS,
+
+      record_count:
+        0,
+
+      generated_at:
+        new Date()
+          .toISOString(),
+
+      model:
+        CHAT_MODEL,
     };
   }
 
   const response =
     await openai.responses.create({
-      model: CHAT_MODEL,
+      model:
+        CHAT_MODEL,
 
       input: [
         {
-          role: "system",
+          role:
+            "system",
 
           content: `
 You are the period-reading layer of SOFTSYSTEMS.
 
-SOFTSYSTEMS is an artistic ecology that observes relationships among body, weather, practice, memory, artistic input, media, and creation.
+SOFTSYSTEMS is an artistic ecology that observes relationships among body, Body Practice, environment, making, learning, artistic input, media, memory, and creation.
 
-Read several Daily records together.
+You are reading several Daily records together.
 
-Identify only patterns that are supported by the records.
+Body Practice describes what the body actually did during the day. It may include yoga, walking, running, stretching, strength work, cycling, swimming, dance, performance practice, or another embodied activity.
 
-Pay attention to:
-- body state, energy, and mood;
-- weather and environmental shifts;
-- making and learning rhythms;
-- observation and alignment;
-- repeated books, films, performances, exhibitions, music, creators, and artistic ideas;
-- relationships between artistic input and later making;
-- changes across time.
+Artistic Input may include a book, film, performance, exhibition, music work, or another artistic reference.
+
+Your task:
+- identify recurring signals supported by multiple records;
+- identify changes across time;
+- identify careful relationships among body state, Body Practice, environment, making, learning, artistic input, observation, and alignment;
+- notice repeated relationships among movement, recovery, energy, mood, making, and learning;
+- notice repeated artists, creators, works, media types, and artistic concerns;
+- notice when artistic input appears alongside later making or observation;
+- distinguish evidence from speculation;
+- state uncertainty honestly.
 
 Do not give generic motivation.
 Do not praise productivity.
-Do not diagnose illness.
+Do not provide medical diagnosis.
 Do not claim causation from correlation.
-State uncertainty honestly.
+Do not infer a stable pattern from one record.
+Do not invent unsupported evidence.
 
 Use calm, precise, observational English.
+
+The open question should invite continued noticing rather than instruct the artist to work harder.
           `.trim(),
         },
 
         {
-          role: "user",
+          role:
+            "user",
 
           content:
             JSON.stringify(
@@ -697,16 +923,24 @@ Use calm, precise, observational English.
 
       text: {
         format: {
-          type: "json_schema",
+          type:
+            "json_schema",
+
           name:
             "softsystems_system_reading",
-          strict: true,
-          schema: SYSTEM_SCHEMA,
+
+          strict:
+            true,
+
+          schema:
+            SYSTEM_SCHEMA,
         },
       },
     });
 
-  if (!response.output_text) {
+  if (
+    !response.output_text
+  ) {
     throw new Error(
       "The AI returned no System reading."
     );
@@ -724,16 +958,14 @@ Use calm, precise, observational English.
       records.length,
 
     generated_at:
-      new Date().toISOString(),
+      new Date()
+        .toISOString(),
 
     model:
       CHAT_MODEL,
   };
 }
 
-/*
- * Home에 표시할 Soft Suggestion 생성
- */
 async function generateGuidance(
   logs,
   systemReading
@@ -747,9 +979,13 @@ async function generateGuidance(
             GUIDANCE_PERIOD_DAYS
           )
       )
-      .map(cleanLog);
+      .map(
+        cleanLog
+      );
 
-  if (!recentLogs.length) {
+  if (
+    !recentLogs.length
+  ) {
     return {
       state:
         "Listening",
@@ -769,57 +1005,75 @@ async function generateGuidance(
 
       confidence_note:
         "This suggestion is intentionally general because recent data is limited.",
+
+      generated_at:
+        new Date()
+          .toISOString(),
+
+      model:
+        CHAT_MODEL,
     };
   }
 
   const response =
     await openai.responses.create({
-      model: CHAT_MODEL,
+      model:
+        CHAT_MODEL,
 
       input: [
         {
-          role: "system",
+          role:
+            "system",
 
           content: `
 You create the daily Soft Suggestion for SOFTSYSTEMS.
 
-SOFTSYSTEMS is not a productivity app.
-The suggestion should support the artist's body, attention, and creative ecology.
+SOFTSYSTEMS is not a productivity application.
 
-Use recent records and the latest System reading.
+The suggestion should support the artist's body, attention, recovery, and creative ecology.
+
+Use the recent Daily records and the latest System reading.
 
 You may notice:
-- low body state or energy;
+- low body state, energy, or mood;
 - signs of strain or incomplete recovery;
-- weather conditions that previously appeared with particular reactions;
-- repeated patterns around making, listening, walking, collecting, editing, resting, or learning;
-- artistic inputs that may offer a gentle direction.
+- weather conditions that previously appeared alongside particular reactions;
+- patterns around making, listening, walking, collecting, editing, learning, resting, or observing;
+- Body Practices such as yoga, walking, running, stretching, performance practice, or gentle movement that previously appeared alongside particular bodily or creative states;
+- artistic inputs that may offer a gentle direction;
+- a next experiment already written in the recent records.
 
-Give one small and realistic gesture.
+Give one small, concrete, realistic gesture.
 
-Examples of appropriate gestures:
+Appropriate examples:
 - take a short walk and collect one sound;
 - listen without editing;
 - keep making light;
 - work near a window;
 - reread one marked passage;
 - leave the material unorganized today;
+- choose gentle stretching rather than intense movement;
 - rest or reduce intensity when the records support it.
 
 Do not diagnose illness.
-Do not say that weather caused a reaction.
-Do not give medical instructions.
+Do not prescribe medical treatment.
+Do not say weather caused a reaction.
+Do not claim Body Practice caused a later outcome.
 Do not give generic productivity advice.
 Do not tell the artist to push harder.
 Do not invent evidence.
 
-If the data is limited, say so.
+If recent records indicate pain, illness, fatigue, or strain, use cautious language such as:
+"Consider keeping today's activity gentle."
+Never present the system as a substitute for medical care.
+
 Use calm, precise, concise English.
           `.trim(),
         },
 
         {
-          role: "user",
+          role:
+            "user",
 
           content:
             JSON.stringify(
@@ -841,16 +1095,24 @@ Use calm, precise, concise English.
 
       text: {
         format: {
-          type: "json_schema",
+          type:
+            "json_schema",
+
           name:
             "softsystems_daily_guidance",
-          strict: true,
-          schema: GUIDANCE_SCHEMA,
+
+          strict:
+            true,
+
+          schema:
+            GUIDANCE_SCHEMA,
         },
       },
     });
 
-  if (!response.output_text) {
+  if (
+    !response.output_text
+  ) {
     throw new Error(
       "The AI returned no guidance."
     );
@@ -862,39 +1124,55 @@ Use calm, precise, concise English.
     ),
 
     generated_at:
-      new Date().toISOString(),
+      new Date()
+        .toISOString(),
 
     model:
       CHAT_MODEL,
   };
 }
 
-/*
- * 변경된 Daily만 embedding 갱신하고
- * 의미 연결을 계산한다.
- */
-async function generateWeave(logs) {
+async function generateWeave(
+  logs
+) {
   const preparedLogs =
     logs
-      .slice(-MAX_LOGS)
-      .map((log) => ({
-        ...log,
+      .slice(
+        -MAX_LOGS
+      )
+      .map(
+        (log) => ({
+          ...log,
 
-        nextEmbeddingText:
-          makeEmbeddingText(log),
-      }));
+          nextEmbeddingText:
+            makeEmbeddingText(
+              log
+            ),
+        })
+      );
 
   const logsNeedingEmbedding =
-    preparedLogs.filter((log) => {
-      return (
-        !log.embedding ||
-        log.embedding_text !==
-          log.nextEmbeddingText
-      );
-    });
+    preparedLogs.filter(
+      (log) => {
+        const hasEmbedding =
+          Boolean(
+            log.embedding
+          );
+
+        const textChanged =
+          log.embedding_text !==
+          log.nextEmbeddingText;
+
+        return (
+          !hasEmbedding ||
+          textChanged
+        );
+      }
+    );
 
   if (
-    logsNeedingEmbedding.length > 0
+    logsNeedingEmbedding.length >
+    0
   ) {
     const embeddingResponse =
       await openai.embeddings.create({
@@ -915,7 +1193,9 @@ async function generateWeave(logs) {
       index += 1
     ) {
       const log =
-        logsNeedingEmbedding[index];
+        logsNeedingEmbedding[
+          index
+        ];
 
       const embedding =
         embeddingResponse
@@ -927,9 +1207,11 @@ async function generateWeave(logs) {
       }
 
       const updatedAt =
-        new Date().toISOString();
+        new Date()
+          .toISOString();
 
-      log.embedding = embedding;
+      log.embedding =
+        embedding;
 
       log.embedding_text =
         log.nextEmbeddingText;
@@ -938,9 +1220,12 @@ async function generateWeave(logs) {
         updatedAt;
 
       const {
-        error: updateError,
+        error:
+          updateError,
       } = await supabaseAdmin
-        .from("field_logs")
+        .from(
+          "field_logs"
+        )
         .update({
           embedding,
 
@@ -950,9 +1235,14 @@ async function generateWeave(logs) {
           embedding_updated_at:
             updatedAt,
         })
-        .eq("id", log.id);
+        .eq(
+          "id",
+          log.id
+        );
 
-      if (updateError) {
+      if (
+        updateError
+      ) {
         throw updateError;
       }
     }
@@ -960,46 +1250,58 @@ async function generateWeave(logs) {
 
   const usableLogs =
     preparedLogs
-      .map((log) => ({
-        ...log,
+      .map(
+        (log) => ({
+          ...log,
 
-        parsedEmbedding:
-          parseEmbedding(
-            log.embedding
-          ),
-      }))
-      .filter((log) => {
-        return (
+          parsedEmbedding:
+            parseEmbedding(
+              log.embedding
+            ),
+        })
+      )
+      .filter(
+        (log) =>
           Array.isArray(
             log.parsedEmbedding
           ) &&
-          log.parsedEmbedding.length > 0
-        );
-      });
+          log
+            .parsedEmbedding
+            .length > 0
+      );
 
   const edges = [];
 
   for (
     let firstIndex = 0;
-    firstIndex < usableLogs.length;
+    firstIndex <
+    usableLogs.length;
     firstIndex += 1
   ) {
     for (
       let secondIndex =
         firstIndex + 1;
-      secondIndex < usableLogs.length;
+      secondIndex <
+        usableLogs.length;
       secondIndex += 1
     ) {
       const firstLog =
-        usableLogs[firstIndex];
+        usableLogs[
+          firstIndex
+        ];
 
       const secondLog =
-        usableLogs[secondIndex];
+        usableLogs[
+          secondIndex
+        ];
 
       const similarity =
         cosineSimilarity(
-          firstLog.parsedEmbedding,
-          secondLog.parsedEmbedding
+          firstLog
+            .parsedEmbedding,
+
+          secondLog
+            .parsedEmbedding
         );
 
       if (
@@ -1015,7 +1317,9 @@ async function generateWeave(logs) {
 
           similarity:
             Number(
-              similarity.toFixed(4)
+              similarity.toFixed(
+                4
+              )
             ),
         });
       }
@@ -1023,7 +1327,10 @@ async function generateWeave(logs) {
   }
 
   edges.sort(
-    (firstEdge, secondEdge) =>
+    (
+      firstEdge,
+      secondEdge
+    ) =>
       secondEdge.similarity -
       firstEdge.similarity
   );
@@ -1045,7 +1352,8 @@ async function generateWeave(logs) {
         usableLogs.length,
 
       generated_embeddings:
-        logsNeedingEmbedding.length,
+        logsNeedingEmbedding
+          .length,
 
       threshold:
         MIN_SIMILARITY,
@@ -1053,19 +1361,22 @@ async function generateWeave(logs) {
       embedding_model:
         EMBEDDING_MODEL,
 
+      includes_body_practice:
+        true,
+
       includes_artistic_input:
         true,
 
       generated_at:
-        new Date().toISOString(),
+        new Date()
+          .toISOString(),
     },
   };
 }
 
-/*
- * Vercel Cron은 GET 요청으로 실행한다.
- */
-export async function GET(request) {
+export async function GET(
+  request
+) {
   try {
     const authorization =
       request.headers.get(
@@ -1095,13 +1406,16 @@ export async function GET(request) {
       data: logs,
       error: logsError,
     } = await supabaseAdmin
-      .from("field_logs")
+      .from(
+        "field_logs"
+      )
       .select(
         `
           id,
           user_id,
           date,
           state,
+          movement,
           environment,
           work,
           learning,
@@ -1121,31 +1435,37 @@ export async function GET(request) {
         "is_public",
         true
       )
-      .order("date", {
-        ascending: true,
-      })
-      .limit(MAX_LOGS);
+      .order(
+        "date",
+        {
+          ascending: true,
+        }
+      )
+      .limit(
+        MAX_LOGS
+      );
 
-    if (logsError) {
+    if (
+      logsError
+    ) {
       throw logsError;
     }
 
-    if (!logs?.length) {
-      return NextResponse.json(
-        {
-          success: true,
-          message:
-            "No public Daily records were found.",
-        }
-      );
+    if (
+      !logs?.length
+    ) {
+      return NextResponse.json({
+        success:
+          true,
+
+        message:
+          "No public Daily records were found.",
+      });
     }
 
     const snapshotDate =
       getDateString();
 
-    /*
-     * 1. System 생성
-     */
     const systemReading =
       await generateSystemReading(
         logs
@@ -1155,7 +1475,9 @@ export async function GET(request) {
       error:
         systemSnapshotError,
     } = await supabaseAdmin
-      .from("system_snapshots")
+      .from(
+        "system_snapshots"
+      )
       .upsert(
         {
           snapshot_date:
@@ -1180,13 +1502,12 @@ export async function GET(request) {
         }
       );
 
-    if (systemSnapshotError) {
+    if (
+      systemSnapshotError
+    ) {
       throw systemSnapshotError;
     }
 
-    /*
-     * 2. Soft Suggestion 생성
-     */
     const guidance =
       await generateGuidance(
         logs,
@@ -1197,7 +1518,9 @@ export async function GET(request) {
       error:
         guidanceError,
     } = await supabaseAdmin
-      .from("daily_guidance")
+      .from(
+        "daily_guidance"
+      )
       .upsert(
         {
           guidance_date:
@@ -1218,21 +1541,24 @@ export async function GET(request) {
         }
       );
 
-    if (guidanceError) {
+    if (
+      guidanceError
+    ) {
       throw guidanceError;
     }
 
-    /*
-     * 3. Semantic Weave 생성
-     */
     const weave =
-      await generateWeave(logs);
+      await generateWeave(
+        logs
+      );
 
     const {
       error:
         weaveSnapshotError,
     } = await supabaseAdmin
-      .from("weave_snapshots")
+      .from(
+        "weave_snapshots"
+      )
       .upsert(
         {
           snapshot_date:
@@ -1260,12 +1586,15 @@ export async function GET(request) {
         }
       );
 
-    if (weaveSnapshotError) {
+    if (
+      weaveSnapshotError
+    ) {
       throw weaveSnapshotError;
     }
 
     return NextResponse.json({
-      success: true,
+      success:
+        true,
 
       snapshot_date:
         snapshotDate,
@@ -1309,7 +1638,8 @@ export async function GET(request) {
 
     return NextResponse.json(
       {
-        success: false,
+        success:
+          false,
 
         error:
           error?.message ||
