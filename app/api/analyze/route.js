@@ -1,358 +1,718 @@
-import { NextResponse } from "next/server";
+import MediaPreview from "./MediaPreview";
 
-import { openai } from "../../../lib/openai";
-import { supabaseAdmin } from "../../../lib/supabaseAdmin";
+function formatLabel(value) {
+  if (!value) {
+    return "";
+  }
 
-const ANALYSIS_SCHEMA = {
-  type: "object",
-
-  properties: {
-    summary: {
-      type: "string",
-      description:
-        "A concise observation of the day in one or two sentences.",
-    },
-
-    emotions: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-      maxItems: 5,
-    },
-
-    themes: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-      maxItems: 6,
-    },
-
-    keywords: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-      maxItems: 10,
-    },
-
-    body_signals: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-      maxItems: 5,
-    },
-
-    practice_signals: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-      maxItems: 5,
-    },
-
-    relationship: {
-      type: "string",
-      description:
-        "A careful observation about the relationship among body, environment, artistic input, and artistic practice.",
-    },
-  },
-
-  required: [
-    "summary",
-    "emotions",
-    "themes",
-    "keywords",
-    "body_signals",
-    "practice_signals",
-    "relationship",
-  ],
-
-  additionalProperties: false,
-};
-
-function makeAnalysisInput(log) {
-  const mediaItems = Array.isArray(log.media)
-    ? log.media
-    : [];
-
-  const learningItems = Array.isArray(log.learning)
-    ? log.learning
-    : [];
-
-  const tomorrowItems = Array.isArray(log.tomorrow)
-    ? log.tomorrow
-    : [];
-
-  const makingItems = Array.isArray(
-    log.work?.items
-  )
-    ? log.work.items
-    : [];
-
-  return {
-    date: log.date || "",
-
-    body: {
-      body_state:
-        log.state?.body_state || null,
-
-      energy:
-        log.state?.energy || null,
-
-      mood:
-        log.state?.mood || null,
-
-      weight:
-        log.state?.weight || null,
-
-      temperature:
-        log.state?.temperature || null,
-    },
-
-    environment:
-      log.environment &&
-      typeof log.environment === "object"
-        ? log.environment
-        : {},
-
-    making: {
-      time:
-        log.work?.time || "",
-
-      project:
-        log.work?.project || "",
-
-      notes:
-        makingItems,
-    },
-
-    learning:
-      learningItems,
-
-    artistic_input: {
-      type:
-        log.artistic_input?.type || "",
-
-      title:
-        log.artistic_input?.title || "",
-
-      creator:
-        log.artistic_input?.creator || "",
-
-      note:
-        log.artistic_input?.note || "",
-    },
-
-    observation:
-      log.observation || "",
-
-    alignment:
-      log.alignment || "",
-
-    tomorrow:
-      tomorrowItems,
-
-    media:
-      mediaItems.map((item) => ({
-        type:
-          item?.type || "",
-
-        name:
-          item?.name ||
-          item?.file_name ||
-          "",
-      })),
-  };
+  return String(value)
+    .split("-")
+    .map(
+      (word) =>
+        word.charAt(0).toUpperCase() +
+        word.slice(1)
+    )
+    .join(" ");
 }
 
-export async function POST(request) {
-  try {
-    const authorization =
-      request.headers.get(
-        "authorization"
-      );
+export default function EntryCard({
+  log,
+  admin = false,
+  onEdit,
+  onDelete,
+  onToggle,
+}) {
+  const environment =
+    log.environment &&
+    typeof log.environment === "object" &&
+    !Array.isArray(log.environment)
+      ? log.environment
+      : {};
 
-    const accessToken =
-      authorization?.startsWith(
-        "Bearer "
-      )
-        ? authorization.slice(7)
-        : "";
+  const state =
+    log.state &&
+    typeof log.state === "object" &&
+    !Array.isArray(log.state)
+      ? log.state
+      : {};
 
-    if (!accessToken) {
-      return NextResponse.json(
-        {
-          error:
-            "Authentication is required.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
+  const movement =
+    log.movement &&
+    typeof log.movement === "object" &&
+    !Array.isArray(log.movement)
+      ? log.movement
+      : {};
 
-    const {
-      data: userData,
-      error: userError,
-    } =
-      await supabaseAdmin.auth.getUser(
-        accessToken
-      );
+  const work =
+    log.work &&
+    typeof log.work === "object" &&
+    !Array.isArray(log.work)
+      ? log.work
+      : {};
 
-    if (
-      userError ||
-      !userData?.user
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Invalid authentication.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
+  const artisticInput =
+    log.artistic_input &&
+    typeof log.artistic_input === "object" &&
+    !Array.isArray(log.artistic_input)
+      ? log.artistic_input
+      : {};
 
-    const requestBody =
-      await request.json();
+  const aiAnalysis =
+    log.ai_analysis &&
+    typeof log.ai_analysis === "object" &&
+    !Array.isArray(log.ai_analysis)
+      ? log.ai_analysis
+      : null;
 
-    const log =
-      requestBody?.log;
+  const weather =
+    environment.weather ||
+    state.weather ||
+    "";
 
-    if (!log) {
-      return NextResponse.json(
-        {
-          error:
-            "Daily data is required.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
+  const weatherTemperature =
+    environment.temperature ??
+    state.weather_temperature ??
+    "";
 
-    const analysisInput =
-      makeAnalysisInput(log);
+  const humidity =
+    environment.humidity ??
+    state.humidity ??
+    "";
 
-    const model =
-      process.env.OPENAI_MODEL ||
-      "gpt-5.6";
+  const pressure =
+    environment.pressure ??
+    state.pressure ??
+    "";
 
-    const response =
-      await openai.responses.create({
-        model,
+  const wind =
+    environment.wind ??
+    state.wind ??
+    "";
 
-        input: [
-          {
-            role: "system",
+  const sunrise =
+    environment.sunrise ||
+    state.sunrise ||
+    "";
 
-            content: `
-You are the interpretive layer of SOFTSYSTEMS.
+  const sunset =
+    environment.sunset ||
+    state.sunset ||
+    "";
 
-SOFTSYSTEMS is not a productivity tool.
-It is an artistic ecology that observes relationships among body, environment, practice, memory, artistic references, media, and creation.
+  const temperatureUnit =
+    environment.units?.temperature ||
+    "";
 
-Your task is to carefully interpret one Daily record.
+  const humidityUnit =
+    environment.units?.humidity ||
+    "";
 
-The Artistic Input may include a book, film, performance, exhibition, music work, or another reference.
+  const pressureUnit =
+    environment.units?.pressure ||
+    "";
 
-Do not summarize the artistic work itself unless that summary is directly necessary.
+  const windUnit =
+    environment.units?.wind ||
+    "";
 
-Instead, observe how the artistic input may relate to:
-- body state;
-- energy and mood;
-- environment;
-- observation;
-- making;
-- learning;
-- alignment;
-- recurring artistic concerns.
+  const learningItems =
+    Array.isArray(log.learning)
+      ? log.learning
+      : [];
 
-Treat the artistic input as one signal within the day, not as proof of causation.
+  const mediaItems =
+    Array.isArray(log.media)
+      ? log.media
+      : [];
 
-Do not give generic motivation.
-Do not praise productivity.
-Do not make medical diagnoses.
-Do not exaggerate patterns from one entry.
-Do not claim that one artistic reference caused a body state or creative outcome.
+  const tomorrowItems =
+    Array.isArray(log.tomorrow)
+      ? log.tomorrow
+      : [];
 
-Use calm, precise, observational language.
-Treat uncertainty honestly.
-Focus on signals and relationships that may become meaningful when compared over time.
+  const makingItems =
+    Array.isArray(work.items)
+      ? work.items
+      : [];
 
-When appropriate, include the title, creator, medium, or central concern of the artistic input in themes or keywords.
+  const hasBodyData =
+    state.body_state !== "" ||
+    state.energy !== "" ||
+    state.mood !== "" ||
+    state.weight !== "" ||
+    state.temperature !== "";
 
-Return all labels and observations in English.
-            `.trim(),
-          },
+  const hasMovement =
+    Boolean(movement.time) ||
+    Boolean(movement.type) ||
+    Boolean(movement.intensity) ||
+    Boolean(movement.notes);
 
-          {
-            role: "user",
+  const hasEnvironmentData =
+    Boolean(weather) ||
+    weatherTemperature !== "" ||
+    humidity !== "" ||
+    pressure !== "" ||
+    wind !== "" ||
+    Boolean(sunrise) ||
+    Boolean(sunset);
 
-            content:
-              JSON.stringify(
-                analysisInput,
-                null,
-                2
-              ),
-          },
-        ],
+  const hasMakingData =
+    Boolean(work.time) ||
+    Boolean(work.project) ||
+    makingItems.length > 0;
 
-        text: {
-          format: {
-            type: "json_schema",
+  const hasArtisticInput =
+    Boolean(artisticInput.type) ||
+    Boolean(artisticInput.title) ||
+    Boolean(artisticInput.creator) ||
+    Boolean(artisticInput.note);
 
-            name:
-              "softsystems_daily_analysis",
+  return (
+    <article className="entry">
+      <div className="entry-head">
+        <div>
+          <p className="eyebrow">
+            Daily
+          </p>
 
-            strict: true,
+          <div className="entry-date">
+            {log.date}
+          </div>
+        </div>
 
-            schema:
-              ANALYSIS_SCHEMA,
-          },
-        },
-      });
+        <div className="actions">
+          {log.pace && (
+            <span className="pace">
+              {log.pace}
+            </span>
+          )}
 
-    if (!response.output_text) {
-      throw new Error(
-        "The AI returned no analysis."
-      );
-    }
+          <span className="badge">
+            {log.is_public
+              ? "public"
+              : "private"}
+          </span>
+        </div>
+      </div>
 
-    const analysis =
-      JSON.parse(
-        response.output_text
-      );
+      <div className="entry-grid">
+        <section className="block">
+          <p className="block-title">
+            Body
+          </p>
 
-    return NextResponse.json({
-      analysis: {
-        ...analysis,
+          {hasBodyData ? (
+            <>
+              {state.body_state !== "" && (
+                <p>
+                  Body State —{" "}
+                  {state.body_state}
+                </p>
+              )}
 
-        analyzed_at:
-          new Date().toISOString(),
+              {state.energy !== "" && (
+                <p>
+                  Energy —{" "}
+                  {state.energy}
+                </p>
+              )}
 
-        model,
-      },
-    });
-  } catch (error) {
-    console.error(
-      "AI analysis failed:",
-      error
-    );
+              {state.mood !== "" && (
+                <p>
+                  Mood —{" "}
+                  {state.mood}
+                </p>
+              )}
 
-    return NextResponse.json(
-      {
-        error:
-          error?.message ||
-          "AI analysis failed.",
-      },
-      {
-        status: 500,
-      }
-    );
-  }
+              {state.weight !== "" && (
+                <p>
+                  Weight —{" "}
+                  {state.weight}
+                </p>
+              )}
+
+              {state.temperature !== "" && (
+                <p>
+                  Body Temperature —{" "}
+                  {state.temperature}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="muted">
+              No body data recorded.
+            </p>
+          )}
+        </section>
+
+        <section className="block">
+          <p className="block-title">
+            Body Practice
+          </p>
+
+          {hasMovement ? (
+            <>
+              {movement.type && (
+                <p>
+                  Type —{" "}
+                  {formatLabel(
+                    movement.type
+                  )}
+                </p>
+              )}
+
+              {movement.time && (
+                <p>
+                  Time —{" "}
+                  {movement.time}
+                </p>
+              )}
+
+              {movement.intensity && (
+                <p>
+                  Intensity —{" "}
+                  {movement.intensity}/5
+                </p>
+              )}
+
+              {movement.notes && (
+                <p>
+                  Notes —{" "}
+                  {movement.notes}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="muted">
+              No body practice recorded.
+            </p>
+          )}
+        </section>
+
+        <section className="block">
+          <p className="block-title">
+            Environment
+          </p>
+
+          {hasEnvironmentData ? (
+            <>
+              {weather && (
+                <p>
+                  Weather —{" "}
+                  {weather}
+                </p>
+              )}
+
+              {weatherTemperature !== "" && (
+                <p>
+                  Temperature —{" "}
+                  {weatherTemperature}
+                  {temperatureUnit}
+                </p>
+              )}
+
+              {humidity !== "" && (
+                <p>
+                  Humidity —{" "}
+                  {humidity}
+                  {humidityUnit}
+                </p>
+              )}
+
+              {pressure !== "" && (
+                <p>
+                  Pressure —{" "}
+                  {pressure}
+                  {pressureUnit}
+                </p>
+              )}
+
+              {wind !== "" && (
+                <p>
+                  Wind —{" "}
+                  {wind}
+                  {windUnit}
+                </p>
+              )}
+
+              {sunrise && (
+                <p>
+                  Sunrise —{" "}
+                  {sunrise}
+                </p>
+              )}
+
+              {sunset && (
+                <p>
+                  Sunset —{" "}
+                  {sunset}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="muted">
+              Weather data was not collected.
+            </p>
+          )}
+        </section>
+
+        <section className="block">
+          <p className="block-title">
+            Making
+          </p>
+
+          {hasMakingData ? (
+            <>
+              {work.time && (
+                <p>
+                  Time —{" "}
+                  {work.time}
+                </p>
+              )}
+
+              {work.project && (
+                <p>
+                  Project —{" "}
+                  {work.project}
+                </p>
+              )}
+
+              {makingItems.map(
+                (item, index) => (
+                  <p
+                    key={`${item}-${index}`}
+                  >
+                    {item}
+                  </p>
+                )
+              )}
+            </>
+          ) : (
+            <p className="muted">
+              No Making record.
+            </p>
+          )}
+        </section>
+
+        <section className="block">
+          <p className="block-title">
+            Learning
+          </p>
+
+          {learningItems.length > 0 ? (
+            learningItems.map(
+              (item, index) => (
+                <p
+                  key={`${item}-${index}`}
+                >
+                  {item}
+                </p>
+              )
+            )
+          ) : (
+            <p className="muted">
+              No Learning record.
+            </p>
+          )}
+        </section>
+
+        <section className="block full">
+          <p className="block-title">
+            Artistic Input
+          </p>
+
+          {hasArtisticInput ? (
+            <>
+              {artisticInput.type && (
+                <p>
+                  Type —{" "}
+                  {formatLabel(
+                    artisticInput.type
+                  )}
+                </p>
+              )}
+
+              {artisticInput.title && (
+                <p>
+                  Title —{" "}
+                  {artisticInput.title}
+                </p>
+              )}
+
+              {artisticInput.creator && (
+                <p>
+                  Creator —{" "}
+                  {artisticInput.creator}
+                </p>
+              )}
+
+              {artisticInput.note && (
+                <p>
+                  Reference Note —{" "}
+                  {artisticInput.note}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="muted">
+              No artistic input recorded.
+            </p>
+          )}
+        </section>
+
+        <section className="block full">
+          <p className="block-title">
+            Collection
+          </p>
+
+          {mediaItems.length > 0 ? (
+            <div className="media-gallery">
+              {mediaItems.map(
+                (item, index) => (
+                  <MediaPreview
+                    key={
+                      item.path ||
+                      item.id ||
+                      `${item.name || "media"}-${index}`
+                    }
+                    logId={log.id}
+                    item={item}
+                  />
+                )
+              )}
+            </div>
+          ) : (
+            <p className="muted">
+              No collected media.
+            </p>
+          )}
+        </section>
+
+        <section className="block full">
+          <p className="block-title">
+            Observation
+          </p>
+
+          <p>
+            {log.observation ||
+              "No observation recorded."}
+          </p>
+        </section>
+
+        <section className="block full">
+          <p className="block-title">
+            Alignment
+          </p>
+
+          <p>
+            {log.alignment ||
+              "No alignment recorded."}
+          </p>
+        </section>
+
+        <section className="block full">
+          <p className="block-title">
+            Tomorrow
+          </p>
+
+          {tomorrowItems.length > 0 ? (
+            tomorrowItems.map(
+              (item, index) => (
+                <p
+                  key={`${item}-${index}`}
+                >
+                  {item}
+                </p>
+              )
+            )
+          ) : (
+            <p className="muted">
+              Nothing recorded for tomorrow.
+            </p>
+          )}
+        </section>
+
+        {aiAnalysis?.summary && (
+          <section className="block full ai-reading">
+            <p className="block-title">
+              System Reading
+            </p>
+
+            <p className="ai-summary">
+              {aiAnalysis.summary}
+            </p>
+
+            {aiAnalysis.relationship && (
+              <p className="muted">
+                {aiAnalysis.relationship}
+              </p>
+            )}
+
+            <div className="ai-groups">
+              {Array.isArray(
+                aiAnalysis.emotions
+              ) &&
+                aiAnalysis.emotions.length >
+                  0 && (
+                  <div>
+                    <p className="block-title">
+                      Emotions
+                    </p>
+
+                    <div className="tag-list">
+                      {aiAnalysis.emotions.map(
+                        (item, index) => (
+                          <span
+                            className="tag"
+                            key={`${item}-${index}`}
+                          >
+                            {item}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {Array.isArray(
+                aiAnalysis.themes
+              ) &&
+                aiAnalysis.themes.length >
+                  0 && (
+                  <div>
+                    <p className="block-title">
+                      Themes
+                    </p>
+
+                    <div className="tag-list">
+                      {aiAnalysis.themes.map(
+                        (item, index) => (
+                          <span
+                            className="tag"
+                            key={`${item}-${index}`}
+                          >
+                            {item}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {Array.isArray(
+                aiAnalysis.keywords
+              ) &&
+                aiAnalysis.keywords.length >
+                  0 && (
+                  <div>
+                    <p className="block-title">
+                      Keywords
+                    </p>
+
+                    <div className="tag-list">
+                      {aiAnalysis.keywords.map(
+                        (item, index) => (
+                          <span
+                            className="tag"
+                            key={`${item}-${index}`}
+                          >
+                            {item}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {Array.isArray(
+                aiAnalysis.body_signals
+              ) &&
+                aiAnalysis.body_signals.length >
+                  0 && (
+                  <div>
+                    <p className="block-title">
+                      Body Signals
+                    </p>
+
+                    <div className="tag-list">
+                      {aiAnalysis.body_signals.map(
+                        (item, index) => (
+                          <span
+                            className="tag"
+                            key={`${item}-${index}`}
+                          >
+                            {item}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {Array.isArray(
+                aiAnalysis.practice_signals
+              ) &&
+                aiAnalysis.practice_signals.length >
+                  0 && (
+                  <div>
+                    <p className="block-title">
+                      Practice Signals
+                    </p>
+
+                    <div className="tag-list">
+                      {aiAnalysis.practice_signals.map(
+                        (item, index) => (
+                          <span
+                            className="tag"
+                            key={`${item}-${index}`}
+                          >
+                            {item}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+            </div>
+          </section>
+        )}
+
+        {admin && (
+          <section className="block full">
+            <div className="actions">
+              <button
+                type="button"
+                onClick={() =>
+                  onEdit?.(log)
+                }
+              >
+                Edit
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  onToggle?.(log)
+                }
+              >
+                {log.is_public
+                  ? "Make Private"
+                  : "Make Public"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  onDelete?.(log)
+                }
+              >
+                Delete
+              </button>
+            </div>
+          </section>
+        )}
+      </div>
+    </article>
+  );
 }
