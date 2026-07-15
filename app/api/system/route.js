@@ -15,9 +15,9 @@ const EMBEDDING_DIMENSIONS = 1536;
 
 const MAX_ARCHIVE_MATCHES = 5;
 const MAX_ARCHIVE_CANDIDATES = 200;
-const MIN_ARCHIVE_SIMILARITY = 0.35;
 const MAX_ARCHIVE_BODY_LENGTH = 3000;
 const MAX_SEARCH_TEXT_LENGTH = 24000;
+const MIN_ARCHIVE_SIMILARITY = 0.35;
 
 const SYSTEM_SCHEMA = {
   type: "object",
@@ -273,168 +273,161 @@ function cleanLog(log) {
   };
 }
 
-function makeSystemSearchText(
-  logs
-) {
-  const text =
-    logs
-      .map((log) => {
-        const cleaned =
-          cleanLog(log);
+function makeSystemSearchText(logs) {
+  return logs
+    .map((log) => {
+      const cleaned =
+        cleanLog(log);
 
-        const makingNotes =
-          getArray(
-            cleaned.making
-              .notes
-          ).join("\n");
+      const makingNotes =
+        getArray(
+          cleaned.making.notes
+        ).join("\n");
 
-        const learning =
-          getArray(
-            cleaned.learning
-          ).join("\n");
+      const learning =
+        getArray(
+          cleaned.learning
+        ).join("\n");
 
-        const tomorrow =
-          getArray(
-            cleaned.tomorrow
-          ).join("\n");
+      const tomorrow =
+        getArray(
+          cleaned.tomorrow
+        ).join("\n");
 
-        const themes =
-          getArray(
-            cleaned.ai_analysis
-              ?.themes
-          ).join(", ");
-
-        const keywords =
-          getArray(
-            cleaned.ai_analysis
-              ?.keywords
-          ).join(", ");
-
-        return [
-          cleaned.date
-            ? `Date: ${cleaned.date}`
-            : "",
-
-          cleaned.body
-            .body_state !==
-            null
-            ? `Body state: ${cleaned.body.body_state}`
-            : "",
-
-          cleaned.body
-            .energy !== null
-            ? `Energy: ${cleaned.body.energy}`
-            : "",
-
-          cleaned.body
-            .mood !== null
-            ? `Mood: ${cleaned.body.mood}`
-            : "",
-
-          cleaned.body_moving
-            .type
-            ? `Body Moving type: ${cleaned.body_moving.type}`
-            : "",
-
-          cleaned.body_moving
-            .time
-            ? `Body Moving time: ${cleaned.body_moving.time}`
-            : "",
-
-          cleaned.body_moving
-            .notes
-            ? `Body Moving notes: ${cleaned.body_moving.notes}`
-            : "",
-
-          cleaned.environment
-            ?.weather
-            ? `Weather: ${cleaned.environment.weather}`
-            : "",
-
-          cleaned.making
-            .project
-            ? `Making project: ${cleaned.making.project}`
-            : "",
-
-          cleaned.making
-            .time
-            ? `Making time: ${cleaned.making.time}`
-            : "",
-
-          makingNotes
-            ? `Making notes:\n${makingNotes}`
-            : "",
-
-          learning
-            ? `Learning:\n${learning}`
-            : "",
-
-          cleaned.artistic_input
-            .title
-            ? `Artistic input: ${cleaned.artistic_input.title}`
-            : "",
-
-          cleaned.artistic_input
-            .creator
-            ? `Artistic input creator: ${cleaned.artistic_input.creator}`
-            : "",
-
-          cleaned.artistic_input
-            .note
-            ? `Artistic input note: ${cleaned.artistic_input.note}`
-            : "",
-
-          cleaned.observation
-            ? `Observation: ${cleaned.observation}`
-            : "",
-
-          cleaned.alignment
-            ? `Alignment: ${cleaned.alignment}`
-            : "",
-
-          tomorrow
-            ? `Tomorrow:\n${tomorrow}`
-            : "",
-
+      const themes =
+        getArray(
           cleaned.ai_analysis
-            ?.summary
-            ? `AI summary: ${cleaned.ai_analysis.summary}`
-            : "",
+            ?.themes
+        ).join(", ");
 
+      const keywords =
+        getArray(
           cleaned.ai_analysis
-            ?.relationship
-            ? `AI relationship: ${cleaned.ai_analysis.relationship}`
-            : "",
+            ?.keywords
+        ).join(", ");
 
-          themes
-            ? `Themes: ${themes}`
-            : "",
+      return [
+        cleaned.date
+          ? `Date: ${cleaned.date}`
+          : "",
 
-          keywords
-            ? `Keywords: ${keywords}`
-            : "",
-        ]
-          .filter(Boolean)
-          .join("\n");
-      })
-      .join("\n\n---\n\n");
+        cleaned.body
+          .body_state !== null
+          ? `Body state: ${cleaned.body.body_state}`
+          : "",
 
-  return text.slice(
-    0,
-    MAX_SEARCH_TEXT_LENGTH
-  );
+        cleaned.body
+          .energy !== null
+          ? `Energy: ${cleaned.body.energy}`
+          : "",
+
+        cleaned.body
+          .mood !== null
+          ? `Mood: ${cleaned.body.mood}`
+          : "",
+
+        cleaned.body_moving
+          .type
+          ? `Body Moving type: ${cleaned.body_moving.type}`
+          : "",
+
+        cleaned.body_moving
+          .time
+          ? `Body Moving time: ${cleaned.body_moving.time}`
+          : "",
+
+        cleaned.body_moving
+          .notes
+          ? `Body Moving notes: ${cleaned.body_moving.notes}`
+          : "",
+
+        cleaned.environment
+          ?.weather
+          ? `Weather: ${cleaned.environment.weather}`
+          : "",
+
+        cleaned.making
+          .project
+          ? `Making project: ${cleaned.making.project}`
+          : "",
+
+        cleaned.making
+          .time
+          ? `Making time: ${cleaned.making.time}`
+          : "",
+
+        makingNotes
+          ? `Making notes:\n${makingNotes}`
+          : "",
+
+        learning
+          ? `Learning:\n${learning}`
+          : "",
+
+        cleaned.artistic_input
+          .title
+          ? `Artistic input: ${cleaned.artistic_input.title}`
+          : "",
+
+        cleaned.artistic_input
+          .creator
+          ? `Artistic input creator: ${cleaned.artistic_input.creator}`
+          : "",
+
+        cleaned.artistic_input
+          .note
+          ? `Artistic input note: ${cleaned.artistic_input.note}`
+          : "",
+
+        cleaned.observation
+          ? `Observation: ${cleaned.observation}`
+          : "",
+
+        cleaned.alignment
+          ? `Alignment: ${cleaned.alignment}`
+          : "",
+
+        tomorrow
+          ? `Tomorrow:\n${tomorrow}`
+          : "",
+
+        cleaned.ai_analysis
+          ?.summary
+          ? `AI summary: ${cleaned.ai_analysis.summary}`
+          : "",
+
+        cleaned.ai_analysis
+          ?.relationship
+          ? `AI relationship: ${cleaned.ai_analysis.relationship}`
+          : "",
+
+        themes
+          ? `Themes: ${themes}`
+          : "",
+
+        keywords
+          ? `Keywords: ${keywords}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    })
+    .join("\n\n---\n\n")
+    .slice(
+      0,
+      MAX_SEARCH_TEXT_LENGTH
+    );
 }
 
 function parseEmbedding(value) {
-  if (
-    Array.isArray(value)
-  ) {
+  if (Array.isArray(value)) {
     const parsed =
       value.map(Number);
 
-    return parsed.every(
-      Number.isFinite
-    )
+    return parsed.length &&
+      parsed.every(
+        Number.isFinite
+      )
       ? parsed
       : null;
   }
@@ -476,7 +469,7 @@ function cosineSimilarity(
     !Array.isArray(
       secondVector
     ) ||
-    firstVector.length === 0 ||
+    !firstVector.length ||
     firstVector.length !==
       secondVector.length
   ) {
@@ -654,9 +647,7 @@ async function findRelevantArchive({
         url,
         tags,
         is_public,
-        embedding,
-        embedding_text,
-        embedding_updated_at
+        embedding
       `
     )
     .eq(
@@ -682,62 +673,59 @@ async function findRelevantArchive({
     throw archiveError;
   }
 
-  const matches =
-    (archiveEntries || [])
-      .map((entry) => {
-        const archiveEmbedding =
-          parseEmbedding(
-            entry.embedding
-          );
+  return (
+    archiveEntries || []
+  )
+    .map((entry) => {
+      const archiveEmbedding =
+        parseEmbedding(
+          entry.embedding
+        );
 
-        if (
-          !archiveEmbedding
-        ) {
-          return null;
-        }
+      if (
+        !archiveEmbedding
+      ) {
+        return null;
+      }
 
-        const similarity =
-          cosineSimilarity(
-            queryEmbedding,
-            archiveEmbedding
-          );
+      const similarity =
+        cosineSimilarity(
+          queryEmbedding,
+          archiveEmbedding
+        );
 
-        return {
-          entry,
-          similarity,
-        };
-      })
-      .filter(Boolean)
-      .filter(
-        (item) =>
-          item.similarity >=
-          MIN_ARCHIVE_SIMILARITY
+      return {
+        entry,
+        similarity,
+      };
+    })
+    .filter(Boolean)
+    .filter(
+      (item) =>
+        item.similarity >=
+        MIN_ARCHIVE_SIMILARITY
+    )
+    .sort(
+      (
+        first,
+        second
+      ) =>
+        second.similarity -
+        first.similarity
+    )
+    .slice(
+      0,
+      MAX_ARCHIVE_MATCHES
+    )
+    .map((item) =>
+      cleanArchiveEntry(
+        item.entry,
+        item.similarity
       )
-      .sort(
-        (
-          first,
-          second
-        ) =>
-          second.similarity -
-          first.similarity
-      )
-      .slice(
-        0,
-        MAX_ARCHIVE_MATCHES
-      )
-      .map((item) =>
-        cleanArchiveEntry(
-          item.entry,
-          item.similarity
-        )
-      );
-
-  return matches;
+    );
 }
 
-export async function POST(
-  request
-) {
+export async function POST(request) {
   try {
     const authorization =
       request.headers.get(
@@ -911,19 +899,19 @@ export async function POST(
           cleanLog
         ),
 
-      relevant_archive:
-        relevantArchive,
-
       archive_context: {
         matched_count:
           relevantArchive.length,
 
         selection_method:
-          "Semantic similarity between the recent Daily period and Archive embeddings.",
+          "Semantic similarity between recent Daily records and Archive embeddings.",
 
         note:
           archiveSearchNote,
       },
+
+      relevant_archive:
+        relevantArchive,
     };
 
     const response =
@@ -941,21 +929,21 @@ You are the interpretive layer of SOFTSYSTEMS.
 
 SOFTSYSTEMS is an artistic ecology that observes relationships among body, Body Moving, environment, making, learning, artistic input, Archive memory, media, and creation.
 
-You are analyzing several recent Daily records together with a small set of semantically relevant Archive entries.
+You are analyzing several recent Daily records together with a small set of semantically related Archive entries.
 
 Daily records describe recent lived conditions and activities.
 
 Archive entries may include essays, reflections, project logs, videos, and references. They represent contextual memory, earlier thoughts, artistic language, and longer-term concerns.
 
 Important Archive rules:
-- Archive writing is contextual memory, not definitive proof of the artist's present beliefs.
-- Do not assume that an older Archive statement is still current.
+- Treat Archive writing as contextual memory, not as definitive proof of the artist's present beliefs.
+- Do not assume that every older Archive statement is still current.
 - Do not force recent Daily records to agree with Archive writing.
-- When recent records differ from older Archive material, describe the shift, tension, revision, or distance.
-- Do not claim that an Archive entry caused a later body state, action, or artwork.
-- Use Archive material only when it genuinely clarifies a recurring concern, language, question, or artistic relationship.
-- Cite Archive evidence in plain language by naming its title when relevant.
-- Do not mention similarity scores unless uncertainty makes them useful.
+- When recent records differ from Archive material, describe the shift, tension, revision, or distance.
+- Use Archive material only when it genuinely clarifies a recurring concern, question, language, or artistic relationship.
+- When directly relevant, refer to an Archive entry by title.
+- Do not claim that an Archive entry caused a later body state, activity, or artwork.
+- Do not mention similarity scores unless they are needed to explain uncertainty.
 
 Body Moving describes what the body actually did during the day. It may include yoga, walking, running, stretching, strength work, swimming, cycling, dance, performance practice, housework, or another embodied activity.
 
@@ -964,10 +952,10 @@ Artistic Input may include a book, film, performance, exhibition, music work, or
 Your task:
 - identify recurring signals supported by multiple recent records;
 - identify changes across time;
-- identify careful relationships among body state, Body Moving, environment, making, learning, artistic input, observation, and Archive memory;
+- identify careful relationships among body state, Body Moving, environment, making, learning, artistic input, observation, alignment, and Archive memory;
 - notice repeated relationships among movement, recovery, energy, mood, making, and learning;
 - notice recurring artists, works, creators, media types, ideas, and artistic concerns;
-- notice when a recent observation echoes, revises, contradicts, or develops an earlier Archive thought;
+- notice when a recent record echoes, revises, contradicts, or develops an earlier Archive thought;
 - distinguish direct evidence from interpretation;
 - avoid generic motivation;
 - avoid productivity coaching;
