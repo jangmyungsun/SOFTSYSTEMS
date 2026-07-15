@@ -17,7 +17,7 @@ export default function RootLayout({ children }) {
             <p className="eyebrow">SOFTSYSTEMS</p>
 
             <h1>
-              A living operating system
+              A caring system for creative life.
             </h1>
 
             <p className="subtitle">
