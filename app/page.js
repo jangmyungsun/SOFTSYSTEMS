@@ -507,7 +507,7 @@ export default function Home() {
         <h2>Latest Daily</h2>
 
         {logs
-          .slice(0, 2)
+          .slice(0, 1)
           .map((log) => (
             <EntryCard
               key={log.id}
