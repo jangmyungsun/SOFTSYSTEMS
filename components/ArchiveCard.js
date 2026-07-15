@@ -21,32 +21,47 @@ function getSafeArray(value) {
     : [];
 }
 
-function isVideoUrl(url) {
+function shortenText(
+  value,
+  maxLength = 180
+) {
+  const text = String(
+    value || ""
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (
+    text.length <= maxLength
+  ) {
+    return text;
+  }
+
   return (
-    typeof url === "string" &&
-    (
-      url.includes("youtube.com") ||
-      url.includes("youtu.be") ||
-      url.includes("vimeo.com")
-    )
+    text.slice(
+      0,
+      maxLength
+    ) + "…"
   );
 }
 
-function getYoutubeEmbedUrl(url) {
+function getYoutubeVideoId(url) {
   if (!url) {
     return "";
   }
 
   try {
-    if (url.includes("youtu.be/")) {
-      const id =
+    if (
+      url.includes(
+        "youtu.be/"
+      )
+    ) {
+      return (
         url
           .split("youtu.be/")[1]
-          ?.split(/[?&]/)[0];
-
-      return id
-        ? `https://www.youtube.com/embed/${id}`
-        : "";
+          ?.split(/[?&]/)[0] ||
+        ""
+      );
     }
 
     const parsed =
@@ -57,18 +72,56 @@ function getYoutubeEmbedUrl(url) {
         "youtube.com"
       )
     ) {
-      const id =
-        parsed.searchParams.get("v");
+      if (
+        parsed.pathname.startsWith(
+          "/shorts/"
+        )
+      ) {
+        return (
+          parsed.pathname
+            .split("/shorts/")[1]
+            ?.split("/")[0] ||
+          ""
+        );
+      }
 
-      return id
-        ? `https://www.youtube.com/embed/${id}`
-        : "";
+      if (
+        parsed.pathname.startsWith(
+          "/embed/"
+        )
+      ) {
+        return (
+          parsed.pathname
+            .split("/embed/")[1]
+            ?.split("/")[0] ||
+          ""
+        );
+      }
+
+      return (
+        parsed.searchParams.get(
+          "v"
+        ) || ""
+      );
     }
   } catch {
     return "";
   }
 
   return "";
+}
+
+function getYoutubeThumbnail(
+  url
+) {
+  const videoId =
+    getYoutubeVideoId(url);
+
+  if (!videoId) {
+    return "";
+  }
+
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
 export default function ArchiveCard({
@@ -79,143 +132,149 @@ export default function ArchiveCard({
   onToggle,
 }) {
   const tags =
-    getSafeArray(entry.tags);
+    getSafeArray(
+      entry.tags
+    );
 
-  const embedUrl =
-    entry.type === "video"
-      ? getYoutubeEmbedUrl(
+  const isVideo =
+    entry.type === "video";
+
+  const thumbnail =
+    isVideo
+      ? getYoutubeThumbnail(
           entry.url
         )
       : "";
 
+  const openEntry = () => {
+    if (
+      isVideo &&
+      entry.url
+    ) {
+      window.open(
+        entry.url,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    }
+  };
+
   return (
-    <article className="entry">
-      <div className="entry-head">
-        <div>
-          <p className="eyebrow">
-            {formatLabel(
-              entry.type
+    <article
+      className={
+        isVideo
+          ? "archive-preview-card archive-video-card"
+          : "archive-preview-card archive-text-card"
+      }
+    >
+      <button
+        type="button"
+        className="archive-preview-main"
+        onClick={
+          openEntry
+        }
+        disabled={
+          !isVideo ||
+          !entry.url
+        }
+        aria-label={
+          isVideo
+            ? `Open ${entry.title}`
+            : entry.title
+        }
+      >
+        {isVideo ? (
+          <>
+            {thumbnail ? (
+              <img
+                className="archive-preview-image"
+                src={
+                  thumbnail
+                }
+                alt=""
+              />
+            ) : (
+              <div className="archive-preview-placeholder">
+                Video
+              </div>
             )}
-          </p>
 
-          <h2>
-            {entry.title}
-          </h2>
+            <div className="archive-video-shade" />
 
-          <p className="muted">
-            {entry.entry_date}
-          </p>
-        </div>
+            <div className="archive-video-content">
+              <p className="eyebrow">
+                Video
+              </p>
 
-        <div className="actions">
-          <span className="badge">
-            {entry.is_public
-              ? "public"
-              : "private"}
-          </span>
-        </div>
-      </div>
+              <h2>
+                {
+                  entry.title
+                }
+              </h2>
 
-      {embedUrl && (
-        <div
-          style={{
-            marginTop:
-              "1rem",
-          }}
-        >
-          <iframe
-            width="100%"
-            height="420"
-            src={embedUrl}
-            title={
-              entry.title ||
-              "Archive video"
-            }
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            style={{
-              border: 0,
-              borderRadius:
-                "12px",
-            }}
-          />
-        </div>
-      )}
+              <p className="muted">
+                {
+                  entry.entry_date
+                }
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="archive-text-content">
+            <div>
+              <p className="eyebrow">
+                {formatLabel(
+                  entry.type
+                )}
+              </p>
 
-      {entry.body && (
-        <div
-          className="block"
-          style={{
-            marginTop:
-              "1rem",
-          }}
-        >
-          <p
-            style={{
-              whiteSpace:
-                "pre-wrap",
-            }}
-          >
-            {entry.body}
-          </p>
-        </div>
-      )}
+              <h2>
+                {
+                  entry.title
+                }
+              </h2>
 
-      {entry.url &&
-        !embedUrl && (
-          <div
-            className="block"
-            style={{
-              marginTop:
-                "1rem",
-            }}
-          >
-            <p className="block-title">
-              Link
+              <p className="muted">
+                {
+                  entry.entry_date
+                }
+              </p>
+            </div>
+
+            <p className="archive-preview-excerpt">
+              {shortenText(
+                entry.body,
+                190
+              ) ||
+                "No preview text."}
             </p>
 
-            <a
-              href={entry.url}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open archive link
-            </a>
+            {tags.length >
+              0 && (
+              <div className="tag-list archive-preview-tags">
+                {tags
+                  .slice(0, 3)
+                  .map(
+                    (
+                      tag,
+                      index
+                    ) => (
+                      <span
+                        className="tag"
+                        key={`${tag}-${index}`}
+                      >
+                        {tag}
+                      </span>
+                    )
+                  )}
+              </div>
+            )}
           </div>
         )}
-
-      {tags.length > 0 && (
-        <div
-          className="tag-list"
-          style={{
-            marginTop:
-              "1rem",
-          }}
-        >
-          {tags.map(
-            (
-              tag,
-              index
-            ) => (
-              <span
-                className="tag"
-                key={`${tag}-${index}`}
-              >
-                {tag}
-              </span>
-            )
-          )}
-        </div>
-      )}
+      </button>
 
       {admin && (
-        <div
-          className="actions"
-          style={{
-            marginTop:
-              "1.25rem",
-          }}
-        >
+        <div className="archive-card-actions">
           <button
             type="button"
             onClick={() =>
@@ -236,8 +295,8 @@ export default function ArchiveCard({
             }
           >
             {entry.is_public
-              ? "Make Private"
-              : "Make Public"}
+              ? "Private"
+              : "Public"}
           </button>
 
           <button
