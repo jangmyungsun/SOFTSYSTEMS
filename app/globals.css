@@ -57,12 +57,16 @@ body {
   color: var(--ink);
 
   font-family:
-      "Pretendard",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Pretendard",
     "Noto Sans KR",
     sans-serif;
+
   line-height: 1.6;
   word-break: keep-all;
 }
@@ -923,7 +927,26 @@ pre {
     Consolas,
     monospace;
     }
-    .button-link.primary {
-  background: var(--ink);
-  color: var(--paper);
+    
+    button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+.visitor-letter-message,
+.archive-body,
+.entry-body,
+.prose,
+textarea {
+  font-family:
+    "Pretendard",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Noto Sans KR",
+    sans-serif;
+
+  line-height: 1.8;
+  word-break: keep-all;
 }
