@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 function formatLabel(value) {
   if (!value) {
     return "";
@@ -25,23 +27,17 @@ function shortenText(
   value,
   maxLength = 180
 ) {
-  const text = String(
-    value || ""
-  )
+  const text = String(value || "")
     .replace(/\s+/g, " ")
     .trim();
 
-  if (
-    text.length <= maxLength
-  ) {
+  if (text.length <= maxLength) {
     return text;
   }
 
   return (
-    text.slice(
-      0,
-      maxLength
-    ) + "…"
+    text.slice(0, maxLength) +
+    "…"
   );
 }
 
@@ -52,9 +48,7 @@ function getYoutubeVideoId(url) {
 
   try {
     if (
-      url.includes(
-        "youtu.be/"
-      )
+      url.includes("youtu.be/")
     ) {
       return (
         url
@@ -111,9 +105,7 @@ function getYoutubeVideoId(url) {
   return "";
 }
 
-function getYoutubeThumbnail(
-  url
-) {
+function getYoutubeThumbnail(url) {
   const videoId =
     getYoutubeVideoId(url);
 
@@ -124,6 +116,17 @@ function getYoutubeThumbnail(
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
+function getYoutubeEmbedUrl(url) {
+  const videoId =
+    getYoutubeVideoId(url);
+
+  if (!videoId) {
+    return "";
+  }
+
+  return `https://www.youtube.com/embed/${videoId}`;
+}
+
 export default function ArchiveCard({
   entry,
   admin = false,
@@ -131,6 +134,11 @@ export default function ArchiveCard({
   onDelete,
   onToggle,
 }) {
+  const [
+    isOpen,
+    setIsOpen,
+  ] = useState(false);
+
   const tags =
     getSafeArray(
       entry.tags
@@ -146,171 +154,276 @@ export default function ArchiveCard({
         )
       : "";
 
-  const openEntry = () => {
-    if (
-      isVideo &&
-      entry.url
-    ) {
-      window.open(
-        entry.url,
-        "_blank",
-        "noopener,noreferrer"
-      );
-    }
+  const embedUrl =
+    isVideo
+      ? getYoutubeEmbedUrl(
+          entry.url
+        )
+      : "";
+
+  const closeModal = () => {
+    setIsOpen(false);
   };
 
   return (
-    <article
-      className={
-        isVideo
-          ? "archive-preview-card archive-video-card"
-          : "archive-preview-card archive-text-card"
-      }
-    >
-      <button
-        type="button"
-        className="archive-preview-main"
-        onClick={
-          openEntry
-        }
-        disabled={
-          !isVideo ||
-          !entry.url
-        }
-        aria-label={
+    <>
+      <article
+        className={
           isVideo
-            ? `Open ${entry.title}`
-            : entry.title
+            ? "archive-preview-card archive-video-card"
+            : "archive-preview-card archive-text-card"
         }
       >
-        {isVideo ? (
-          <>
-            {thumbnail ? (
-              <img
-                className="archive-preview-image"
-                src={
-                  thumbnail
-                }
-                alt=""
-              />
-            ) : (
-              <div className="archive-preview-placeholder">
-                Video
+        <div className="archive-preview-main">
+          {isVideo ? (
+            <>
+              {thumbnail ? (
+                <img
+                  className="archive-preview-image"
+                  src={thumbnail}
+                  alt=""
+                />
+              ) : (
+                <div className="archive-preview-placeholder">
+                  Video
+                </div>
+              )}
+
+              <div className="archive-video-shade" />
+
+              <div className="archive-video-content">
+                <p className="eyebrow">
+                  Video
+                </p>
+
+                <h2>
+                  {entry.title}
+                </h2>
+
+                <p className="muted">
+                  {entry.entry_date}
+                </p>
               </div>
-            )}
-
-            <div className="archive-video-shade" />
-
-            <div className="archive-video-content">
-              <p className="eyebrow">
-                Video
-              </p>
-
-              <h2>
-                {
-                  entry.title
-                }
-              </h2>
-
-              <p className="muted">
-                {
-                  entry.entry_date
-                }
-              </p>
-            </div>
-          </>
-        ) : (
-          <div className="archive-text-content">
-            <div>
-              <p className="eyebrow">
-                {formatLabel(
-                  entry.type
-                )}
-              </p>
-
-              <h2>
-                {
-                  entry.title
-                }
-              </h2>
-
-              <p className="muted">
-                {
-                  entry.entry_date
-                }
-              </p>
-            </div>
-
-            <p className="archive-preview-excerpt">
-              {shortenText(
-                entry.body,
-                190
-              ) ||
-                "No preview text."}
-            </p>
-
-            {tags.length >
-              0 && (
-              <div className="tag-list archive-preview-tags">
-                {tags
-                  .slice(0, 3)
-                  .map(
-                    (
-                      tag,
-                      index
-                    ) => (
-                      <span
-                        className="tag"
-                        key={`${tag}-${index}`}
-                      >
-                        {tag}
-                      </span>
-                    )
+            </>
+          ) : (
+            <div className="archive-text-content">
+              <div>
+                <p className="eyebrow">
+                  {formatLabel(
+                    entry.type
                   )}
+                </p>
+
+                <h2>
+                  {entry.title}
+                </h2>
+
+                <p className="muted">
+                  {entry.entry_date}
+                </p>
               </div>
-            )}
-          </div>
-        )}
-      </button>
 
-      {admin && (
-        <div className="archive-card-actions">
+              <p className="archive-preview-excerpt">
+                {shortenText(
+                  entry.body,
+                  190
+                ) ||
+                  "No preview text."}
+              </p>
+
+              {tags.length > 0 && (
+                <div className="tag-list archive-preview-tags">
+                  {tags
+                    .slice(0, 3)
+                    .map(
+                      (
+                        tag,
+                        index
+                      ) => (
+                        <span
+                          className="tag"
+                          key={`${tag}-${index}`}
+                        >
+                          {tag}
+                        </span>
+                      )
+                    )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="archive-preview-footer">
           <button
             type="button"
+            className="archive-view-button"
             onClick={() =>
-              onEdit?.(
-                entry
-              )
+              setIsOpen(true)
             }
           >
-            Edit
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              onToggle?.(
-                entry
-              )
-            }
-          >
-            {entry.is_public
-              ? "Private"
-              : "Public"}
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              onDelete?.(
-                entry
-              )
-            }
-          >
-            Delete
+            View More
           </button>
         </div>
+
+        {admin && (
+          <div className="archive-card-actions">
+            <button
+              type="button"
+              onClick={() =>
+                onEdit?.(entry)
+              }
+            >
+              Edit
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                onToggle?.(entry)
+              }
+            >
+              {entry.is_public
+                ? "Private"
+                : "Public"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                onDelete?.(entry)
+              }
+            >
+              Delete
+            </button>
+          </div>
+        )}
+      </article>
+
+      {isOpen && (
+        <div
+          className="archive-modal-backdrop"
+          role="presentation"
+          onMouseDown={(
+            event
+          ) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              closeModal();
+            }
+          }}
+        >
+          <article
+            className="archive-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={
+              entry.title
+            }
+          >
+            <div className="archive-modal-head">
+              <div>
+                <p className="eyebrow">
+                  {formatLabel(
+                    entry.type
+                  )}
+                </p>
+
+                <h2>
+                  {entry.title}
+                </h2>
+
+                <p className="muted">
+                  {entry.entry_date}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  closeModal
+                }
+              >
+                Close
+              </button>
+            </div>
+
+            {isVideo &&
+              embedUrl && (
+                <div className="archive-modal-video">
+                  <iframe
+                    src={embedUrl}
+                    title={
+                      entry.title ||
+                      "Archive video"
+                    }
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              )}
+
+            {isVideo &&
+              !embedUrl &&
+              entry.url && (
+                <p>
+                  <a
+                    href={
+                      entry.url
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open video
+                  </a>
+                </p>
+              )}
+
+            {entry.body && (
+              <div className="archive-modal-body">
+                <p>
+                  {entry.body}
+                </p>
+              </div>
+            )}
+
+            {entry.url &&
+              !isVideo && (
+                <div className="archive-modal-link">
+                  <a
+                    href={
+                      entry.url
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open external link
+                  </a>
+                </div>
+              )}
+
+            {tags.length > 0 && (
+              <div className="tag-list archive-modal-tags">
+                {tags.map(
+                  (
+                    tag,
+                    index
+                  ) => (
+                    <span
+                      className="tag"
+                      key={`${tag}-${index}`}
+                    >
+                      {tag}
+                    </span>
+                  )
+                )}
+              </div>
+            )}
+          </article>
+        </div>
       )}
-    </article>
+    </>
   );
 }
