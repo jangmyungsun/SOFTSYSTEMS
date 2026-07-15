@@ -1181,23 +1181,20 @@ function makeWeaveNode(log) {
 async function generateSystemReading(
   logs
 ) {
+  const recentLogs =
+    logs.filter(
+      (log) =>
+        log.date >=
+        getStartDate(
+          SYSTEM_PERIOD_DAYS
+        )
+    );
+
   const records =
-    logs
-      .filter(
-        (log) =>
-          log.date >=
-          getStartDate(
-            SYSTEM_PERIOD_DAYS
-          )
-      )
-      .map(
-        cleanLog
-      );
-  const relatedArchive =
-  await findRelevantArchive(
-    logs
-  );
-  
+    recentLogs.map(
+      cleanLog
+    );
+
   if (!records.length) {
     return {
       current_mode:
@@ -1227,6 +1224,12 @@ async function generateSystemReading(
       record_count:
         0,
 
+      archive_match_count:
+        0,
+
+      archive_titles:
+        [],
+
       generated_at:
         new Date()
           .toISOString(),
@@ -1234,6 +1237,26 @@ async function generateSystemReading(
       model:
         CHAT_MODEL,
     };
+  }
+
+  let relatedArchive = [];
+  let archiveSearchNote = "";
+
+  try {
+    relatedArchive =
+      await findRelevantArchive(
+        recentLogs
+      );
+  } catch (
+    archiveError
+  ) {
+    console.error(
+      "Nightly Archive search failed:",
+      archiveError
+    );
+
+    archiveSearchNote =
+      "Archive memory could not be searched for this reading.";
   }
 
   const response =
@@ -1249,32 +1272,39 @@ async function generateSystemReading(
           content: `
 You are the period-reading layer of SOFTSYSTEMS.
 
-SOFTSYSTEMS is an artistic ecology that observes relationships among body, Body Moving, environment, making, learning, artistic input, media, memory, and creation.
+SOFTSYSTEMS is an artistic ecology that observes relationships among body, Body Moving, environment, making, learning, artistic input, Archive memory, media, and creation.
 
-You are reading several Daily records together.
+You are reading several recent Daily records together.
+
 You are also given a small number of semantically related Archive entries.
 
 Archive entries may include essays, reflections, videos, project logs, references, or longer writing.
 
-Treat Archive as contextual memory.
+Treat Archive entries as contextual memory rather than definitive statements of the artist's current beliefs.
 
-Do not assume an Archive statement still reflects the artist's present thinking.
+Do not assume that an older Archive statement is still current.
 
-When Daily records differ from Archive writing, describe the change or tension rather than forcing consistency.
+When recent Daily records differ from Archive writing, describe the change, tension, revision, or distance instead of forcing consistency.
 
-Use Archive only when it genuinely helps explain recurring concerns, artistic language, questions, or relationships.
+Use Archive material only when it genuinely clarifies a recurring concern, question, artistic language, or relationship.
+
+When an Archive entry is directly relevant, refer to it by title.
+
+Do not claim that an Archive entry caused a later body state, activity, or artwork.
+
 Body Moving describes what the body actually did during the day. It may include yoga, walking, running, stretching, strength work, cycling, swimming, dance, performance practice, housework, or another embodied activity.
 
 Artistic Input may include a book, film, performance, exhibition, music work, or another artistic reference.
 
 Your task:
-- identify recurring signals supported by multiple records;
+- identify recurring signals supported by multiple recent records;
 - identify changes across time;
-- identify careful relationships among body state, Body Moving, environment, making, learning, artistic input, observation, and alignment;
+- identify careful relationships among body state, Body Moving, environment, making, learning, artistic input, observation, alignment, and Archive memory;
 - notice repeated relationships among movement, recovery, energy, mood, making, and learning;
 - notice repeated artists, creators, works, media types, and artistic concerns;
 - notice when artistic input appears alongside later making or observation;
-- distinguish evidence from speculation;
+- notice when recent records echo, revise, contradict, or develop an earlier Archive thought;
+- distinguish direct evidence from interpretation;
 - state uncertainty honestly.
 
 Do not give generic motivation.
@@ -1283,6 +1313,7 @@ Do not provide medical diagnosis.
 Do not claim causation from correlation.
 Do not infer a stable pattern from one record.
 Do not invent unsupported evidence.
+Do not use Archive material merely because it was supplied.
 
 Use calm, precise, observational English.
 
@@ -1304,6 +1335,20 @@ The open question should invite continued noticing rather than instruct the arti
                   records.length,
 
                 records,
+
+                archive_context: {
+                  matched_count:
+                    relatedArchive.length,
+
+                  selection_method:
+                    "Semantic similarity between the recent Daily period and Archive embeddings.",
+
+                  note:
+                    archiveSearchNote,
+                },
+
+                related_archive:
+                  relatedArchive,
               },
               null,
               2
@@ -1336,10 +1381,13 @@ The open question should invite continued noticing rather than instruct the arti
     );
   }
 
-  return {
-    ...JSON.parse(
+  const reading =
+    JSON.parse(
       response.output_text
-    ),
+    );
+
+  return {
+    ...reading,
 
     period_days:
       SYSTEM_PERIOD_DAYS,
@@ -1347,15 +1395,26 @@ The open question should invite continued noticing rather than instruct the arti
     record_count:
       records.length,
 
+    archive_match_count:
+      relatedArchive.length,
+
+    archive_titles:
+      relatedArchive.map(
+        (entry) =>
+          entry.title
+      ),
+
     generated_at:
       new Date()
         .toISOString(),
 
     model:
       CHAT_MODEL,
+
+    embedding_model:
+      EMBEDDING_MODEL,
   };
 }
-
 async function generateGuidance(
   logs,
   systemReading
