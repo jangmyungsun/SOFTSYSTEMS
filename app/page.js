@@ -17,37 +17,7 @@ import {
 import EntryCard from "../components/EntryCard";
 import ArchiveCard from "../components/ArchiveCard";
 
-function formatDateTime(value) {
-  if (!value) {
-    return "";
-  }
-
-  const date =
-    new Date(value);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return "";
-  }
-
-  return date.toLocaleString(
-    "en-US",
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }
-  );
-}
-
-function parseDurationToHours(
-  value
-) {
+function parseDurationToHours(value) {
   if (
     value === null ||
     value === undefined ||
@@ -56,21 +26,15 @@ function parseDurationToHours(
     return 0;
   }
 
-  if (
-    typeof value ===
-    "number"
-  ) {
-    return Number.isFinite(
-      value
-    )
+  if (typeof value === "number") {
+    return Number.isFinite(value)
       ? value
       : 0;
   }
 
-  const text =
-    String(value)
-      .trim()
-      .toLowerCase();
+  const text = String(value)
+    .trim()
+    .toLowerCase();
 
   if (!text) {
     return 0;
@@ -120,17 +84,14 @@ function parseDurationToHours(
     : 0;
 }
 
-function isCurrentMonth(
-  dateValue
-) {
+function isCurrentMonth(dateValue) {
   if (!dateValue) {
     return false;
   }
 
-  const date =
-    new Date(
-      `${dateValue}T12:00:00`
-    );
+  const date = new Date(
+    `${dateValue}T12:00:00`
+  );
 
   if (
     Number.isNaN(
@@ -151,9 +112,7 @@ function isCurrentMonth(
   );
 }
 
-function getMovementAverage(
-  logs
-) {
+function getMovementAverage(logs) {
   const monthLogs =
     logs.filter(
       (log) =>
@@ -162,22 +121,16 @@ function getMovementAverage(
         )
     );
 
-  if (
-    !monthLogs.length
-  ) {
+  if (!monthLogs.length) {
     return 0;
   }
 
   const totalHours =
     monthLogs.reduce(
-      (
-        sum,
-        log
-      ) =>
+      (sum, log) =>
         sum +
         parseDurationToHours(
-          log.movement
-            ?.time
+          log.movement?.time
         ),
       0
     );
@@ -188,9 +141,7 @@ function getMovementAverage(
   );
 }
 
-function normalizeTags(
-  value
-) {
+function normalizeTags(value) {
   if (
     Array.isArray(value)
   ) {
@@ -198,14 +149,11 @@ function normalizeTags(
   }
 
   if (
-    typeof value ===
-    "string"
+    typeof value === "string"
   ) {
     try {
       const parsed =
-        JSON.parse(
-          value
-        );
+        JSON.parse(value);
 
       return Array.isArray(
         parsed
@@ -220,9 +168,7 @@ function normalizeTags(
   return [];
 }
 
-function normalizeArchiveEntry(
-  entry
-) {
+function normalizeArchiveEntry(entry) {
   return {
     ...entry,
 
@@ -315,7 +261,7 @@ export default function Home() {
                     false,
                 }
               )
-              .limit(3),
+              .limit(1),
 
             supabase
               .from(
@@ -344,27 +290,20 @@ export default function Home() {
               .maybeSingle(),
           ]);
 
-        if (
-          logsResult.error
-        ) {
+        if (logsResult.error) {
           throw logsResult.error;
         }
 
-        if (
-          archiveResult.error
-        ) {
+        if (archiveResult.error) {
           throw archiveResult.error;
         }
 
-        if (
-          guidanceResult.error
-        ) {
+        if (guidanceResult.error) {
           throw guidanceResult.error;
         }
 
         setLogs(
-          logsResult.data ||
-          []
+          logsResult.data || []
         );
 
         setArchiveEntries(
@@ -380,8 +319,7 @@ export default function Home() {
           guidanceResult.data;
 
         const guidanceValue =
-          guidanceRow
-            ?.guidance &&
+          guidanceRow?.guidance &&
           typeof guidanceRow
             .guidance ===
             "object" &&
@@ -391,25 +329,9 @@ export default function Home() {
             ? guidanceRow.guidance
             : null;
 
-        if (
+        setGuidance(
           guidanceValue
-        ) {
-          setGuidance({
-            ...guidanceValue,
-
-            guidance_date:
-              guidanceRow
-                .guidance_date,
-
-            generated_at:
-              guidanceRow
-                .generated_at,
-          });
-        } else {
-          setGuidance(
-            null
-          );
-        }
+        );
       } catch (error) {
         console.error(
           "Home load error:",
@@ -421,9 +343,7 @@ export default function Home() {
             "The Home page could not be loaded."
         );
       } finally {
-        setLoading(
-          false
-        );
+        setLoading(false);
       }
     }
 
@@ -431,9 +351,7 @@ export default function Home() {
   }, []);
 
   const homeState =
-    getHomeState(
-      logs
-    );
+    getHomeState(logs);
 
   const movementAverage =
     useMemo(
@@ -443,13 +361,6 @@ export default function Home() {
         ),
       [logs]
     );
-
-  const guidanceBasis =
-    Array.isArray(
-      guidance?.basis
-    )
-      ? guidance.basis
-      : [];
 
   return (
     <>
@@ -497,9 +408,7 @@ export default function Home() {
           </p>
 
           <div className="big">
-            {
-              homeState.bodyWeather
-            }
+            {homeState.bodyWeather}
           </div>
 
           <p className="muted">
@@ -513,9 +422,7 @@ export default function Home() {
           </p>
 
           <div className="big">
-            {
-              homeState.energyTone
-            }
+            {homeState.energyTone}
           </div>
 
           <p className="muted">
@@ -535,34 +442,17 @@ export default function Home() {
       </section>
 
       <section className="panel soft-suggestion">
-        <div className="entry-head">
-          <div>
-            <p className="eyebrow">
-              Today
-            </p>
+        <p className="eyebrow">
+          Today
+        </p>
 
-            <h2>
-              Today&apos;s Soft
-              Suggestion
-            </h2>
-          </div>
-
-          {guidance
-            ?.generated_at && (
-            <span className="badge">
-              Updated{" "}
-              {formatDateTime(
-                guidance
-                  .generated_at
-              )}
-            </span>
-          )}
-        </div>
+        <h2>
+          Soft Suggestion
+        </h2>
 
         {loading && (
           <p className="muted">
-            Loading today&apos;s
-            suggestion…
+            Loading suggestion…
           </p>
         )}
 
@@ -578,111 +468,89 @@ export default function Home() {
           guidance && (
             <>
               {guidance.state && (
-                <div className="soft-suggestion-state">
-                  {
-                    guidance.state
-                  }
-                </div>
-              )}
-
-              {guidance.reading && (
-                <p className="soft-suggestion-reading">
-                  {
-                    guidance.reading
-                  }
+                <p className="label">
+                  {guidance.state}
                 </p>
               )}
 
-              {guidance
-                .suggested_gesture && (
-                <section className="soft-suggestion-gesture">
-                  <p className="block-title">
-                    Suggested
-                    Gesture
-                  </p>
-
-                  <p>
-                    {
-                      guidance
-                        .suggested_gesture
-                    }
-                  </p>
-                </section>
-              )}
-
-              {guidance.avoid && (
-                <section className="soft-suggestion-detail">
-                  <p className="block-title">
-                    Keep Light
-                  </p>
-
-                  <p>
-                    {
-                      guidance.avoid
-                    }
-                  </p>
-                </section>
-              )}
-
-              {guidanceBasis.length >
-                0 && (
-                <section className="soft-suggestion-detail">
-                  <p className="block-title">
-                    Based On
-                  </p>
-
-                  {guidanceBasis.map(
-                    (
-                      item,
-                      index
-                    ) => (
-                      <p
-                        key={`${item}-${index}`}
-                      >
-                        — {item}
-                      </p>
-                    )
-                  )}
-                </section>
-              )}
-
-              {guidance
-                .confidence_note && (
-                <p className="muted">
-                  {
-                    guidance
-                      .confidence_note
-                  }
-                </p>
-              )}
+              <p className="soft-suggestion-reading">
+                {guidance.suggested_gesture ||
+                  guidance.reading}
+              </p>
             </>
           )}
 
         {!loading &&
           !errorMessage &&
           !guidance && (
-            <>
-              <p className="muted">
-                No Soft Suggestion
-                has been generated
-                yet.
-              </p>
-
-              <p className="muted">
-                The first
-                suggestion will
-                appear after the
-                nightly system
-                update.
-              </p>
-            </>
+            <p className="muted">
+              The next suggestion
+              will appear after the
+              nightly update.
+            </p>
           )}
       </section>
 
       <section className="panel">
-        <h2>
-          Latest Daily
-        </h2>
+        <div className="entry-head">
+          <div>
+            <p className="eyebrow">
+              Input
+            </p>
+
+            <h2>
+              Latest Archive
+            </h2>
+          </div>
+
+          <a href="/archive">
+            View All
+          </a>
+        </div>
+
+        {archiveEntries.length >
+          0 && (
+          <div className="archive-grid archive-grid-single">
+            {archiveEntries.map(
+              (entry) => (
+                <ArchiveCard
+                  key={
+                    entry.id
+                  }
+                  entry={
+                    entry
+                  }
+                />
+              )
+            )}
+          </div>
+        )}
+
+        {!archiveEntries.length &&
+          !loading && (
+            <p className="muted">
+              No public Archive
+              entries yet.
+            </p>
+          )}
+      </section>
+
+      <section className="panel">
+        <div className="entry-head">
+          <div>
+            <p className="eyebrow">
+              Input
+            </p>
+
+            <h2>
+              Latest Daily
+            </h2>
+          </div>
+
+          <a href="/daily">
+            View All
+          </a>
+        </div>
 
         {logs
           .slice(0, 1)
@@ -704,60 +572,6 @@ export default function Home() {
             <p className="muted">
               No public Daily
               records yet.
-            </p>
-          )}
-      </section>
-
-     <section className="panel">
-  <div className="entry-head">
-    <div>
-      <p className="eyebrow">
-        Archive
-      </p>
-
-      <h2>
-        Latest Archive
-      </h2>
-
-      <p className="subtitle">
-        Recent writing,
-        videos, reflections,
-        project records, and
-        references.
-      </p>
-    </div>
-
-    <a
-      href="/archive"
-      className="button"
-    >
-      View All
-    </a>
-  </div>
-
-        {archiveEntries.length >
-          0 && (
-          <div className="archive-grid">
-            {archiveEntries.map(
-              (entry) => (
-                <ArchiveCard
-                  key={
-                    entry.id
-                  }
-                  entry={
-                    entry
-                  }
-                />
-              )
-            )}
-          </div>
-        )}
-
-        {!archiveEntries.length &&
-          !loading && (
-            <p className="muted">
-              No public Archive
-              entries yet.
             </p>
           )}
       </section>
