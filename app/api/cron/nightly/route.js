@@ -807,7 +807,177 @@ async function findRelevantArchive(logs) {
         ),
     }));
 }
+const MAX_ARCHIVE_MATCHES = 5;
+const MIN_ARCHIVE_SIMILARITY = 0.35;
+const MAX_ARCHIVE_BODY_LENGTH = 2500;
+const MAX_ARCHIVE_SEARCH_LENGTH = 24000;
 
+async function findRelevantArchive(logs) {
+  const searchText = logs
+    .map(makeEmbeddingText)
+    .filter(Boolean)
+    .join("\n\n---\n\n")
+    .slice(
+      0,
+      MAX_ARCHIVE_SEARCH_LENGTH
+    );
+
+  if (!searchText) {
+    return [];
+  }
+
+  const embeddingResponse =
+    await openai.embeddings.create({
+      model:
+        EMBEDDING_MODEL,
+
+      input:
+        searchText,
+    });
+
+  const queryEmbedding =
+    embeddingResponse
+      .data?.[0]
+      ?.embedding;
+
+  if (
+    !Array.isArray(
+      queryEmbedding
+    ) ||
+    !queryEmbedding.length
+  ) {
+    throw new Error(
+      "The Archive search embedding was not returned."
+    );
+  }
+
+  const {
+    data: archiveEntries,
+    error: archiveError,
+  } = await supabaseAdmin
+    .from(
+      "archive_entries"
+    )
+    .select(
+      `
+        id,
+        user_id,
+        title,
+        type,
+        entry_date,
+        body,
+        url,
+        tags,
+        is_public,
+        embedding
+      `
+    )
+    .not(
+      "embedding",
+      "is",
+      null
+    )
+    .order(
+      "entry_date",
+      {
+        ascending: false,
+      }
+    )
+    .limit(200);
+
+  if (archiveError) {
+    throw archiveError;
+  }
+
+  return (
+    archiveEntries || []
+  )
+    .map((entry) => {
+      const archiveEmbedding =
+        parseEmbedding(
+          entry.embedding
+        );
+
+      if (
+        !Array.isArray(
+          archiveEmbedding
+        ) ||
+        !archiveEmbedding.length
+      ) {
+        return null;
+      }
+
+      const similarity =
+        cosineSimilarity(
+          queryEmbedding,
+          archiveEmbedding
+        );
+
+      return {
+        entry,
+        similarity,
+      };
+    })
+    .filter(Boolean)
+    .filter(
+      (item) =>
+        item.similarity >=
+        MIN_ARCHIVE_SIMILARITY
+    )
+    .sort(
+      (
+        first,
+        second
+      ) =>
+        second.similarity -
+        first.similarity
+    )
+    .slice(
+      0,
+      MAX_ARCHIVE_MATCHES
+    )
+    .map((item) => ({
+      id:
+        item.entry.id,
+
+      title:
+        item.entry.title ||
+        "",
+
+      type:
+        item.entry.type ||
+        "",
+
+      entry_date:
+        item.entry.entry_date ||
+        "",
+
+      body:
+        String(
+          item.entry.body ||
+          ""
+        ).slice(
+          0,
+          MAX_ARCHIVE_BODY_LENGTH
+        ),
+
+      url:
+        item.entry.url ||
+        "",
+
+      tags:
+        getArray(
+          item.entry.tags
+        ),
+
+      similarity:
+        Number(
+          item.similarity.toFixed(
+            4
+          )
+        ),
+    }));
+}
 function makeWeaveNode(log) {
   const state =
     getObject(log.state);
