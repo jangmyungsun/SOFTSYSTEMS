@@ -137,6 +137,7 @@ export default function EntryCard({
 
   const hasBodyData =
     state.body_state !== "" ||
+    Boolean(state.breathing_state) ||
     state.energy !== "" ||
     state.mood !== "" ||
     state.weight !== "" ||
@@ -210,6 +211,12 @@ export default function EntryCard({
                   {state.body_state}
                 </p>
               )}
+              {state.breathing_state && (
+                <p>
+                  <strong>Breathing State</strong> —{" "}
+                  {state.breathing_state}
+                  </p>
+                )}
 
               {state.energy !== "" && (
                 <p>

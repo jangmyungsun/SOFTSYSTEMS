@@ -87,6 +87,7 @@ const emptyForm = {
 
   state: {
     body_state: "",
+    breathing_state: "",
     energy: "",
     mood: "",
     weight: "",
@@ -427,6 +428,9 @@ export default function LogForm({
         body_state:
           form.state.body_state,
 
+        breathing_state:
+          form.state.breathing_state,
+
         energy:
           form.state.energy,
 
@@ -575,6 +579,21 @@ export default function LogForm({
             }
           />
         </label>
+
+        <label>
+          Breathing State
+          <input
+          type="text"
+          placeholder="Relaxed, shallow, tight, deep and slow..."
+          value={form.state.breathing_state}
+          onChange={(event) =>
+            updateState(
+              "breathing_state",
+              event.target.value
+            )
+          }
+          />
+          </label>
 
         <label>
           Energy
