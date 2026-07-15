@@ -1,453 +1,415 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+
 import { openai } from "../../../lib/openai";
+import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+const ANALYSIS_SCHEMA = {
+  type: "object",
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl) {
-  throw new Error(
-    "NEXT_PUBLIC_SUPABASE_URL is missing."
-  );
-}
-
-if (!serviceRoleKey) {
-  throw new Error(
-    "SUPABASE_SERVICE_ROLE_KEY is missing."
-  );
-}
-
-const supabaseAdmin = createClient(
-  supabaseUrl,
-  serviceRoleKey,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
+  properties: {
+    summary: {
+      type: "string",
+      description:
+        "A concise observation of the day in one or two sentences.",
     },
-  }
-);
 
-function isValidObject(value) {
-  return (
+    emotions: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      maxItems: 5,
+    },
+
+    themes: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      maxItems: 6,
+    },
+
+    keywords: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      maxItems: 10,
+    },
+
+    body_signals: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      maxItems: 5,
+    },
+
+    practice_signals: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      maxItems: 5,
+    },
+
+    relationship: {
+      type: "string",
+      description:
+        "A careful observation about relationships among body, body practice, environment, artistic input, and creative practice.",
+    },
+  },
+
+  required: [
+    "summary",
+    "emotions",
+    "themes",
+    "keywords",
+    "body_signals",
+    "practice_signals",
+    "relationship",
+  ],
+
+  additionalProperties: false,
+};
+
+function getObject(value) {
+  if (
     value &&
     typeof value === "object" &&
     !Array.isArray(value)
-  );
-}
-
-function cleanLogForAI(log) {
-  return {
-    date: log.date || "",
-    pace: log.pace || "",
-    state: isValidObject(log.state)
-      ? log.state
-      : {},
-    movement: isValidObject(log.movement)
-      ? log.movement
-      : {},
-    environment: isValidObject(log.environment)
-      ? log.environment
-      : {},
-    work: isValidObject(log.work)
-      ? log.work
-      : {},
-    learning: Array.isArray(log.learning)
-      ? log.learning
-      : [],
-    artistic_input: isValidObject(
-      log.artistic_input
-    )
-      ? log.artistic_input
-      : {},
-    observation: log.observation || "",
-    alignment: log.alignment || "",
-    tomorrow: Array.isArray(log.tomorrow)
-      ? log.tomorrow
-      : [],
-  };
-}
-
-function validateAnalysis(value) {
-  if (!isValidObject(value)) {
-    return null;
-  }
-
-  if (
-    typeof value.summary !== "string" ||
-    !value.summary.trim()
   ) {
-    return null;
+    return value;
   }
 
-  return {
-    summary: value.summary.trim(),
-
-    relationship:
-      typeof value.relationship === "string"
-        ? value.relationship.trim()
-        : "",
-
-    emotions: Array.isArray(value.emotions)
-      ? value.emotions
-          .filter(
-            (item) =>
-              typeof item === "string" &&
-              item.trim()
-          )
-          .map((item) => item.trim())
-          .slice(0, 6)
-      : [],
-
-    themes: Array.isArray(value.themes)
-      ? value.themes
-          .filter(
-            (item) =>
-              typeof item === "string" &&
-              item.trim()
-          )
-          .map((item) => item.trim())
-          .slice(0, 6)
-      : [],
-
-    keywords: Array.isArray(value.keywords)
-      ? value.keywords
-          .filter(
-            (item) =>
-              typeof item === "string" &&
-              item.trim()
-          )
-          .map((item) => item.trim())
-          .slice(0, 8)
-      : [],
-
-    body_signals: Array.isArray(
-      value.body_signals
-    )
-      ? value.body_signals
-          .filter(
-            (item) =>
-              typeof item === "string" &&
-              item.trim()
-          )
-          .map((item) => item.trim())
-          .slice(0, 6)
-      : [],
-
-    practice_signals: Array.isArray(
-      value.practice_signals
-    )
-      ? value.practice_signals
-          .filter(
-            (item) =>
-              typeof item === "string" &&
-              item.trim()
-          )
-          .map((item) => item.trim())
-          .slice(0, 6)
-      : [],
-  };
+  return {};
 }
 
-async function generateAnalysis(log) {
-  const cleanLog = cleanLogForAI(log);
-
-  const completion =
-    await openai.chat.completions.create({
-      model:
-        process.env.OPENAI_MODEL ||
-        "gpt-4.1-mini",
-
-      response_format: {
-        type: "json_object",
-      },
-
-      temperature: 0.4,
-
-      messages: [
-        {
-          role: "system",
-          content: `
-You are the observation system for SOFT SYSTEMS.
-
-SOFT SYSTEMS records relationships between bodily states,
-emotions, environment, movement, routines, learning,
-artistic input, and creative work.
-
-Analyze only the supplied daily record.
-Do not diagnose medical or mental-health conditions.
-Do not invent facts that are absent from the record.
-Use calm, precise, observational language.
-Avoid productivity pressure and moral judgment.
-
-Return valid JSON only, using exactly this structure:
-
-{
-  "summary": "A concise paragraph describing the day's overall state and flow.",
-  "relationship": "A concise observation about relationships among body, environment, mood, movement, and creative practice.",
-  "emotions": ["short phrase"],
-  "themes": ["short phrase"],
-  "keywords": ["short phrase"],
-  "body_signals": ["short phrase"],
-  "practice_signals": ["short phrase"]
+function getArray(value) {
+  return Array.isArray(value)
+    ? value
+    : [];
 }
 
-All prose and tags must be written in English.
-Do not wrap the JSON in markdown.
-          `.trim(),
-        },
-        {
-          role: "user",
-          content: JSON.stringify(
-            cleanLog,
-            null,
-            2
-          ),
-        },
-      ],
-    });
+function makeAnalysisInput(log) {
+  const state =
+    getObject(log.state);
 
-  const rawContent =
-    completion.choices?.[0]?.message?.content;
+  const movement =
+    getObject(log.movement);
 
-  if (!rawContent) {
-    throw new Error(
-      "OpenAI returned an empty response."
-    );
-  }
+  const environment =
+    getObject(log.environment);
 
-  let parsed;
+  const work =
+    getObject(log.work);
 
-  try {
-    parsed = JSON.parse(rawContent);
-  } catch (error) {
-    console.error(
-      "Failed to parse OpenAI response:",
-      rawContent
-    );
+  const artisticInput =
+    getObject(log.artistic_input);
 
-    throw new Error(
-      "OpenAI response was not valid JSON."
-    );
-  }
+  const mediaItems =
+    getArray(log.media);
 
-  const validated =
-    validateAnalysis(parsed);
+  const learningItems =
+    getArray(log.learning);
 
-  if (!validated) {
-    throw new Error(
-      "OpenAI response did not contain a valid summary."
-    );
-  }
+  const tomorrowItems =
+    getArray(log.tomorrow);
+
+  const makingItems =
+    getArray(work.items);
 
   return {
-    ...validated,
-    model:
-      process.env.OPENAI_MODEL ||
-      "gpt-4.1-mini",
-    generated_at: new Date().toISOString(),
-  };
-}
+    date:
+      log.date || "",
 
-async function analyzeLog(logId, force = false) {
-  if (!logId) {
-    return {
-      status: 400,
-      body: {
-        error: "A field log ID is required.",
-      },
-    };
-  }
-
-  const { data: log, error: fetchError } =
-    await supabaseAdmin
-      .from("field_logs")
-      .select("*")
-      .eq("id", logId)
-      .single();
-
-  if (fetchError || !log) {
-    console.error(
-      "Field log fetch error:",
-      fetchError
-    );
-
-    return {
-      status: 404,
-      body: {
-        error: "Field log not found.",
-        details:
-          fetchError?.message || null,
-      },
-    };
-  }
-
-  const existingAnalysis =
-    isValidObject(log.ai_analysis)
-      ? log.ai_analysis
-      : {};
-
-  const hasExistingSummary =
-    typeof existingAnalysis.summary ===
-      "string" &&
-    existingAnalysis.summary.trim() !== "";
-
-  /*
-   * force가 false이고 정상 분석이 이미 있으면
-   * OpenAI를 다시 호출하지 않는다.
-   *
-   * ai_analysis가 {}인 기록은
-   * hasExistingSummary가 false이므로 다시 생성된다.
-   */
-  if (hasExistingSummary && !force) {
-    return {
-      status: 200,
-      body: {
-        success: true,
-        skipped: true,
-        message:
-          "This log already has an AI analysis.",
-        analysis: existingAnalysis,
-      },
-    };
-  }
-
-  const analysis =
-    await generateAnalysis(log);
-
-  const { data: updatedLog, error: updateError } =
-    await supabaseAdmin
-      .from("field_logs")
-      .update({
-        ai_analysis: analysis,
-      })
-      .eq("id", logId)
-      .select("*")
-      .single();
-
-  if (updateError) {
-    console.error(
-      "AI analysis update error:",
-      updateError
-    );
-
-    return {
-      status: 500,
-      body: {
-        error:
-          "The analysis was generated but could not be saved.",
-        details: updateError.message,
-      },
-    };
-  }
-
-  return {
-    status: 200,
     body: {
-      success: true,
-      skipped: false,
-      analysis,
-      log: updatedLog,
+      body_state:
+        state.body_state || null,
+
+      energy:
+        state.energy || null,
+
+      mood:
+        state.mood || null,
+
+      weight:
+        state.weight || null,
+
+      temperature:
+        state.temperature || null,
     },
+
+    body_practice: {
+      time:
+        movement.time || "",
+
+      type:
+        movement.type || "",
+
+      intensity:
+        movement.intensity || "",
+
+      notes:
+        movement.notes || "",
+    },
+
+    environment,
+
+    making: {
+      time:
+        work.time || "",
+
+      project:
+        work.project || "",
+
+      notes:
+        makingItems,
+    },
+
+    learning:
+      learningItems,
+
+    artistic_input: {
+      type:
+        artisticInput.type || "",
+
+      title:
+        artisticInput.title || "",
+
+      creator:
+        artisticInput.creator || "",
+
+      note:
+        artisticInput.note || "",
+    },
+
+    observation:
+      log.observation || "",
+
+    alignment:
+      log.alignment || "",
+
+    tomorrow:
+      tomorrowItems,
+
+    media:
+      mediaItems.map((item) => ({
+        type:
+          item?.type || "",
+
+        name:
+          item?.name ||
+          item?.file_name ||
+          "",
+      })),
   };
 }
 
-/*
- * POST /api/analyze
- *
- * 허용되는 요청:
- * { "id": "field-log-id" }
- * { "logId": "field-log-id" }
- * { "id": "field-log-id", "force": true }
- */
 export async function POST(request) {
   try {
-    const body = await request.json();
+    const authorization =
+      request.headers.get(
+        "authorization"
+      );
 
-    const logId =
-      body?.id ||
-      body?.logId ||
-      body?.log_id;
+    const accessToken =
+      authorization?.startsWith(
+        "Bearer "
+      )
+        ? authorization.slice(7)
+        : "";
 
-    const force =
-      body?.force === true;
+    if (!accessToken) {
+      return NextResponse.json(
+        {
+          error:
+            "Authentication is required.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
 
-    const result =
-      await analyzeLog(logId, force);
+    const {
+      data: userData,
+      error: userError,
+    } =
+      await supabaseAdmin.auth.getUser(
+        accessToken
+      );
 
-    return NextResponse.json(
-      result.body,
-      {
-        status: result.status,
-      }
-    );
-  } catch (error) {
-    console.error(
-      "Analyze API POST error:",
-      error
-    );
+    if (
+      userError ||
+      !userData?.user
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid authentication.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
 
-    return NextResponse.json(
-      {
-        error:
-          "AI analysis could not be generated.",
-        details:
-          error instanceof Error
-            ? error.message
-            : "Unknown error",
+    const requestBody =
+      await request.json();
+
+    const log =
+      requestBody?.log;
+
+    if (!log) {
+      return NextResponse.json(
+        {
+          error:
+            "Daily data is required.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const analysisInput =
+      makeAnalysisInput(log);
+
+    const model =
+      process.env.OPENAI_MODEL ||
+      "gpt-5.6";
+
+    const response =
+      await openai.responses.create({
+        model,
+
+        input: [
+          {
+            role: "system",
+
+            content: `
+You are the interpretive layer of SOFTSYSTEMS.
+
+SOFTSYSTEMS is not a productivity tool.
+It is an artistic ecology that observes relationships among body, body practice, environment, making, learning, artistic references, media, memory, and creation.
+
+Your task is to carefully interpret one Daily record.
+
+Body Practice describes what the body actually did during the day. It may include yoga, walking, running, stretching, strength work, swimming, cycling, dance, performance practice, or another embodied activity.
+
+Observe possible relationships among:
+- body state;
+- energy and mood;
+- Body Practice type, duration, intensity, and notes;
+- environment and weather;
+- making;
+- learning;
+- artistic input;
+- observation;
+- alignment.
+
+Do not assume that Body Practice caused a later body state, mood, energy level, or creative outcome from one record alone.
+
+The Artistic Input may include a book, film, performance, exhibition, music work, or another reference.
+
+Do not summarize the artistic work itself unless that summary is directly necessary.
+
+Instead, observe how the artistic input may relate to:
+- body state;
+- Body Practice;
+- energy and mood;
+- environment;
+- observation;
+- making;
+- learning;
+- alignment;
+- recurring artistic concerns.
+
+Treat Body Practice and Artistic Input as signals within the day, not as proof of causation.
+
+Do not give generic motivation.
+Do not praise productivity.
+Do not make medical diagnoses.
+Do not exaggerate patterns from one entry.
+Do not claim that weather, movement, or one artistic reference caused a body state or creative outcome.
+
+Use calm, precise, observational language.
+Treat uncertainty honestly.
+Focus on signals and relationships that may become meaningful when compared over time.
+
+When appropriate, include:
+- the Body Practice type;
+- the artistic input title, creator, medium, or central concern;
+- relevant bodily or creative signals;
+in themes or keywords.
+
+Return all labels and observations in English.
+            `.trim(),
+          },
+
+          {
+            role: "user",
+
+            content:
+              JSON.stringify(
+                analysisInput,
+                null,
+                2
+              ),
+          },
+        ],
+
+        text: {
+          format: {
+            type:
+              "json_schema",
+
+            name:
+              "softsystems_daily_analysis",
+
+            strict:
+              true,
+
+            schema:
+              ANALYSIS_SCHEMA,
+          },
+        },
+      });
+
+    if (!response.output_text) {
+      throw new Error(
+        "The AI returned no analysis."
+      );
+    }
+
+    const analysis =
+      JSON.parse(
+        response.output_text
+      );
+
+    return NextResponse.json({
+      analysis: {
+        ...analysis,
+
+        analyzed_at:
+          new Date()
+            .toISOString(),
+
+        model,
       },
-      {
-        status: 500,
-      }
-    );
-  }
-}
-
-/*
- * 브라우저 테스트용:
- * GET /api/analyze?id=기록ID
- * GET /api/analyze?id=기록ID&force=true
- */
-export async function GET(request) {
-  try {
-    const { searchParams } =
-      new URL(request.url);
-
-    const logId =
-      searchParams.get("id") ||
-      searchParams.get("logId");
-
-    const force =
-      searchParams.get("force") ===
-      "true";
-
-    const result =
-      await analyzeLog(logId, force);
-
-    return NextResponse.json(
-      result.body,
-      {
-        status: result.status,
-      }
-    );
+    });
   } catch (error) {
     console.error(
-      "Analyze API GET error:",
+      "AI analysis failed:",
       error
     );
 
     return NextResponse.json(
       {
         error:
-          "AI analysis could not be generated.",
-        details:
-          error instanceof Error
-            ? error.message
-            : "Unknown error",
+          error?.message ||
+          "AI analysis failed.",
       },
       {
         status: 500,
