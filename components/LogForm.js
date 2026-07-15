@@ -1,8 +1,53 @@
 "use client";
 
-import {
-  useState,
-} from "react";
+import { useState } from "react";
+
+const MOVEMENT_TYPES = [
+  {
+    value: "yoga",
+    label: "Yoga",
+  },
+  {
+    value: "walking",
+    label: "Walking",
+  },
+  {
+    value: "running",
+    label: "Running",
+  },
+  {
+    value: "stretching",
+    label: "Stretching",
+  },
+  {
+    value: "strength",
+    label: "Strength",
+  },
+  {
+    value: "dance",
+    label: "Dance",
+  },
+  {
+    value: "swimming",
+    label: "Swimming",
+  },
+  {
+    value: "cycling",
+    label: "Cycling",
+  },
+  {
+    value: "performance",
+    label: "Performance",
+  },
+  {
+    value: "housework",
+    label: "Housework",
+  },
+  {
+    value: "other",
+    label: "Other",
+  },
+];
 
 const ARTISTIC_TYPES = [
   {
@@ -38,8 +83,7 @@ function getTodayString() {
 }
 
 const emptyForm = {
-  date:
-    getTodayString(),
+  date: getTodayString(),
 
   state: {
     body_state: "",
@@ -47,6 +91,13 @@ const emptyForm = {
     mood: "",
     weight: "",
     temperature: "",
+  },
+
+  movement: {
+    type: "",
+    time: "",
+    intensity: "",
+    notes: "",
   },
 
   work: {
@@ -80,14 +131,17 @@ function makeEmptyForm() {
       ...emptyForm.state,
     },
 
+    movement: {
+      ...emptyForm.movement,
+    },
+
     work: {
       ...emptyForm.work,
       items: [],
     },
 
     artistic_input: {
-      ...emptyForm
-        .artistic_input,
+      ...emptyForm.artistic_input,
     },
 
     tomorrow: [],
@@ -97,10 +151,7 @@ function makeEmptyForm() {
 function textToLines(text) {
   return String(text || "")
     .split("\n")
-    .map(
-      (line) =>
-        line.trim()
-    )
+    .map((line) => line.trim())
     .filter(Boolean);
 }
 
@@ -112,38 +163,41 @@ function linesToText(lines) {
 
 function parseLearning(initial) {
   const firstEntry =
-    Array.isArray(
-      initial?.learning
-    ) &&
+    Array.isArray(initial?.learning) &&
     initial.learning.length
       ? initial.learning[0]
       : "";
 
-  const match =
-    String(firstEntry).match(
-      /^\s*(\d+(?:\.\d+)?\s*(?:h|hr|hrs|hour|hours|m|min|mins|minute|minutes))\s*(?:—|-|:)?\s*(.*)$/i
-    );
+  const match = String(firstEntry).match(
+    /^\s*(\d+(?:\.\d+)?\s*(?:h|hr|hrs|hour|hours|m|min|mins|minute|minutes))\s*(?:—|-|:)?\s*(.*)$/i
+  );
 
   if (!match) {
     return {
       learning_time: "",
-      learning_subject:
-        firstEntry,
+      learning_subject: firstEntry,
     };
   }
 
   return {
-    learning_time:
-      match[1] || "",
-
-    learning_subject:
-      match[2] || "",
+    learning_time: match[1] || "",
+    learning_subject: match[2] || "",
   };
 }
 
-function prepareInitialForm(
-  initial
-) {
+function getSafeObject(value) {
+  if (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  ) {
+    return value;
+  }
+
+  return {};
+}
+
+function prepareInitialForm(initial) {
   if (!initial) {
     return makeEmptyForm();
   }
@@ -151,17 +205,15 @@ function prepareInitialForm(
   const learning =
     parseLearning(initial);
 
+  const movement =
+    getSafeObject(
+      initial.movement
+    );
+
   const artisticInput =
-    initial
-      .artistic_input &&
-    typeof initial
-      .artistic_input ===
-      "object" &&
-    !Array.isArray(
+    getSafeObject(
       initial.artistic_input
-    )
-      ? initial.artistic_input
-      : {};
+    );
 
   return {
     ...makeEmptyForm(),
@@ -169,44 +221,45 @@ function prepareInitialForm(
 
     state: {
       ...emptyForm.state,
-      ...(initial.state ||
-        {}),
+      ...getSafeObject(
+        initial.state
+      ),
+    },
+
+    movement: {
+      ...emptyForm.movement,
+      ...movement,
     },
 
     work: {
       ...emptyForm.work,
-      ...(initial.work ||
-        {}),
+      ...getSafeObject(
+        initial.work
+      ),
 
-      items:
-        Array.isArray(
-          initial.work?.items
-        )
-          ? initial.work
-              .items
-          : [],
+      items: Array.isArray(
+        initial.work?.items
+      )
+        ? initial.work.items
+        : [],
     },
 
     learning_time:
       learning.learning_time,
 
     learning_subject:
-      learning
-        .learning_subject,
+      learning.learning_subject,
 
     artistic_input: {
-      ...emptyForm
-        .artistic_input,
-
+      ...emptyForm.artistic_input,
       ...artisticInput,
     },
 
-    tomorrow:
-      Array.isArray(
-        initial.tomorrow
-      )
-        ? initial.tomorrow
-        : [],
+    tomorrow: Array.isArray(
+      initial.tomorrow
+    )
+      ? initial.tomorrow
+      : [],
 
     is_public: true,
   };
@@ -220,85 +273,94 @@ export default function LogForm({
   const [
     form,
     setForm,
-  ] =
-    useState(() =>
-      prepareInitialForm(
-        initial
-      )
-    );
+  ] = useState(() =>
+    prepareInitialForm(initial)
+  );
 
   const updateField = (
     key,
     value
   ) => {
-    setForm(
-      (previous) => ({
-        ...previous,
-        [key]: value,
-      })
-    );
+    setForm((previous) => ({
+      ...previous,
+      [key]: value,
+    }));
   };
 
   const updateState = (
     key,
     value
   ) => {
-    setForm(
-      (previous) => ({
-        ...previous,
+    setForm((previous) => ({
+      ...previous,
 
-        state: {
-          ...previous.state,
-          [key]: value,
-        },
-      })
-    );
+      state: {
+        ...previous.state,
+        [key]: value,
+      },
+    }));
+  };
+
+  const updateMovement = (
+    key,
+    value
+  ) => {
+    setForm((previous) => ({
+      ...previous,
+
+      movement: {
+        ...previous.movement,
+        [key]: value,
+      },
+    }));
   };
 
   const updateWork = (
     key,
     value
   ) => {
-    setForm(
-      (previous) => ({
-        ...previous,
+    setForm((previous) => ({
+      ...previous,
 
-        work: {
-          ...previous.work,
-          [key]: value,
-        },
-      })
-    );
+      work: {
+        ...previous.work,
+        [key]: value,
+      },
+    }));
   };
 
   const updateArtisticInput = (
     key,
     value
   ) => {
-    setForm(
-      (previous) => ({
-        ...previous,
+    setForm((previous) => ({
+      ...previous,
 
-        artistic_input: {
-          ...previous
-            .artistic_input,
-
-          [key]: value,
-        },
-      })
-    );
+      artistic_input: {
+        ...previous.artistic_input,
+        [key]: value,
+      },
+    }));
   };
 
-  const changeDate = (
-    value
-  ) => {
+  const changeDate = (value) => {
     updateField(
       "date",
       value
     );
 
-    onDateChange?.(
-      value
+    onDateChange?.(value);
+  };
+
+  const selectMovementType = (
+    type
+  ) => {
+    updateMovement(
+      "type",
+      form.movement.type ===
+        type
+        ? ""
+        : type
     );
   };
 
@@ -307,7 +369,6 @@ export default function LogForm({
   ) => {
     updateArtisticInput(
       "type",
-
       form.artistic_input
         .type === type
         ? ""
@@ -327,26 +388,36 @@ export default function LogForm({
       .filter(Boolean)
       .join(" — ");
 
-    const artisticInput =
-      form.artistic_input;
+    const hasMovement =
+      Boolean(
+        form.movement.type
+      ) ||
+      Boolean(
+        form.movement.time
+      ) ||
+      Boolean(
+        form.movement.intensity
+      ) ||
+      Boolean(
+        form.movement.notes
+      );
 
     const hasArtisticInput =
       Boolean(
-        artisticInput.type
+        form.artistic_input.type
       ) ||
       Boolean(
-        artisticInput.title
+        form.artistic_input.title
       ) ||
       Boolean(
-        artisticInput.creator
+        form.artistic_input.creator
       ) ||
       Boolean(
-        artisticInput.note
+        form.artistic_input.note
       );
 
     onSubmit({
-      date:
-        form.date,
+      date: form.date,
 
       pace:
         initial?.pace ||
@@ -354,8 +425,7 @@ export default function LogForm({
 
       state: {
         body_state:
-          form.state
-            .body_state,
+          form.state.body_state,
 
         energy:
           form.state.energy,
@@ -367,9 +437,25 @@ export default function LogForm({
           form.state.weight,
 
         temperature:
-          form.state
-            .temperature,
+          form.state.temperature,
       },
+
+      movement: hasMovement
+        ? {
+            type:
+              form.movement.type,
+
+            time:
+              form.movement.time,
+
+            intensity:
+              form.movement
+                .intensity,
+
+            notes:
+              form.movement.notes,
+          }
+        : {},
 
       work: {
         time:
@@ -393,19 +479,23 @@ export default function LogForm({
         hasArtisticInput
           ? {
               type:
-                artisticInput
+                form
+                  .artistic_input
                   .type,
 
               title:
-                artisticInput
+                form
+                  .artistic_input
                   .title,
 
               creator:
-                artisticInput
+                form
+                  .artistic_input
                   .creator,
 
               note:
-                artisticInput
+                form
+                  .artistic_input
                   .note,
             }
           : {},
@@ -414,8 +504,7 @@ export default function LogForm({
         initial?.body || [],
 
       nourishment:
-        initial
-          ?.nourishment ||
+        initial?.nourishment ||
         {},
 
       media:
@@ -438,9 +527,7 @@ export default function LogForm({
 
   return (
     <form
-      onSubmit={
-        handleSubmit
-      }
+      onSubmit={handleSubmit}
     >
       <div className="grid two">
         <label>
@@ -448,9 +535,7 @@ export default function LogForm({
 
           <input
             type="date"
-            value={
-              form.date
-            }
+            value={form.date}
             onChange={(
               event
             ) =>
@@ -585,6 +670,138 @@ export default function LogForm({
         </label>
       </div>
 
+      <h2>
+        Body Moving
+      </h2>
+
+      <h3>Type</h3>
+
+      <div className="artistic-type-list">
+        {MOVEMENT_TYPES.map(
+          (item) => {
+            const checked =
+              form.movement.type ===
+              item.value;
+
+            return (
+              <label
+                className={
+                  checked
+                    ? "artistic-type selected"
+                    : "artistic-type"
+                }
+                key={
+                  item.value
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={
+                    checked
+                  }
+                  onChange={() =>
+                    selectMovementType(
+                      item.value
+                    )
+                  }
+                />
+
+                <span>
+                  {item.label}
+                </span>
+              </label>
+            );
+          }
+        )}
+      </div>
+
+      <div className="grid two">
+        <label>
+          Time
+
+          <input
+            type="text"
+            placeholder="Example: 45m or 1h 30m"
+            value={
+              form.movement.time
+            }
+            onChange={(
+              event
+            ) =>
+              updateMovement(
+                "time",
+                event.target
+                  .value
+              )
+            }
+          />
+        </label>
+
+        <label>
+          Intensity
+
+          <select
+            value={
+              form.movement
+                .intensity
+            }
+            onChange={(
+              event
+            ) =>
+              updateMovement(
+                "intensity",
+                event.target
+                  .value
+              )
+            }
+          >
+            <option value="">
+              Optional
+            </option>
+
+            <option value="1">
+              1 — Very gentle
+            </option>
+
+            <option value="2">
+              2 — Gentle
+            </option>
+
+            <option value="3">
+              3 — Moderate
+            </option>
+
+            <option value="4">
+              4 — Strong
+            </option>
+
+            <option value="5">
+              5 — Very strong
+            </option>
+          </select>
+        </label>
+      </div>
+
+      <label>
+        Body Moving Notes
+
+        <textarea
+          placeholder="Style, distance, bodily sensation, or anything that felt relevant."
+          value={
+            form.movement.notes
+          }
+          onChange={(
+            event
+          ) =>
+            updateMovement(
+              "notes",
+              event.target
+                .value
+            )
+          }
+        />
+      </label>
+
       <h2>Practice</h2>
 
       <h3>Making</h3>
@@ -618,8 +835,7 @@ export default function LogForm({
             type="text"
             placeholder="Project name"
             value={
-              form.work
-                .project
+              form.work.project
             }
             onChange={(
               event
@@ -664,8 +880,7 @@ export default function LogForm({
             type="text"
             placeholder="Example: 1h"
             value={
-              form
-                .learning_time
+              form.learning_time
             }
             onChange={(
               event
@@ -741,9 +956,7 @@ export default function LogForm({
                 />
 
                 <span>
-                  {
-                    item.label
-                  }
+                  {item.label}
                 </span>
               </label>
             );
@@ -833,11 +1046,11 @@ export default function LogForm({
           onChange={(
             event
           ) =>
-            updateField(
-              "observation",
-              event.target
-                .value
-            )
+              updateField(
+                "observation",
+                event.target
+                  .value
+              )
           }
         />
       </label>
@@ -852,11 +1065,11 @@ export default function LogForm({
           onChange={(
             event
           ) =>
-            updateField(
-              "alignment",
-              event.target
-                .value
-            )
+              updateField(
+                "alignment",
+                event.target
+                  .value
+              )
           }
         />
       </label>
@@ -872,11 +1085,11 @@ export default function LogForm({
           onChange={(
             event
           ) =>
-            updateField(
-              "tomorrow",
-              event.target
-                .value
-            )
+              updateField(
+                "tomorrow",
+                event.target
+                  .value
+              )
           }
         />
       </label>
