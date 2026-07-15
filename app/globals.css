@@ -522,3 +522,61 @@ th {
   background: var(--ink);
   color: var(--paper);
 }
+/* Today's Soft Suggestion */
+
+.soft-suggestion {
+  position: relative;
+}
+
+.soft-suggestion-state {
+  margin: 0 0 18px;
+
+  font-size:
+    clamp(
+      30px,
+      5vw,
+      62px
+    );
+
+  line-height: 1;
+  letter-spacing: -0.06em;
+}
+
+.soft-suggestion-reading {
+  max-width: 820px;
+
+  margin:
+    0 0 24px;
+
+  font-size: 17px;
+  line-height: 1.75;
+}
+
+.soft-suggestion-gesture {
+  max-width: 820px;
+
+  margin-top: 18px;
+  padding: 18px;
+
+  border:
+    1px solid
+    var(--ink);
+}
+
+.soft-suggestion-gesture p:last-child {
+  margin-bottom: 0;
+
+  font-size: 18px;
+  line-height: 1.65;
+}
+
+.soft-suggestion-detail {
+  max-width: 820px;
+
+  margin-top: 20px;
+  padding-top: 16px;
+
+  border-top:
+    1px solid
+    var(--line);
+}
