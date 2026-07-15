@@ -1,4 +1,18 @@
+"use client";
+
+import {
+  useEffect,
+  useState,
+} from "react";
+
 import Link from "next/link";
+
+import {
+  supabase,
+} from "../../lib/supabaseClient";
+
+import ArchiveCard from "../../components/ArchiveCard";
+import EntryCard from "../../components/EntryCard";
 
 const INPUT_ITEMS = [
   {
@@ -19,7 +33,172 @@ const INPUT_ITEMS = [
   },
 ];
 
+function normalizeTags(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed =
+        JSON.parse(value);
+
+      return Array.isArray(parsed)
+        ? parsed
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+function normalizeArchiveEntry(entry) {
+  if (!entry) {
+    return null;
+  }
+
+  return {
+    ...entry,
+
+    tags:
+      normalizeTags(
+        entry.tags
+      ),
+
+    is_public:
+      entry.is_public !==
+      false,
+  };
+}
+
 export default function InputPage() {
+  const [
+    latestArchive,
+    setLatestArchive,
+  ] = useState(null);
+
+  const [
+    latestDaily,
+    setLatestDaily,
+  ] = useState(null);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState("");
+
+  useEffect(() => {
+    async function loadInputPreview() {
+      setLoading(true);
+      setErrorMessage("");
+
+      try {
+        const [
+          archiveResult,
+          dailyResult,
+        ] =
+          await Promise.all([
+            supabase
+              .from(
+                "archive_entries"
+              )
+              .select("*")
+              .eq(
+                "is_public",
+                true
+              )
+              .order(
+                "entry_date",
+                {
+                  ascending:
+                    false,
+                }
+              )
+              .order(
+                "created_at",
+                {
+                  ascending:
+                    false,
+                }
+              )
+              .limit(1)
+              .maybeSingle(),
+
+            supabase
+              .from(
+                "field_logs"
+              )
+              .select("*")
+              .eq(
+                "is_public",
+                true
+              )
+              .order(
+                "date",
+                {
+                  ascending:
+                    false,
+                }
+              )
+              .limit(1)
+              .maybeSingle(),
+          ]);
+
+        if (
+          archiveResult.error
+        ) {
+          throw archiveResult.error;
+        }
+
+        if (
+          dailyResult.error
+        ) {
+          throw dailyResult.error;
+        }
+
+        setLatestArchive(
+          normalizeArchiveEntry(
+            archiveResult.data
+          )
+        );
+
+        setLatestDaily(
+          dailyResult.data ||
+          null
+        );
+      } catch (error) {
+        console.error(
+          "Input preview load error:",
+          error
+        );
+
+        setLatestArchive(
+          null
+        );
+
+        setLatestDaily(
+          null
+        );
+
+        setErrorMessage(
+          error?.message ||
+            "The latest Input records could not be loaded."
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadInputPreview();
+  }, []);
+
   return (
     <>
       <section className="panel">
@@ -35,10 +214,10 @@ export default function InputPage() {
         <p className="subtitle">
           Archive holds longer
           thoughts and media.
-          Daily records the
-          changing conditions of
-          the body, environment,
-          and artistic practice.
+          Daily records changing
+          conditions of the body,
+          environment, and
+          artistic practice.
         </p>
       </section>
 
@@ -58,7 +237,9 @@ export default function InputPage() {
               </h2>
 
               <p className="subtitle">
-                {item.description}
+                {
+                  item.description
+                }
               </p>
 
               <div className="actions">
@@ -73,6 +254,93 @@ export default function InputPage() {
           )
         )}
       </section>
+
+      {loading && (
+        <section className="panel">
+          <p className="muted">
+            Loading the latest
+            Input…
+          </p>
+        </section>
+      )}
+
+      {!loading &&
+        errorMessage && (
+          <section className="panel">
+            <p className="muted">
+              {errorMessage}
+            </p>
+          </section>
+        )}
+
+      {!loading &&
+        !errorMessage && (
+          <>
+            <section className="panel">
+              <div className="entry-head">
+                <div>
+                  <p className="eyebrow">
+                    Archive
+                  </p>
+
+                  <h2>
+                    Latest Archive
+                  </h2>
+                </div>
+
+                <Link href="/archive">
+                  View All
+                </Link>
+              </div>
+
+              {latestArchive ? (
+                <div className="archive-grid archive-grid-single">
+                  <ArchiveCard
+                    entry={
+                      latestArchive
+                    }
+                  />
+                </div>
+              ) : (
+                <p className="muted">
+                  No public Archive
+                  entries yet.
+                </p>
+              )}
+            </section>
+
+            <section className="panel">
+              <div className="entry-head">
+                <div>
+                  <p className="eyebrow">
+                    Daily
+                  </p>
+
+                  <h2>
+                    Latest Daily
+                  </h2>
+                </div>
+
+                <Link href="/daily">
+                  View All
+                </Link>
+              </div>
+
+              {latestDaily ? (
+                <EntryCard
+                  log={
+                    latestDaily
+                  }
+                />
+              ) : (
+                <p className="muted">
+                  No public Daily
+                  entries yet.
+                </p>
+              )}
+            </section>
+          </>
+        )}
     </>
   );
 }
