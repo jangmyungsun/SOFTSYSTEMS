@@ -807,33 +807,6 @@ async function findRelevantArchive(logs) {
         ),
     }));
 }
-const MAX_ARCHIVE_MATCHES = 5;
-const MIN_ARCHIVE_SIMILARITY = 0.35;
-const MAX_ARCHIVE_BODY_LENGTH = 2500;
-const MAX_ARCHIVE_SEARCH_LENGTH = 24000;
-
-async function findRelevantArchive(logs) {
-  const searchText = logs
-    .map(makeEmbeddingText)
-    .filter(Boolean)
-    .join("\n\n---\n\n")
-    .slice(
-      0,
-      MAX_ARCHIVE_SEARCH_LENGTH
-    );
-
-  if (!searchText) {
-    return [];
-  }
-
-  const embeddingResponse =
-    await openai.embeddings.create({
-      model:
-        EMBEDDING_MODEL,
-
-      input:
-        searchText,
-    });
 
   const queryEmbedding =
     embeddingResponse
