@@ -211,10 +211,9 @@ export default function EntryCard({
                   {state.body_state}
                 </p>
               )}
-              {state.breathing_state && (
+            {state.breathing_state && (
                 <p>
-                  <strong>Breathing State</strong> —{" "}
-                  {state.breathing_state}
+                  Breathing State — {state.breathing_state}
                   </p>
                 )}
 
