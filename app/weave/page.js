@@ -2,18 +2,59 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 
-import { supabase } from "../../lib/supabaseClient";
+import {
+  supabase,
+} from "../../lib/supabaseClient";
 
-function shorten(text, length = 44) {
-  const value = String(text || "");
+function formatDateTime(value) {
+  if (!value) {
+    return "";
+  }
 
-  return value.length > length
-    ? `${value.slice(0, length)}…`
-    : value;
+  const date = new Date(value);
+
+  if (
+    Number.isNaN(date.getTime())
+  ) {
+    return "";
+  }
+
+  return date.toLocaleString(
+    "en-US",
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }
+  );
+}
+
+function shorten(
+  value,
+  maxLength = 36
+) {
+  const text =
+    String(value || "");
+
+  if (
+    text.length <= maxLength
+  ) {
+    return text;
+  }
+
+  return (
+    text.slice(
+      0,
+      maxLength
+    ) + "…"
+  );
 }
 
 export default function WeavePage() {
@@ -21,23 +62,14 @@ export default function WeavePage() {
     useRef(null);
 
   const [
-    session,
-    setSession,
+    snapshot,
+    setSnapshot,
   ] = useState(null);
 
   const [
-    weave,
-    setWeave,
-  ] = useState({
-    nodes: [],
-    edges: [],
-    meta: null,
-  });
-
-  const [
-    status,
-    setStatus,
-  ] = useState("idle");
+    loading,
+    setLoading,
+  ] = useState(true);
 
   const [
     errorMessage,
@@ -45,68 +77,119 @@ export default function WeavePage() {
   ] = useState("");
 
   useEffect(() => {
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        setSession(
-          data.session
-        );
-      });
-  }, []);
+    async function loadSnapshot() {
+      setLoading(true);
+      setErrorMessage("");
 
-  const generateWeave =
-    async () => {
-      if (!session) {
+      const {
+        data,
+        error,
+      } = await supabase
+        .from("weave_snapshots")
+        .select(
+          `
+            snapshot_date,
+            nodes,
+            edges,
+            meta,
+            generated_at,
+            is_public
+          `
+        )
+        .eq(
+          "is_public",
+          true
+        )
+        .order(
+          "snapshot_date",
+          {
+            ascending: false,
+          }
+        )
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error(
+          "Weave snapshot error:",
+          error
+        );
+
         setErrorMessage(
-          "Please log in first."
+          error.message
         );
 
+        setLoading(false);
         return;
       }
 
-      setStatus("loading");
-      setErrorMessage("");
-
-      try {
-        const response =
-          await fetch(
-            "/api/weave",
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-
-                Authorization:
-                  `Bearer ${session.access_token}`,
-              },
-            }
-          );
-
-        const result =
-          await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            result.error ||
-            "Semantic Weave failed."
-          );
-        }
-
-        setWeave(result);
-        setStatus("ready");
-      } catch (error) {
-        console.error(error);
-
-        setErrorMessage(
-          error.message ||
-          "Semantic Weave failed."
-        );
-
-        setStatus("error");
+      if (!data) {
+        setSnapshot(null);
+        setLoading(false);
+        return;
       }
-    };
+
+      setSnapshot({
+        ...data,
+
+        nodes:
+          Array.isArray(data.nodes)
+            ? data.nodes
+            : [],
+
+        edges:
+          Array.isArray(data.edges)
+            ? data.edges
+            : [],
+
+        meta:
+          data.meta &&
+          typeof data.meta ===
+            "object" &&
+          !Array.isArray(data.meta)
+            ? data.meta
+            : {},
+      });
+
+      setLoading(false);
+    }
+
+    loadSnapshot();
+  }, []);
+
+  const nodes =
+    snapshot?.nodes || [];
+
+  const edges =
+    snapshot?.edges || [];
+
+  const nodeMap =
+    useMemo(
+      () =>
+        new Map(
+          nodes.map(
+            (node) => [
+              node.id,
+              node,
+            ]
+          )
+        ),
+      [nodes]
+    );
+
+  const strongestConnections =
+    useMemo(
+      () =>
+        edges
+          .slice()
+          .sort(
+            (first, second) =>
+              second.similarity -
+              first.similarity
+          )
+          .slice(0, 12),
+      [edges]
+    );
 
   useEffect(() => {
     const canvas =
@@ -132,41 +215,6 @@ export default function WeavePage() {
       height
     );
 
-    const nodes =
-      weave.nodes.map(
-        (node, index) => {
-          const angle =
-            (index /
-              Math.max(
-                weave.nodes.length,
-                1
-              )) *
-            Math.PI *
-            2;
-
-          const radius =
-            Math.min(
-              width,
-              height
-            ) *
-            0.34;
-
-          return {
-            ...node,
-
-            x:
-              width / 2 +
-              Math.cos(angle) *
-                radius,
-
-            y:
-              height / 2 +
-              Math.sin(angle) *
-                radius,
-          };
-        }
-      );
-
     if (!nodes.length) {
       context.fillStyle =
         "#766f64";
@@ -175,7 +223,7 @@ export default function WeavePage() {
         "15px monospace";
 
       context.fillText(
-        "Generate the semantic Weave to begin.",
+        "The nightly Weave has not been generated yet.",
         32,
         56
       );
@@ -183,23 +231,75 @@ export default function WeavePage() {
       return;
     }
 
-    weave.edges.forEach(
+    const positionedNodes =
+      nodes.map(
+        (node, index) => {
+          const angle =
+            (
+              index /
+              Math.max(
+                nodes.length,
+                1
+              )
+            ) *
+            Math.PI *
+            2;
+
+          const baseRadius =
+            Math.min(
+              width,
+              height
+            ) *
+            0.34;
+
+          const variation =
+            (
+              index % 4
+            ) *
+            14;
+
+          return {
+            ...node,
+
+            x:
+              width / 2 +
+              Math.cos(angle) *
+                (
+                  baseRadius -
+                  variation
+                ),
+
+            y:
+              height / 2 +
+              Math.sin(angle) *
+                (
+                  baseRadius -
+                  variation
+                ),
+          };
+        }
+      );
+
+    edges.forEach(
       (edge) => {
         const source =
-          nodes.find(
+          positionedNodes.find(
             (node) =>
               node.id ===
               edge.source
           );
 
         const target =
-          nodes.find(
+          positionedNodes.find(
             (node) =>
               node.id ===
               edge.target
           );
 
-        if (!source || !target) {
+        if (
+          !source ||
+          !target
+        ) {
           return;
         }
 
@@ -208,8 +308,10 @@ export default function WeavePage() {
             0,
             Math.min(
               1,
-              (edge.similarity -
-                0.7) /
+              (
+                edge.similarity -
+                0.7
+              ) /
                 0.3
             )
           );
@@ -218,8 +320,8 @@ export default function WeavePage() {
 
         context.strokeStyle =
           `rgba(33,31,27,${
-            0.1 +
-            strength * 0.55
+            0.09 +
+            strength * 0.5
           })`;
 
         context.lineWidth =
@@ -232,8 +334,10 @@ export default function WeavePage() {
         );
 
         const middleX =
-          (source.x +
-            target.x) /
+          (
+            source.x +
+            target.x
+          ) /
           2;
 
         context.bezierCurveTo(
@@ -249,247 +353,323 @@ export default function WeavePage() {
       }
     );
 
-    nodes.forEach((node) => {
-      const connectedEdges =
-        weave.edges.filter(
-          (edge) =>
-            edge.source ===
-              node.id ||
-            edge.target ===
-              node.id
+    positionedNodes.forEach(
+      (node) => {
+        const connectionCount =
+          edges.filter(
+            (edge) =>
+              edge.source ===
+                node.id ||
+              edge.target ===
+                node.id
+          ).length;
+
+        const radius =
+          5 +
+          Math.min(
+            11,
+            connectionCount * 1.5
+          );
+
+        context.beginPath();
+
+        context.fillStyle =
+          "rgba(33,31,27,.72)";
+
+        context.arc(
+          node.x,
+          node.y,
+          radius,
+          0,
+          Math.PI * 2
         );
 
-      const radius =
-        5 +
-        Math.min(
-          12,
-          connectedEdges.length *
-            1.6
+        context.fill();
+
+        context.fillStyle =
+          "#211f1b";
+
+        context.font =
+          "11px monospace";
+
+        context.fillText(
+          node.date || "",
+          node.x +
+            radius +
+            6,
+          node.y
         );
 
-      context.beginPath();
+        const artisticTitle =
+          node.artistic_input
+            ?.title || "";
 
-      context.fillStyle =
-        "rgba(33,31,27,.72)";
-
-      context.arc(
-        node.x,
-        node.y,
-        radius,
-        0,
-        Math.PI * 2
-      );
-
-      context.fill();
-
-      context.fillStyle =
-        "#211f1b";
-
-      context.font =
-        "11px monospace";
-
-      context.fillText(
-        node.date || "",
-        node.x +
-          radius +
-          6,
-        node.y
-      );
-
-      context.fillStyle =
-        "#766f64";
-
-      context.font =
-        "9px monospace";
-
-      context.fillText(
-        shorten(
+        const label =
+          artisticTitle ||
           node.themes?.join(
             ", "
           ) ||
-            node.project ||
-            node.summary,
-          28
-        ),
-        node.x +
-          radius +
-          6,
-        node.y + 15
-      );
-    });
-  }, [weave]);
+          node.project ||
+          node.summary;
 
-  const topConnections =
-    weave.edges
-      .slice()
-      .sort(
-        (a, b) =>
-          b.similarity -
-          a.similarity
-      )
-      .slice(0, 12);
+        context.fillStyle =
+          "#766f64";
 
-  const nodeMap =
-    new Map(
-      weave.nodes.map(
-        (node) => [
-          node.id,
-          node,
-        ]
-      )
+        context.font =
+          "9px monospace";
+
+        context.fillText(
+          shorten(
+            label,
+            28
+          ),
+          node.x +
+            radius +
+            6,
+          node.y + 15
+        );
+      }
     );
+  }, [
+    nodes,
+    edges,
+  ]);
 
   return (
     <>
       <section className="panel">
-        <p className="eyebrow">
-          Weave
-        </p>
+        <div className="entry-head">
+          <div>
+            <p className="eyebrow">
+              Weave
+            </p>
 
-        <h2>
-          Semantic Connections
-        </h2>
+            <h2>
+              Semantic Connections
+            </h2>
 
-        <p className="subtitle">
-          AI embeddings connect Daily
-          records by meaning, atmosphere,
-          and recurring artistic signals,
-          even when the same words were
-          not used.
-        </p>
+            <p className="subtitle">
+              Daily records are
+              connected by meaning,
+              atmosphere, artistic
+              input, body signals,
+              and recurring concerns.
+            </p>
+          </div>
 
-        <div className="actions">
-          <button
-            className="primary"
-            type="button"
-            onClick={
-              generateWeave
-            }
-            disabled={
-              status ===
-              "loading"
-            }
-          >
-            {status ===
-            "loading"
-              ? "Generating…"
-              : "Generate Semantic Weave"}
-          </button>
+          {snapshot?.generated_at && (
+            <span className="badge">
+              Updated{" "}
+              {formatDateTime(
+                snapshot.generated_at
+              )}
+            </span>
+          )}
         </div>
 
-        {errorMessage && (
-          <p className="muted">
-            {errorMessage}
-          </p>
-        )}
+        <p className="muted">
+          Generated automatically
+          once each night.
+        </p>
 
-        {weave.meta && (
+        {snapshot?.meta && (
           <p className="muted">
-            {weave.meta.record_count} records ·{" "}
-            {weave.edges.length} connections ·{" "}
-            similarity threshold{" "}
-            {weave.meta.threshold}
+            {snapshot.meta
+              .record_count || 0}{" "}
+            records ·{" "}
+            {edges.length}{" "}
+            connections · threshold{" "}
+            {snapshot.meta
+              .threshold || 0.72}
           </p>
         )}
       </section>
 
-      <section className="panel">
-        <canvas
-          ref={canvasRef}
-          width="960"
-          height="640"
-        />
-      </section>
-
-      <section className="panel">
-        <h2>
-          Strongest Connections
-        </h2>
-
-        {!topConnections.length && (
+      {loading && (
+        <section className="panel">
           <p className="muted">
-            No semantic connections
-            have been generated yet.
+            Loading the latest
+            Weave…
           </p>
+        </section>
+      )}
+
+      {!loading &&
+        errorMessage && (
+          <section className="panel">
+            <p className="muted">
+              {errorMessage}
+            </p>
+          </section>
         )}
 
-        {topConnections.map(
-          (edge, index) => {
-            const source =
-              nodeMap.get(
-                edge.source
-              );
+      {!loading &&
+        !errorMessage &&
+        !snapshot && (
+          <section className="panel">
+            <h2>
+              No Weave Snapshot Yet
+            </h2>
 
-            const target =
-              nodeMap.get(
-                edge.target
-              );
+            <p className="muted">
+              The first semantic
+              network will appear
+              after the nightly
+              update runs.
+            </p>
+          </section>
+        )}
 
-            if (
-              !source ||
-              !target
-            ) {
-              return null;
-            }
+      {!loading &&
+        snapshot && (
+          <>
+            <section className="panel">
+              <canvas
+                ref={canvasRef}
+                width="960"
+                height="640"
+              />
+            </section>
 
-            return (
-              <article
-                className="entry"
-                key={`${edge.source}-${edge.target}-${index}`}
-              >
-                <p>
-                  {source.date}
-                  {" ↔ "}
-                  {target.date}
-                </p>
+            <section className="panel">
+              <h2>
+                Strongest Connections
+              </h2>
 
+              {!strongestConnections
+                .length && (
                 <p className="muted">
-                  Similarity{" "}
-                  {Math.round(
-                    edge.similarity *
-                      100
-                  )}
-                  %
+                  No connection reached
+                  the current similarity
+                  threshold.
                 </p>
+              )}
 
-                <div className="grid two">
-                  <div>
-                    <p className="block-title">
-                      First Record
-                    </p>
+              {strongestConnections.map(
+                (
+                  edge,
+                  index
+                ) => {
+                  const source =
+                    nodeMap.get(
+                      edge.source
+                    );
 
-                    <p>
-                      {source.summary}
-                    </p>
+                  const target =
+                    nodeMap.get(
+                      edge.target
+                    );
 
-                    <p className="muted">
-                      {source.themes?.join(
-                        ", "
-                      )}
-                    </p>
-                  </div>
+                  if (
+                    !source ||
+                    !target
+                  ) {
+                    return null;
+                  }
 
-                  <div>
-                    <p className="block-title">
-                      Second Record
-                    </p>
+                  return (
+                    <article
+                      className="entry"
+                      key={`${edge.source}-${edge.target}-${index}`}
+                    >
+                      <div className="entry-head">
+                        <p>
+                          {source.date}
+                          {" ↔ "}
+                          {target.date}
+                        </p>
 
-                    <p>
-                      {target.summary}
-                    </p>
+                        <span className="badge">
+                          {Math.round(
+                            edge.similarity *
+                              100
+                          )}
+                          %
+                        </span>
+                      </div>
 
-                    <p className="muted">
-                      {target.themes?.join(
-                        ", "
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </article>
-            );
-          }
+                      <div className="grid two">
+                        <div>
+                          <p className="block-title">
+                            First Record
+                          </p>
+
+                          <p>
+                            {
+                              source.summary
+                            }
+                          </p>
+
+                          {source
+                            .artistic_input
+                            ?.title && (
+                            <p className="muted">
+                              Artistic Input —{" "}
+                              {
+                                source
+                                  .artistic_input
+                                  .title
+                              }
+                            </p>
+                          )}
+
+                          {source.themes
+                            ?.length >
+                            0 && (
+                            <p className="muted">
+                              {
+                                source.themes.join(
+                                  ", "
+                                )
+                              }
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="block-title">
+                            Second Record
+                          </p>
+
+                          <p>
+                            {
+                              target.summary
+                            }
+                          </p>
+
+                          {target
+                            .artistic_input
+                            ?.title && (
+                            <p className="muted">
+                              Artistic Input —{" "}
+                              {
+                                target
+                                  .artistic_input
+                                  .title
+                              }
+                            </p>
+                          )}
+
+                          {target.themes
+                            ?.length >
+                            0 && (
+                            <p className="muted">
+                              {
+                                target.themes.join(
+                                  ", "
+                                )
+                              }
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                }
+              )}
+            </section>
+          </>
         )}
-      </section>
     </>
   );
 }
