@@ -708,25 +708,32 @@ export default function Home() {
           )}
       </section>
 
-      <section className="panel">
-        <div className="entry-head">
-          <div>
-            <p className="eyebrow">
-              Archive
-            </p>
+     <section className="panel">
+  <div className="entry-head">
+    <div>
+      <p className="eyebrow">
+        Archive
+      </p>
 
-            <h2>
-              Latest Archive
-            </h2>
+      <h2>
+        Latest Archive
+      </h2>
 
-            <p className="subtitle">
-              Recent writing,
-              videos, reflections,
-              project records, and
-              references.
-            </p>
-          </div>
-        </div>
+      <p className="subtitle">
+        Recent writing,
+        videos, reflections,
+        project records, and
+        references.
+      </p>
+    </div>
+
+    <a
+      href="/archive"
+      className="button"
+    >
+      View All
+    </a>
+  </div>
 
         {archiveEntries.length >
           0 && (
