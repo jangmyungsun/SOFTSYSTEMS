@@ -21,55 +21,70 @@ const SYSTEM_SCHEMA = {
 
     recurring_signals: {
       type: "array",
+
       items: {
         type: "object",
+
         properties: {
           signal: {
             type: "string",
           },
+
           evidence: {
             type: "string",
           },
         },
+
         required: [
           "signal",
           "evidence",
         ],
+
         additionalProperties: false,
       },
+
       maxItems: 6,
     },
 
     relationships: {
       type: "array",
+
       items: {
         type: "object",
+
         properties: {
           source: {
             type: "string",
           },
+
           target: {
             type: "string",
           },
+
           observation: {
             type: "string",
           },
         },
+
         required: [
           "source",
           "target",
           "observation",
         ],
+
         additionalProperties: false,
       },
+
       maxItems: 6,
     },
 
     shifts: {
       type: "array",
+
       items: {
         type: "string",
       },
+
       maxItems: 5,
     },
 
@@ -99,68 +114,142 @@ const SYSTEM_SCHEMA = {
   additionalProperties: false,
 };
 
+function getObject(value) {
+  if (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  ) {
+    return value;
+  }
+
+  return {};
+}
+
+function getArray(value) {
+  return Array.isArray(value)
+    ? value
+    : [];
+}
+
 function cleanLog(log) {
+  const state =
+    getObject(log.state);
+
+  const movement =
+    getObject(log.movement);
+
+  const environment =
+    getObject(log.environment);
+
+  const work =
+    getObject(log.work);
+
+  const artisticInput =
+    getObject(log.artistic_input);
+
+  const aiAnalysis =
+    getObject(log.ai_analysis);
+
   return {
-    date: log.date,
+    date:
+      log.date || "",
 
     body: {
       body_state:
-        log.state?.body_state ||
+        state.body_state ||
         null,
 
       energy:
-        log.state?.energy ||
+        state.energy ||
         null,
 
       mood:
-        log.state?.mood ||
+        state.mood ||
         null,
 
       weight:
-        log.state?.weight ||
+        state.weight ||
         null,
 
       temperature:
-        log.state?.temperature ||
+        state.temperature ||
         null,
     },
 
-    environment:
-      log.environment || {},
+    body_practice: {
+      time:
+        movement.time ||
+        "",
+
+      type:
+        movement.type ||
+        "",
+
+      intensity:
+        movement.intensity ||
+        "",
+
+      notes:
+        movement.notes ||
+        "",
+    },
+
+    environment,
 
     making: {
       time:
-        log.work?.time || "",
+        work.time ||
+        "",
 
       project:
-        log.work?.project || "",
+        work.project ||
+        "",
 
       notes:
-        Array.isArray(
-          log.work?.items
-        )
-          ? log.work.items
-          : [],
+        getArray(
+          work.items
+        ),
     },
 
     learning:
-      Array.isArray(log.learning)
-        ? log.learning
-        : [],
+      getArray(
+        log.learning
+      ),
+
+    artistic_input: {
+      type:
+        artisticInput.type ||
+        "",
+
+      title:
+        artisticInput.title ||
+        "",
+
+      creator:
+        artisticInput.creator ||
+        "",
+
+      note:
+        artisticInput.note ||
+        "",
+    },
 
     observation:
-      log.observation || "",
+      log.observation ||
+      "",
 
     alignment:
-      log.alignment || "",
+      log.alignment ||
+      "",
 
     tomorrow:
-      Array.isArray(log.tomorrow)
-        ? log.tomorrow
-        : [],
+      getArray(
+        log.tomorrow
+      ),
 
     ai_analysis:
-      log.ai_analysis || {},
+      aiAnalysis,
   };
 }
 
@@ -213,16 +302,19 @@ export async function POST(request) {
       );
     }
 
-    const body =
+    const requestBody =
       await request.json();
 
-    const days = Math.min(
-      Math.max(
-        Number(body.days) || 30,
-        7
-      ),
-      90
-    );
+    const days =
+      Math.min(
+        Math.max(
+          Number(
+            requestBody?.days
+          ) || 30,
+          7
+        ),
+        90
+      );
 
     const startDate =
       new Date();
@@ -247,9 +339,11 @@ export async function POST(request) {
           id,
           date,
           state,
+          movement,
           environment,
           work,
           learning,
+          artistic_input,
           observation,
           alignment,
           tomorrow,
@@ -262,10 +356,16 @@ export async function POST(request) {
         "user_id",
         userData.user.id
       )
-      .gte("date", dateString)
-      .order("date", {
-        ascending: true,
-      })
+      .gte(
+        "date",
+        dateString
+      )
+      .order(
+        "date",
+        {
+          ascending: true,
+        }
+      )
       .limit(90);
 
     if (logsError) {
@@ -285,50 +385,69 @@ export async function POST(request) {
     }
 
     const input = {
-      period_days: days,
+      period_days:
+        days,
+
       record_count:
         logs.length,
+
       records:
-        logs.map(cleanLog),
+        logs.map(
+          cleanLog
+        ),
     };
+
+    const model =
+      process.env
+        .OPENAI_MODEL ||
+      "gpt-5.6";
 
     const response =
       await openai.responses.create({
-        model:
-          process.env
-            .OPENAI_MODEL ||
-          "gpt-5.6",
+        model,
 
         input: [
           {
-            role: "system",
+            role:
+              "system",
 
             content: `
 You are the interpretive layer of SOFTSYSTEMS.
 
-SOFTSYSTEMS is an artistic ecology that observes relationships among body, environment, practice, memory, media, and creation.
+SOFTSYSTEMS is an artistic ecology that observes relationships among body, Body Practice, environment, making, learning, artistic input, media, memory, and creation.
 
 You are analyzing several Daily records together.
 
+Body Practice describes what the body actually did during the day. It may include yoga, walking, running, stretching, strength work, swimming, cycling, dance, performance practice, or another embodied activity.
+
+Artistic Input may include a book, film, performance, exhibition, music work, or another artistic reference.
+
 Your task:
-- identify recurring signals supported by the records;
+- identify recurring signals supported by multiple records;
 - identify changes across time;
-- identify careful relationships among body, environment, making, learning, and observation;
+- identify careful relationships among body state, Body Practice, environment, making, learning, artistic input, and observation;
+- notice repeated relationships among movement, recovery, energy, mood, making, and learning;
+- notice repeated artists, works, creators, media types, or artistic concerns;
+- notice when an artistic input appears to recur alongside later making or observation;
 - distinguish evidence from speculation;
 - avoid generic motivation;
 - avoid productivity coaching;
 - avoid medical diagnosis;
 - do not claim causation from correlation;
-- do not invent patterns that are not supported by multiple records.
+- do not infer a stable pattern from one record;
+- do not invent patterns unsupported by the data.
 
 Use calm, precise, observational English.
 
 The open question should invite continued noticing rather than tell the artist what to do.
+
+When evidence is limited, say so clearly.
             `.trim(),
           },
 
           {
-            role: "user",
+            role:
+              "user",
 
             content:
               JSON.stringify(
@@ -347,7 +466,8 @@ The open question should invite continued noticing rather than tell the artist w
             name:
               "softsystems_period_reading",
 
-            strict: true,
+            strict:
+              true,
 
             schema:
               SYSTEM_SCHEMA,
@@ -382,10 +502,7 @@ The open question should invite continued noticing rather than tell the artist w
           new Date()
             .toISOString(),
 
-        model:
-          process.env
-            .OPENAI_MODEL ||
-          "gpt-5.6",
+        model,
       },
     });
   } catch (error) {
@@ -397,7 +514,7 @@ The open question should invite continued noticing rather than tell the artist w
     return NextResponse.json(
       {
         error:
-          error.message ||
+          error?.message ||
           "System analysis failed.",
       },
       {
