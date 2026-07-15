@@ -1,20 +1,88 @@
-import { NextResponse } from "next/server";
+"use client";
 
-import { openai } from "../../../lib/openai";
-import { supabaseAdmin } from "../../../lib/supabaseAdmin";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
-const EMBEDDING_MODEL =
-  process.env.OPENAI_EMBEDDING_MODEL ||
-  "text-embedding-3-small";
+import {
+  supabase,
+} from "../../lib/supabaseClient";
 
-const MAX_LOGS = 100;
-const MAX_EDGES = 80;
-const MIN_SIMILARITY = 0.72;
+function formatDateTime(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "";
+  }
+
+  return date.toLocaleString(
+    "en-US",
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }
+  );
+}
+
+function shorten(
+  value,
+  maxLength = 36
+) {
+  const text =
+    String(value || "");
+
+  if (
+    text.length <=
+    maxLength
+  ) {
+    return text;
+  }
+
+  return (
+    text.slice(
+      0,
+      maxLength
+    ) + "…"
+  );
+}
+
+function formatLabel(value) {
+  if (!value) {
+    return "";
+  }
+
+  return String(value)
+    .split("-")
+    .map(
+      (word) =>
+        word
+          .charAt(0)
+          .toUpperCase() +
+        word.slice(1)
+    )
+    .join(" ");
+}
 
 function getObject(value) {
   if (
     value &&
-    typeof value === "object" &&
+    typeof value ===
+      "object" &&
     !Array.isArray(value)
   ) {
     return value;
@@ -29,930 +97,1077 @@ function getArray(value) {
     : [];
 }
 
-function makeEmbeddingText(log) {
-  const state =
-    getObject(log.state);
-
-  const movement =
-    getObject(log.movement);
-
-  const environment =
-    getObject(log.environment);
-
-  const work =
-    getObject(log.work);
-
-  const artisticInput =
+function getBodyMoving(node) {
+  const bodyMoving =
     getObject(
-      log.artistic_input
+      node?.body_moving
     );
 
-  const ai =
-    getObject(
-      log.ai_analysis
-    );
-
-  const makingItems =
-    getArray(
-      work.items
-    ).join("\n");
-
-  const learning =
-    getArray(
-      log.learning
-    ).join("\n");
-
-  const tomorrow =
-    getArray(
-      log.tomorrow
-    ).join("\n");
-
-  const themes =
-    getArray(
-      ai.themes
-    ).join(", ");
-
-  const emotions =
-    getArray(
-      ai.emotions
-    ).join(", ");
-
-  const keywords =
-    getArray(
-      ai.keywords
-    ).join(", ");
-
-  const bodySignals =
-    getArray(
-      ai.body_signals
-    ).join(", ");
-
-  const practiceSignals =
-    getArray(
-      ai.practice_signals
-    ).join(", ");
-
-  const bodyMovingText = [
-    movement.type
-      ? `Type: ${movement.type}`
-      : "",
-
-    movement.time
-      ? `Time: ${movement.time}`
-      : "",
-
-    movement.intensity
-      ? `Intensity: ${movement.intensity} out of 5`
-      : "",
-
-    movement.notes
-      ? `Notes: ${movement.notes}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  const artisticInputText = [
-    artisticInput.type
-      ? `Type: ${artisticInput.type}`
-      : "",
-
-    artisticInput.title
-      ? `Title: ${artisticInput.title}`
-      : "",
-
-    artisticInput.creator
-      ? `Creator: ${artisticInput.creator}`
-      : "",
-
-    artisticInput.note
-      ? `Reference note: ${artisticInput.note}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  return [
-    log.date
-      ? `Date: ${log.date}`
-      : "",
-
-    state.body_state !==
-      undefined &&
-    state.body_state !== ""
-      ? `Body state: ${state.body_state}`
-      : "",
-
-    state.energy !==
-      undefined &&
-    state.energy !== ""
-      ? `Energy: ${state.energy}`
-      : "",
-
-    state.mood !==
-      undefined &&
-    state.mood !== ""
-      ? `Mood: ${state.mood}`
-      : "",
-
-    state.weight !==
-      undefined &&
-    state.weight !== ""
-      ? `Weight: ${state.weight}`
-      : "",
-
-    state.temperature !==
-      undefined &&
-    state.temperature !== ""
-      ? `Body temperature: ${state.temperature}`
-      : "",
-
-    bodyMovingText
-      ? `Body moving:\n${bodyMovingText}`
-      : "",
-
-    environment.weather
-      ? `Weather: ${environment.weather}`
-      : "",
-
-    environment.temperature !==
-      undefined &&
-    environment.temperature !==
-      null &&
-    environment.temperature !== ""
-      ? `Environment temperature: ${environment.temperature}`
-      : "",
-
-    environment.humidity !==
-      undefined &&
-    environment.humidity !==
-      null &&
-    environment.humidity !== ""
-      ? `Humidity: ${environment.humidity}`
-      : "",
-
-    environment.pressure !==
-      undefined &&
-    environment.pressure !==
-      null &&
-    environment.pressure !== ""
-      ? `Pressure: ${environment.pressure}`
-      : "",
-
-    environment.wind !==
-      undefined &&
-    environment.wind !==
-      null &&
-    environment.wind !== ""
-      ? `Wind: ${environment.wind}`
-      : "",
-
-    work.project
-      ? `Project: ${work.project}`
-      : "",
-
-    work.time
-      ? `Making time: ${work.time}`
-      : "",
-
-    makingItems
-      ? `Making notes:\n${makingItems}`
-      : "",
-
-    learning
-      ? `Learning:\n${learning}`
-      : "",
-
-    artisticInputText
-      ? `Artistic input:\n${artisticInputText}`
-      : "",
-
-    log.observation
-      ? `Observation: ${log.observation}`
-      : "",
-
-    log.alignment
-      ? `Alignment: ${log.alignment}`
-      : "",
-
-    tomorrow
-      ? `Tomorrow:\n${tomorrow}`
-      : "",
-
-    ai.summary
-      ? `AI summary: ${ai.summary}`
-      : "",
-
-    ai.relationship
-      ? `AI relationship: ${ai.relationship}`
-      : "",
-
-    themes
-      ? `Themes: ${themes}`
-      : "",
-
-    emotions
-      ? `Emotions: ${emotions}`
-      : "",
-
-    keywords
-      ? `Keywords: ${keywords}`
-      : "",
-
-    bodySignals
-      ? `Body signals: ${bodySignals}`
-      : "",
-
-    practiceSignals
-      ? `Practice signals: ${practiceSignals}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-function parseEmbedding(value) {
-  if (Array.isArray(value)) {
-    return value
-      .map(Number)
-      .filter(
-        Number.isFinite
-      );
-  }
-
   if (
-    typeof value === "string"
+    Object.keys(
+      bodyMoving
+    ).length
   ) {
-    return value
-      .replace(/^\[/, "")
-      .replace(/\]$/, "")
-      .split(",")
-      .map(Number)
-      .filter(
-        Number.isFinite
-      );
+    return bodyMoving;
   }
 
-  return null;
-}
-
-function cosineSimilarity(
-  firstVector,
-  secondVector
-) {
-  if (
-    !Array.isArray(
-      firstVector
-    ) ||
-    !Array.isArray(
-      secondVector
-    ) ||
-    firstVector.length === 0 ||
-    firstVector.length !==
-      secondVector.length
-  ) {
-    return 0;
-  }
-
-  let dotProduct = 0;
-  let firstNorm = 0;
-  let secondNorm = 0;
-
-  for (
-    let index = 0;
-    index <
-    firstVector.length;
-    index += 1
-  ) {
-    const firstValue =
-      Number(
-        firstVector[index]
-      );
-
-    const secondValue =
-      Number(
-        secondVector[index]
-      );
-
-    dotProduct +=
-      firstValue *
-      secondValue;
-
-    firstNorm +=
-      firstValue *
-      firstValue;
-
-    secondNorm +=
-      secondValue *
-      secondValue;
-  }
-
-  if (
-    !firstNorm ||
-    !secondNorm
-  ) {
-    return 0;
-  }
-
-  return (
-    dotProduct /
-    (
-      Math.sqrt(
-        firstNorm
-      ) *
-      Math.sqrt(
-        secondNorm
-      )
-    )
+  return getObject(
+    node?.body_practice
   );
 }
 
-function makeWeaveNode(log) {
-  const state =
-    getObject(log.state);
-
-  const movement =
-    getObject(log.movement);
-
-  const environment =
+function getMaking(node) {
+  const making =
     getObject(
-      log.environment
+      node?.making
     );
 
-  const work =
-    getObject(log.work);
-
-  const artisticInput =
-    getObject(
-      log.artistic_input
-    );
-
-  const ai =
-    getObject(
-      log.ai_analysis
-    );
-
-  const bodyMoving = {
-    type:
-      movement.type ||
-      "",
-
-    time:
-      movement.time ||
-      "",
-
-    intensity:
-      movement.intensity ||
-      "",
-
-    notes:
-      movement.notes ||
-      "",
-  };
+  if (
+    Object.keys(
+      making
+    ).length
+  ) {
+    return making;
+  }
 
   return {
-    id:
-      log.id,
-
-    date:
-      log.date || "",
-
-    summary:
-      ai.summary ||
-      log.observation ||
-      artisticInput.title ||
-      movement.notes ||
-      work.project ||
-      "Untitled Daily",
-
-    observation:
-      log.observation ||
-      "",
-
-    alignment:
-      log.alignment ||
-      "",
-
-    themes:
-      getArray(
-        ai.themes
-      ),
-
-    emotions:
-      getArray(
-        ai.emotions
-      ),
-
-    keywords:
-      getArray(
-        ai.keywords
-      ),
-
-    body_signals:
-      getArray(
-        ai.body_signals
-      ),
-
-    practice_signals:
-      getArray(
-        ai.practice_signals
-      ),
-
-    relationship:
-      ai.relationship ||
-      "",
-
-    body_state:
-      state.body_state ||
-      "",
-
-    energy:
-      state.energy ||
-      "",
-
-    mood:
-      state.mood ||
-      "",
-
-    weather:
-      environment.weather ||
-      "",
-
-    environment: {
-      weather:
-        environment.weather ||
-        "",
-
-      temperature:
-        environment.temperature ??
-        "",
-
-      humidity:
-        environment.humidity ??
-        "",
-
-      pressure:
-        environment.pressure ??
-        "",
-
-      wind:
-        environment.wind ??
-        "",
-
-      sunrise:
-        environment.sunrise ||
-        "",
-
-      sunset:
-        environment.sunset ||
-        "",
-    },
-
-    body_moving:
-      bodyMoving,
-
-    /*
-     * 기존 snapshot 및 화면 코드와의
-     * 호환성을 위해 당분간 함께 저장한다.
-     */
-    body_practice:
-      bodyMoving,
-
-    making: {
-      time:
-        work.time ||
-        "",
-
-      project:
-        work.project ||
-        "",
-
-      notes:
-        getArray(
-          work.items
-        ),
-    },
-
-    /*
-     * 이전 Weave 화면이
-     * node.project를 직접 읽으므로 유지한다.
-     */
     project:
-      work.project ||
-      "",
-
-    learning:
-      getArray(
-        log.learning
-      ),
-
-    artistic_input: {
-      type:
-        artisticInput.type ||
-        "",
-
-      title:
-        artisticInput.title ||
-        "",
-
-      creator:
-        artisticInput.creator ||
-        "",
-
-      note:
-        artisticInput.note ||
-        "",
-    },
+      node?.project || "",
+    time: "",
+    notes: [],
   };
 }
 
-export async function POST(
-  request
-) {
-  try {
-    const authorization =
-      request.headers.get(
-        "authorization"
-      );
+function getNodeLabel(node) {
+  const bodyMoving =
+    getBodyMoving(node);
 
-    const accessToken =
-      authorization?.startsWith(
-        "Bearer "
-      )
-        ? authorization.slice(
-            7
-          )
-        : "";
+  const making =
+    getMaking(node);
 
-    if (!accessToken) {
-      return NextResponse.json(
-        {
-          error:
-            "Authentication is required.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
+  const artisticInput =
+    getObject(
+      node?.artistic_input
+    );
 
-    const {
-      data: userData,
-      error: userError,
-    } =
-      await supabaseAdmin.auth.getUser(
-        accessToken
-      );
+  const themes =
+    getArray(
+      node?.themes
+    );
 
-    if (
-      userError ||
-      !userData?.user
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Invalid authentication.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
+  return (
+    bodyMoving.type ||
+    artisticInput.title ||
+    making.project ||
+    themes.join(", ") ||
+    node?.summary ||
+    node?.date ||
+    "Daily"
+  );
+}
 
-    const {
-      data: logs,
-      error: logsError,
-    } = await supabaseAdmin
-      .from("field_logs")
-      .select(
-        `
-          id,
-          user_id,
-          date,
-          state,
-          movement,
-          environment,
-          work,
-          learning,
-          artistic_input,
-          observation,
-          alignment,
-          tomorrow,
-          ai_analysis,
-          media,
-          embedding,
-          embedding_text,
-          embedding_updated_at,
-          is_public
-        `
-      )
-      .eq(
-        "user_id",
-        userData.user.id
-      )
-      .eq(
-        "is_public",
-        true
-      )
-      .order(
-        "date",
-        {
-          ascending: true,
-        }
-      )
-      .limit(
-        MAX_LOGS
-      );
+function BodyMovingLine({
+  node,
+}) {
+  const bodyMoving =
+    getBodyMoving(node);
 
-    if (logsError) {
-      throw logsError;
-    }
+  if (
+    !bodyMoving.type &&
+    !bodyMoving.time &&
+    !bodyMoving.intensity &&
+    !bodyMoving.notes
+  ) {
+    return null;
+  }
 
-    if (
-      !logs ||
-      logs.length < 2
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "At least two Daily records are needed.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
+  return (
+    <div className="weave-detail-group">
+      <p className="block-title">
+        Body Moving
+      </p>
 
-    const preparedLogs =
-      logs.map(
-        (log) => ({
-          ...log,
+      {bodyMoving.type && (
+        <p>
+          Type —{" "}
+          {formatLabel(
+            bodyMoving.type
+          )}
+        </p>
+      )}
 
-          nextEmbeddingText:
-            makeEmbeddingText(
-              log
-            ),
-        })
-      );
+      {bodyMoving.time && (
+        <p>
+          Time —{" "}
+          {bodyMoving.time}
+        </p>
+      )}
 
-    const logsNeedingEmbedding =
-      preparedLogs.filter(
-        (log) => {
-          const hasEmbedding =
-            Boolean(
-              log.embedding
-            );
+      {bodyMoving.intensity && (
+        <p>
+          Intensity —{" "}
+          {
+            bodyMoving.intensity
+          }
+          /5
+        </p>
+      )}
 
-          const textChanged =
-            log.embedding_text !==
-            log.nextEmbeddingText;
+      {bodyMoving.notes && (
+        <p className="muted">
+          {bodyMoving.notes}
+        </p>
+      )}
+    </div>
+  );
+}
 
-          return (
-            !hasEmbedding ||
-            textChanged
-          );
-        }
-      );
+function MakingLine({
+  node,
+}) {
+  const making =
+    getMaking(node);
 
-    if (
-      logsNeedingEmbedding.length >
-      0
-    ) {
-      const embeddingResponse =
-        await openai.embeddings.create({
-          model:
-            EMBEDDING_MODEL,
+  const notes =
+    getArray(
+      making.notes
+    );
 
-          input:
-            logsNeedingEmbedding.map(
-              (log) =>
-                log.nextEmbeddingText
-            ),
-        });
+  if (
+    !making.project &&
+    !making.time &&
+    !notes.length
+  ) {
+    return null;
+  }
 
-      for (
-        let index = 0;
-        index <
-        logsNeedingEmbedding.length;
-        index += 1
-      ) {
-        const log =
-          logsNeedingEmbedding[
-            index
-          ];
+  return (
+    <div className="weave-detail-group">
+      <p className="block-title">
+        Making
+      </p>
 
-        const embedding =
-          embeddingResponse
-            .data[index]
-            ?.embedding;
+      {making.project && (
+        <p>
+          Project —{" "}
+          {making.project}
+        </p>
+      )}
 
-        if (!embedding) {
-          continue;
-        }
+      {making.time && (
+        <p>
+          Time —{" "}
+          {making.time}
+        </p>
+      )}
 
-        const updatedAt =
-          new Date()
-            .toISOString();
-
-        log.embedding =
-          embedding;
-
-        log.embedding_text =
-          log.nextEmbeddingText;
-
-        log.embedding_updated_at =
-          updatedAt;
-
-        const {
-          error: updateError,
-        } = await supabaseAdmin
-          .from("field_logs")
-          .update({
-            embedding,
-
-            embedding_text:
-              log.nextEmbeddingText,
-
-            embedding_updated_at:
-              updatedAt,
-          })
-          .eq(
-            "id",
-            log.id
-          )
-          .eq(
-            "user_id",
-            userData.user.id
-          );
-
-        if (
-          updateError
-        ) {
-          throw updateError;
-        }
-      }
-    }
-
-    const usableLogs =
-      preparedLogs
-        .map(
-          (log) => ({
-            ...log,
-
-            parsedEmbedding:
-              parseEmbedding(
-                log.embedding
-              ),
-          })
+      {notes.map(
+        (item, index) => (
+          <p
+            className="muted"
+            key={`${item}-${index}`}
+          >
+            {item}
+          </p>
         )
-        .filter(
-          (log) =>
-            Array.isArray(
-              log.parsedEmbedding
-            ) &&
-            log
-              .parsedEmbedding
-              .length > 0
+      )}
+    </div>
+  );
+}
+
+function ArtisticInputLine({
+  node,
+}) {
+  const artisticInput =
+    getObject(
+      node?.artistic_input
+    );
+
+  if (
+    !artisticInput.type &&
+    !artisticInput.title &&
+    !artisticInput.creator &&
+    !artisticInput.note
+  ) {
+    return null;
+  }
+
+  return (
+    <div className="weave-detail-group">
+      <p className="block-title">
+        Artistic Input
+      </p>
+
+      {artisticInput.type && (
+        <p>
+          Type —{" "}
+          {formatLabel(
+            artisticInput.type
+          )}
+        </p>
+      )}
+
+      {artisticInput.title && (
+        <p>
+          Title —{" "}
+          {artisticInput.title}
+        </p>
+      )}
+
+      {artisticInput.creator && (
+        <p>
+          Creator —{" "}
+          {artisticInput.creator}
+        </p>
+      )}
+
+      {artisticInput.note && (
+        <p className="muted">
+          {artisticInput.note}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function NodeReading({
+  node,
+  title,
+}) {
+  const themes =
+    getArray(
+      node?.themes
+    );
+
+  const emotions =
+    getArray(
+      node?.emotions
+    );
+
+  const keywords =
+    getArray(
+      node?.keywords
+    );
+
+  const environment =
+    getObject(
+      node?.environment
+    );
+
+  const learning =
+    getArray(
+      node?.learning
+    );
+
+  return (
+    <div>
+      <p className="block-title">
+        {title}
+      </p>
+
+      <p className="weave-date">
+        {node.date}
+      </p>
+
+      <p className="weave-summary">
+        {node.summary ||
+          "No summary available."}
+      </p>
+
+      <div className="weave-state-line">
+        {node.body_state !==
+          "" &&
+          node.body_state !==
+            undefined && (
+            <span>
+              Body{" "}
+              {
+                node.body_state
+              }
+            </span>
+          )}
+
+        {node.energy !== "" &&
+          node.energy !==
+            undefined && (
+            <span>
+              Energy{" "}
+              {node.energy}
+            </span>
+          )}
+
+        {node.mood !== "" &&
+          node.mood !==
+            undefined && (
+            <span>
+              Mood{" "}
+              {node.mood}
+            </span>
+          )}
+
+        {(environment.weather ||
+          node.weather) && (
+          <span>
+            {environment.weather ||
+              node.weather}
+          </span>
+        )}
+      </div>
+
+      <BodyMovingLine
+        node={node}
+      />
+
+      <MakingLine
+        node={node}
+      />
+
+      <ArtisticInputLine
+        node={node}
+      />
+
+      {learning.length > 0 && (
+        <div className="weave-detail-group">
+          <p className="block-title">
+            Learning
+          </p>
+
+          {learning.map(
+            (item, index) => (
+              <p
+                key={`${item}-${index}`}
+              >
+                {item}
+              </p>
+            )
+          )}
+        </div>
+      )}
+
+      {node.observation && (
+        <div className="weave-detail-group">
+          <p className="block-title">
+            Observation
+          </p>
+
+          <p>
+            {
+              node.observation
+            }
+          </p>
+        </div>
+      )}
+
+      {node.alignment && (
+        <div className="weave-detail-group">
+          <p className="block-title">
+            Alignment
+          </p>
+
+          <p>
+            {node.alignment}
+          </p>
+        </div>
+      )}
+
+      {node.relationship && (
+        <div className="weave-detail-group">
+          <p className="block-title">
+            System Relationship
+          </p>
+
+          <p className="muted">
+            {
+              node.relationship
+            }
+          </p>
+        </div>
+      )}
+
+      {themes.length > 0 && (
+        <div className="weave-detail-group">
+          <p className="block-title">
+            Themes
+          </p>
+
+          <div className="tag-list">
+            {themes.map(
+              (item, index) => (
+                <span
+                  className="tag"
+                  key={`${item}-${index}`}
+                >
+                  {item}
+                </span>
+              )
+            )}
+          </div>
+        </div>
+      )}
+
+      {emotions.length >
+        0 && (
+        <div className="weave-detail-group">
+          <p className="block-title">
+            Emotions
+          </p>
+
+          <div className="tag-list">
+            {emotions.map(
+              (item, index) => (
+                <span
+                  className="tag"
+                  key={`${item}-${index}`}
+                >
+                  {item}
+                </span>
+              )
+            )}
+          </div>
+        </div>
+      )}
+
+      {keywords.length >
+        0 && (
+        <div className="weave-detail-group">
+          <p className="block-title">
+            Keywords
+          </p>
+
+          <div className="tag-list">
+            {keywords.map(
+              (item, index) => (
+                <span
+                  className="tag"
+                  key={`${item}-${index}`}
+                >
+                  {item}
+                </span>
+              )
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function WeavePage() {
+  const canvasRef =
+    useRef(null);
+
+  const [
+    snapshot,
+    setSnapshot,
+  ] = useState(null);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState("");
+
+  useEffect(() => {
+    async function loadSnapshot() {
+      setLoading(true);
+      setErrorMessage("");
+
+      const {
+        data,
+        error,
+      } = await supabase
+        .from(
+          "weave_snapshots"
+        )
+        .select(
+          `
+            snapshot_date,
+            nodes,
+            edges,
+            meta,
+            generated_at,
+            is_public
+          `
+        )
+        .eq(
+          "is_public",
+          true
+        )
+        .order(
+          "snapshot_date",
+          {
+            ascending:
+              false,
+          }
+        )
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error(
+          "Weave snapshot error:",
+          error
         );
 
-    const edges = [];
+        setErrorMessage(
+          error.message
+        );
 
-    for (
-      let firstIndex = 0;
-      firstIndex <
-      usableLogs.length;
-      firstIndex += 1
-    ) {
-      for (
-        let secondIndex =
-          firstIndex + 1;
-        secondIndex <
-        usableLogs.length;
-        secondIndex += 1
-      ) {
-        const firstLog =
-          usableLogs[
-            firstIndex
-          ];
+        setLoading(false);
+        return;
+      }
 
-        const secondLog =
-          usableLogs[
-            secondIndex
-          ];
+      if (!data) {
+        setSnapshot(null);
+        setLoading(false);
+        return;
+      }
 
-        const similarity =
-          cosineSimilarity(
-            firstLog
-              .parsedEmbedding,
+      setSnapshot({
+        ...data,
 
-            secondLog
-              .parsedEmbedding
+        nodes:
+          Array.isArray(
+            data.nodes
+          )
+            ? data.nodes
+            : [],
+
+        edges:
+          Array.isArray(
+            data.edges
+          )
+            ? data.edges
+            : [],
+
+        meta:
+          data.meta &&
+          typeof data.meta ===
+            "object" &&
+          !Array.isArray(
+            data.meta
+          )
+            ? data.meta
+            : {},
+      });
+
+      setLoading(false);
+    }
+
+    loadSnapshot();
+  }, []);
+
+  const nodes =
+    snapshot?.nodes || [];
+
+  const edges =
+    snapshot?.edges || [];
+
+  const nodeMap =
+    useMemo(
+      () =>
+        new Map(
+          nodes.map(
+            (node) => [
+              node.id,
+              node,
+            ]
+          )
+        ),
+      [nodes]
+    );
+
+  const strongestConnections =
+    useMemo(
+      () =>
+        edges
+          .slice()
+          .sort(
+            (
+              first,
+              second
+            ) =>
+              second.similarity -
+              first.similarity
+          )
+          .slice(0, 12),
+      [edges]
+    );
+
+  useEffect(() => {
+    const canvas =
+      canvasRef.current;
+
+    if (!canvas) {
+      return;
+    }
+
+    const context =
+      canvas.getContext(
+        "2d"
+      );
+
+    const width =
+      canvas.width;
+
+    const height =
+      canvas.height;
+
+    context.clearRect(
+      0,
+      0,
+      width,
+      height
+    );
+
+    if (!nodes.length) {
+      context.fillStyle =
+        "#766f64";
+
+      context.font =
+        "15px monospace";
+
+      context.fillText(
+        "The nightly Weave has not been generated yet.",
+        32,
+        56
+      );
+
+      return;
+    }
+
+    const positionedNodes =
+      nodes.map(
+        (node, index) => {
+          const angle =
+            (
+              index /
+              Math.max(
+                nodes.length,
+                1
+              )
+            ) *
+            Math.PI *
+            2;
+
+          const baseRadius =
+            Math.min(
+              width,
+              height
+            ) * 0.34;
+
+          const variation =
+            (index % 4) *
+            14;
+
+          return {
+            ...node,
+
+            x:
+              width / 2 +
+              Math.cos(
+                angle
+              ) *
+                (
+                  baseRadius -
+                  variation
+                ),
+
+            y:
+              height / 2 +
+              Math.sin(
+                angle
+              ) *
+                (
+                  baseRadius -
+                  variation
+                ),
+          };
+        }
+      );
+
+    edges.forEach(
+      (edge) => {
+        const source =
+          positionedNodes.find(
+            (node) =>
+              node.id ===
+              edge.source
+          );
+
+        const target =
+          positionedNodes.find(
+            (node) =>
+              node.id ===
+              edge.target
           );
 
         if (
-          similarity >=
-          MIN_SIMILARITY
+          !source ||
+          !target
         ) {
-          edges.push({
-            source:
-              firstLog.id,
-
-            target:
-              secondLog.id,
-
-            similarity:
-              Number(
-                similarity.toFixed(
-                  4
-                )
-              ),
-          });
+          return;
         }
-      }
-    }
 
-    edges.sort(
-      (
-        firstEdge,
-        secondEdge
-      ) =>
-        secondEdge.similarity -
-        firstEdge.similarity
+        const strength =
+          Math.max(
+            0,
+            Math.min(
+              1,
+              (
+                edge.similarity -
+                0.7
+              ) / 0.3
+            )
+          );
+
+        context.beginPath();
+
+        context.strokeStyle =
+          `rgba(33,31,27,${
+            0.09 +
+            strength *
+              0.5
+          })`;
+
+        context.lineWidth =
+          0.8 +
+          strength * 4;
+
+        context.moveTo(
+          source.x,
+          source.y
+        );
+
+        const middleX =
+          (
+            source.x +
+            target.x
+          ) / 2;
+
+        context.bezierCurveTo(
+          middleX,
+          source.y,
+          middleX,
+          target.y,
+          target.x,
+          target.y
+        );
+
+        context.stroke();
+      }
     );
 
-    const nodes =
-      usableLogs.map(
-        makeWeaveNode
-      );
+    positionedNodes.forEach(
+      (node) => {
+        const connectionCount =
+          edges.filter(
+            (edge) =>
+              edge.source ===
+                node.id ||
+              edge.target ===
+                node.id
+          ).length;
 
-    const result = {
-      nodes,
+        const radius =
+          5 +
+          Math.min(
+            11,
+            connectionCount *
+              1.5
+          );
 
-      edges:
-        edges.slice(
+        context.beginPath();
+
+        context.fillStyle =
+          "rgba(33,31,27,.72)";
+
+        context.arc(
+          node.x,
+          node.y,
+          radius,
           0,
-          MAX_EDGES
-        ),
+          Math.PI * 2
+        );
 
-      meta: {
-        record_count:
-          usableLogs.length,
+        context.fill();
 
-        generated_embeddings:
-          logsNeedingEmbedding
-            .length,
+        context.fillStyle =
+          "#211f1b";
 
-        threshold:
-          MIN_SIMILARITY,
+        context.font =
+          "11px monospace";
 
-        embedding_model:
-          EMBEDDING_MODEL,
+        context.fillText(
+          node.date || "",
+          node.x +
+            radius +
+            6,
+          node.y
+        );
 
-        includes_body_moving:
-          true,
+        const label =
+          getNodeLabel(
+            node
+          );
 
-        includes_body_practice:
-          true,
+        context.fillStyle =
+          "#766f64";
 
-        includes_artistic_input:
-          true,
+        context.font =
+          "9px monospace";
 
-        includes_observation:
-          true,
-
-        includes_alignment:
-          true,
-
-        includes_making:
-          true,
-
-        includes_learning:
-          true,
-
-        generated_at:
-          new Date()
-            .toISOString(),
-      },
-    };
-
-    return NextResponse.json(
-      result
-    );
-  } catch (error) {
-    console.error(
-      "Semantic Weave failed:",
-      error
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          error?.message ||
-          "Semantic Weave failed.",
-      },
-      {
-        status: 500,
+        context.fillText(
+          shorten(
+            formatLabel(
+              label
+            ),
+            28
+          ),
+          node.x +
+            radius +
+            6,
+          node.y + 15
+        );
       }
     );
-  }
+  }, [
+    nodes,
+    edges,
+  ]);
+
+  return (
+    <>
+      <section className="panel">
+        <div className="entry-head">
+          <div>
+            <p className="eyebrow">
+              Weave
+            </p>
+
+            <h2>
+              Semantic Connections
+            </h2>
+
+            <p className="subtitle">
+              Daily records are
+              connected through
+              Body Moving,
+              environment,
+              making, learning,
+              artistic input,
+              observation, and
+              recurring concerns.
+            </p>
+          </div>
+
+          {snapshot
+            ?.generated_at && (
+            <span className="badge">
+              Updated{" "}
+              {formatDateTime(
+                snapshot
+                  .generated_at
+              )}
+            </span>
+          )}
+        </div>
+
+        <p className="muted">
+          Generated automatically
+          once each night.
+        </p>
+
+        {snapshot?.meta && (
+          <>
+            <p className="muted">
+              {snapshot.meta
+                .record_count ||
+                0}{" "}
+              records ·{" "}
+              {edges.length}{" "}
+              connections ·
+              threshold{" "}
+              {snapshot.meta
+                .threshold ||
+                0.72}
+            </p>
+
+            {snapshot.meta
+              .includes_body_moving && (
+              <p className="muted">
+                Body Moving,
+                Making, Learning,
+                Observation, and
+                Artistic Input are
+                included in this
+                reading.
+              </p>
+            )}
+          </>
+        )}
+      </section>
+
+      {loading && (
+        <section className="panel">
+          <p className="muted">
+            Loading the latest
+            Weave…
+          </p>
+        </section>
+      )}
+
+      {!loading &&
+        errorMessage && (
+          <section className="panel">
+            <p className="muted">
+              {errorMessage}
+            </p>
+          </section>
+        )}
+
+      {!loading &&
+        !errorMessage &&
+        !snapshot && (
+          <section className="panel">
+            <h2>
+              No Weave Snapshot Yet
+            </h2>
+
+            <p className="muted">
+              The first semantic
+              network will appear
+              after the nightly
+              update runs.
+            </p>
+          </section>
+        )}
+
+      {!loading &&
+        snapshot && (
+          <>
+            <section className="panel">
+              <div
+                style={{
+                  overflowX:
+                    "auto",
+                }}
+              >
+                <canvas
+                  ref={
+                    canvasRef
+                  }
+                  width="960"
+                  height="640"
+                />
+              </div>
+            </section>
+
+            <section className="panel">
+              <h2>
+                Strongest
+                Connections
+              </h2>
+
+              <p className="subtitle">
+                These pairs share
+                the closest
+                semantic
+                relationship in
+                the current
+                snapshot.
+              </p>
+
+              {!strongestConnections
+                .length && (
+                <p className="muted">
+                  No connection
+                  reached the
+                  current
+                  similarity
+                  threshold.
+                </p>
+              )}
+
+              {strongestConnections.map(
+                (
+                  edge,
+                  index
+                ) => {
+                  const source =
+                    nodeMap.get(
+                      edge.source
+                    );
+
+                  const target =
+                    nodeMap.get(
+                      edge.target
+                    );
+
+                  if (
+                    !source ||
+                    !target
+                  ) {
+                    return null;
+                  }
+
+                  return (
+                    <article
+                      className="entry"
+                      key={`${edge.source}-${edge.target}-${index}`}
+                    >
+                      <div className="entry-head">
+                        <div>
+                          <p className="eyebrow">
+                            Connection
+                          </p>
+
+                          <p>
+                            {
+                              source.date
+                            }
+                            {" ↔ "}
+                            {
+                              target.date
+                            }
+                          </p>
+                        </div>
+
+                        <span className="badge">
+                          {Math.round(
+                            edge.similarity *
+                              100
+                          )}
+                          %
+                        </span>
+                      </div>
+
+                      <div className="grid two">
+                        <NodeReading
+                          node={
+                            source
+                          }
+                          title="First Record"
+                        />
+
+                        <NodeReading
+                          node={
+                            target
+                          }
+                          title="Second Record"
+                        />
+                      </div>
+                    </article>
+                  );
+                }
+              )}
+            </section>
+          </>
+        )}
+    </>
+  );
 }
