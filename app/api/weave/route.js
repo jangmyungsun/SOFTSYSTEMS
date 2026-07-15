@@ -92,6 +92,26 @@ function makeEmbeddingText(log) {
       ai.practice_signals
     ).join(", ");
 
+  const bodyMovingText = [
+    movement.type
+      ? `Type: ${movement.type}`
+      : "",
+
+    movement.time
+      ? `Time: ${movement.time}`
+      : "",
+
+    movement.intensity
+      ? `Intensity: ${movement.intensity} out of 5`
+      : "",
+
+    movement.notes
+      ? `Notes: ${movement.notes}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   const artisticInputText = [
     artisticInput.type
       ? `Type: ${artisticInput.type}`
@@ -107,26 +127,6 @@ function makeEmbeddingText(log) {
 
     artisticInput.note
       ? `Reference note: ${artisticInput.note}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  const bodyPracticeText = [
-    movement.type
-      ? `Type: ${movement.type}`
-      : "",
-
-    movement.time
-      ? `Time: ${movement.time}`
-      : "",
-
-    movement.intensity
-      ? `Intensity: ${movement.intensity} out of 5`
-      : "",
-
-    movement.notes
-      ? `Notes: ${movement.notes}`
       : "",
   ]
     .filter(Boolean)
@@ -167,8 +167,8 @@ function makeEmbeddingText(log) {
       ? `Body temperature: ${state.temperature}`
       : "",
 
-    bodyPracticeText
-      ? `Body practice:\n${bodyPracticeText}`
+    bodyMovingText
+      ? `Body moving:\n${bodyMovingText}`
       : "",
 
     environment.weather
@@ -367,7 +367,7 @@ function cosineSimilarity(
   );
 }
 
-function makeNode(log) {
+function makeWeaveNode(log) {
   const state =
     getObject(log.state);
 
@@ -375,7 +375,9 @@ function makeNode(log) {
     getObject(log.movement);
 
   const environment =
-    getObject(log.environment);
+    getObject(
+      log.environment
+    );
 
   const work =
     getObject(log.work);
@@ -390,22 +392,46 @@ function makeNode(log) {
       log.ai_analysis
     );
 
+  const bodyMoving = {
+    type:
+      movement.type ||
+      "",
+
+    time:
+      movement.time ||
+      "",
+
+    intensity:
+      movement.intensity ||
+      "",
+
+    notes:
+      movement.notes ||
+      "",
+  };
+
   return {
     id:
       log.id,
 
     date:
-      log.date,
-
-    project:
-      work.project || "",
+      log.date || "",
 
     summary:
       ai.summary ||
       log.observation ||
       artisticInput.title ||
       movement.notes ||
+      work.project ||
       "Untitled Daily",
+
+    observation:
+      log.observation ||
+      "",
+
+    alignment:
+      log.alignment ||
+      "",
 
     themes:
       getArray(
@@ -422,44 +448,120 @@ function makeNode(log) {
         ai.keywords
       ),
 
+    body_signals:
+      getArray(
+        ai.body_signals
+      ),
+
+    practice_signals:
+      getArray(
+        ai.practice_signals
+      ),
+
+    relationship:
+      ai.relationship ||
+      "",
+
     body_state:
-      state.body_state || "",
+      state.body_state ||
+      "",
 
     energy:
-      state.energy || "",
+      state.energy ||
+      "",
 
     mood:
-      state.mood || "",
+      state.mood ||
+      "",
 
     weather:
-      environment.weather || "",
+      environment.weather ||
+      "",
 
-    body_practice: {
-      type:
-        movement.type || "",
+    environment: {
+      weather:
+        environment.weather ||
+        "",
 
+      temperature:
+        environment.temperature ??
+        "",
+
+      humidity:
+        environment.humidity ??
+        "",
+
+      pressure:
+        environment.pressure ??
+        "",
+
+      wind:
+        environment.wind ??
+        "",
+
+      sunrise:
+        environment.sunrise ||
+        "",
+
+      sunset:
+        environment.sunset ||
+        "",
+    },
+
+    body_moving:
+      bodyMoving,
+
+    /*
+     * 기존 snapshot 및 화면 코드와의
+     * 호환성을 위해 당분간 함께 저장한다.
+     */
+    body_practice:
+      bodyMoving,
+
+    making: {
       time:
-        movement.time || "",
+        work.time ||
+        "",
 
-      intensity:
-        movement.intensity || "",
+      project:
+        work.project ||
+        "",
 
       notes:
-        movement.notes || "",
+        getArray(
+          work.items
+        ),
     },
+
+    /*
+     * 이전 Weave 화면이
+     * node.project를 직접 읽으므로 유지한다.
+     */
+    project:
+      work.project ||
+      "",
+
+    learning:
+      getArray(
+        log.learning
+      ),
 
     artistic_input: {
       type:
-        artisticInput.type || "",
+        artisticInput.type ||
+        "",
 
       title:
-        artisticInput.title || "",
+        artisticInput.title ||
+        "",
 
       creator:
-        artisticInput.creator || "",
+        artisticInput.creator ||
+        "",
 
       note:
-        artisticInput.note || "",
+        artisticInput.note ||
+        "",
     },
   };
 }
@@ -525,6 +627,7 @@ export async function POST(
       .select(
         `
           id,
+          user_id,
           date,
           state,
           movement,
@@ -536,6 +639,7 @@ export async function POST(
           alignment,
           tomorrow,
           ai_analysis,
+          media,
           embedding,
           embedding_text,
           embedding_updated_at,
@@ -776,11 +880,13 @@ export async function POST(
         firstEdge.similarity
     );
 
-    return NextResponse.json({
-      nodes:
-        usableLogs.map(
-          makeNode
-        ),
+    const nodes =
+      usableLogs.map(
+        makeWeaveNode
+      );
+
+    const result = {
+      nodes,
 
       edges:
         edges.slice(
@@ -802,17 +908,36 @@ export async function POST(
         embedding_model:
           EMBEDDING_MODEL,
 
+        includes_body_moving:
+          true,
+
         includes_body_practice:
           true,
 
         includes_artistic_input:
           true,
 
+        includes_observation:
+          true,
+
+        includes_alignment:
+          true,
+
+        includes_making:
+          true,
+
+        includes_learning:
+          true,
+
         generated_at:
           new Date()
             .toISOString(),
       },
-    });
+    };
+
+    return NextResponse.json(
+      result
+    );
   } catch (error) {
     console.error(
       "Semantic Weave failed:",
