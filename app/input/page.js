@@ -14,26 +14,6 @@ import {
 import ArchiveCard from "../../components/ArchiveCard";
 import EntryCard from "../../components/EntryCard";
 
-const INPUT_ITEMS = [
-  {
-    href: "/archive",
-    eyebrow: "Archive",
-    title: "Writing and Media",
-    description:
-      "Essays, reflections, project logs, videos, and references collected as a long-term memory layer.",
-    action: "Open Archive",
-  },
-
-  {
-    href: "/daily",
-    eyebrow: "Daily",
-    title: "Body and Practice",
-    description:
-      "Body state, environment, Body Moving, making, learning, artistic input, observation, and daily attachments.",
-    action: "Open Daily",
-  },
-];
-
 function normalizeTags(value) {
   if (Array.isArray(value)) {
     return value;
