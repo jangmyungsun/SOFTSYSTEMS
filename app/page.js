@@ -1,539 +1,1497 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
 import {
   supabase,
-} from "../lib/supabaseClient";
+} from "../../lib/supabaseClient";
 
 import {
-  getHomeState,
-} from "../lib/utils";
+  getWeatherForDate,
+} from "../../lib/weather";
 
-import EntryCard from "../components/EntryCard";
-import ArchiveCard from "../components/ArchiveCard";
+import EntryCard from "../../components/EntryCard";
+import LogForm from "../../components/LogForm";
+import MediaUploader from "../../components/MediaUploader";
 
-function parseDurationToHours(value) {
+const BUCKET_NAME =
+  "softsystems-media";
+
+function getTodayString() {
+  return new Date()
+    .toISOString()
+    .slice(0, 10);
+}
+
+function safeFileName(fileName) {
+  return String(fileName || "")
+    .normalize("NFKD")
+    .replace(/[^\w.-]+/g, "_")
+    .replace(/_+/g, "_");
+}
+
+function getMediaType(file) {
   if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
-    return 0;
-  }
-
-  if (typeof value === "number") {
-    return Number.isFinite(value)
-      ? value
-      : 0;
-  }
-
-  const text = String(value)
-    .trim()
-    .toLowerCase();
-
-  if (!text) {
-    return 0;
-  }
-
-  const directNumber =
-    Number(text);
-
-  if (
-    Number.isFinite(
-      directNumber
+    file.type.startsWith(
+      "image/"
     )
   ) {
-    return directNumber;
+    return "image";
   }
-
-  let totalHours = 0;
-
-  const hourMatch =
-    text.match(
-      /(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)/
-    );
-
-  const minuteMatch =
-    text.match(
-      /(\d+(?:\.\d+)?)\s*(?:m|min|mins|minute|minutes)/
-    );
-
-  if (hourMatch) {
-    totalHours +=
-      Number(
-        hourMatch[1]
-      );
-  }
-
-  if (minuteMatch) {
-    totalHours +=
-      Number(
-        minuteMatch[1]
-      ) / 60;
-  }
-
-  return Number.isFinite(
-    totalHours
-  )
-    ? totalHours
-    : 0;
-}
-
-function isCurrentMonth(dateValue) {
-  if (!dateValue) {
-    return false;
-  }
-
-  const date = new Date(
-    `${dateValue}T12:00:00`
-  );
 
   if (
-    Number.isNaN(
-      date.getTime()
+    file.type.startsWith(
+      "audio/"
     )
   ) {
-    return false;
-  }
-
-  const now =
-    new Date();
-
-  return (
-    date.getFullYear() ===
-      now.getFullYear() &&
-    date.getMonth() ===
-      now.getMonth()
-  );
-}
-
-function getMovementAverage(logs) {
-  const monthLogs =
-    logs.filter(
-      (log) =>
-        isCurrentMonth(
-          log.date
-        )
-    );
-
-  if (!monthLogs.length) {
-    return 0;
-  }
-
-  const totalHours =
-    monthLogs.reduce(
-      (sum, log) =>
-        sum +
-        parseDurationToHours(
-          log.movement?.time
-        ),
-      0
-    );
-
-  return (
-    totalHours /
-    monthLogs.length
-  );
-}
-
-function normalizeTags(value) {
-  if (
-    Array.isArray(value)
-  ) {
-    return value;
+    return "audio";
   }
 
   if (
-    typeof value === "string"
+    file.type.startsWith(
+      "video/"
+    )
   ) {
-    try {
-      const parsed =
-        JSON.parse(value);
-
-      return Array.isArray(
-        parsed
-      )
-        ? parsed
-        : [];
-    } catch {
-      return [];
-    }
+    return "video";
   }
 
-  return [];
+  if (
+    file.type ===
+    "application/pdf"
+  ) {
+    return "pdf";
+  }
+
+  return "file";
 }
 
-function normalizeArchiveEntry(entry) {
-  return {
-    ...entry,
+export default function DailyPage() {
+  const [
+    session,
+    setSession,
+  ] = useState(null);
 
-    tags:
-      normalizeTags(
-        entry?.tags
-      ),
+  const [
+    authLoading,
+    setAuthLoading,
+  ] = useState(true);
 
-    is_public:
-      entry?.is_public !==
-      false,
-  };
-}
-
-export default function Home() {
   const [
     logs,
     setLogs,
   ] = useState([]);
 
   const [
-    archiveEntries,
-    setArchiveEntries,
-  ] = useState([]);
-
-  const [
-    guidance,
-    setGuidance,
-  ] = useState(null);
-
-  const [
-    loading,
-    setLoading,
+    logsLoading,
+    setLogsLoading,
   ] = useState(true);
 
   const [
-    errorMessage,
-    setErrorMessage,
+    loadError,
+    setLoadError,
   ] = useState("");
 
-  useEffect(() => {
-    async function loadHome() {
-      setLoading(true);
-      setErrorMessage("");
+  const [
+    editing,
+    setEditing,
+  ] = useState(null);
 
-      try {
-        const [
-          logsResult,
-          archiveResult,
-          guidanceResult,
-        ] =
-          await Promise.all([
-            supabase
-              .from(
-                "field_logs"
-              )
-              .select("*")
-              .eq(
-                "is_public",
-                true
-              )
-              .order(
-                "date",
-                {
-                  ascending:
-                    false,
-                }
-              ),
+  const [
+    selectedFiles,
+    setSelectedFiles,
+  ] = useState([]);
 
-            supabase
-              .from(
-                "archive_entries"
-              )
-              .select("*")
-              .eq(
-                "is_public",
-                true
-              )
-              .order(
-                "entry_date",
-                {
-                  ascending:
-                    false,
-                }
-              )
-              .order(
-                "created_at",
-                {
-                  ascending:
-                    false,
-                }
-              )
-              .limit(1),
+  const [
+    existingMedia,
+    setExistingMedia,
+  ] = useState([]);
 
-            supabase
-              .from(
-                "daily_guidance"
-              )
-              .select(
-                `
-                  guidance_date,
-                  guidance,
-                  generated_at,
-                  is_public
-                `
-              )
-              .eq(
-                "is_public",
-                true
-              )
-              .order(
-                "guidance_date",
-                {
-                  ascending:
-                    false,
-                }
-              )
-              .limit(1)
-              .maybeSingle(),
-          ]);
+  const [
+    selectedDate,
+    setSelectedDate,
+  ] = useState(
+    getTodayString()
+  );
 
-        if (logsResult.error) {
-          throw logsResult.error;
+  const [
+    environment,
+    setEnvironment,
+  ] = useState(null);
+
+  const [
+    weatherStatus,
+    setWeatherStatus,
+  ] = useState("idle");
+
+  const [
+    saving,
+    setSaving,
+  ] = useState(false);
+
+  const [
+    saveStatus,
+    setSaveStatus,
+  ] = useState("");
+
+  /*
+   * 로그인 여부에 따라 Daily를 다르게 불러온다.
+   *
+   * 로그인:
+   * 본인이 작성한 공개·비공개 기록 전체
+   *
+   * 비로그인:
+   * 공개 기록만
+   */
+  const loadLogs =
+    useCallback(
+      async (
+        currentSession
+      ) => {
+        setLogsLoading(true);
+        setLoadError("");
+
+        let query =
+          supabase
+            .from(
+              "field_logs"
+            )
+            .select("*")
+            .order(
+              "date",
+              {
+                ascending:
+                  false,
+              }
+            );
+
+        if (
+          currentSession
+            ?.user?.id
+        ) {
+          query =
+            query.eq(
+              "user_id",
+              currentSession
+                .user.id
+            );
+        } else {
+          query =
+            query.eq(
+              "is_public",
+              true
+            );
         }
 
-        if (archiveResult.error) {
-          throw archiveResult.error;
-        }
+        const {
+          data,
+          error,
+        } = await query;
 
-        if (guidanceResult.error) {
-          throw guidanceResult.error;
+        if (error) {
+          console.error(
+            "Daily load error:",
+            error
+          );
+
+          setLogs([]);
+          setLoadError(
+            error.message
+          );
+          setLogsLoading(
+            false
+          );
+
+          return;
         }
 
         setLogs(
-          logsResult.data || []
+          data || []
         );
 
-        setArchiveEntries(
-          (
-            archiveResult.data ||
-            []
-          ).map(
-            normalizeArchiveEntry
-          )
+        setLogsLoading(
+          false
+        );
+      },
+      []
+    );
+
+  /*
+   * 초기 로그인 상태를 확인하고
+   * 로그인 변화도 계속 반영한다.
+   */
+  useEffect(() => {
+    let mounted = true;
+
+    async function initializeAuth() {
+      const {
+        data,
+        error,
+      } =
+        await supabase.auth
+          .getSession();
+
+      if (!mounted) {
+        return;
+      }
+
+      if (error) {
+        console.error(
+          "Daily auth error:",
+          error
+        );
+      }
+
+      const currentSession =
+        data?.session ||
+        null;
+
+      setSession(
+        currentSession
+      );
+
+      setAuthLoading(
+        false
+      );
+
+      await loadLogs(
+        currentSession
+      );
+    }
+
+    initializeAuth();
+
+    const {
+      data:
+        authListener,
+    } =
+      supabase.auth
+        .onAuthStateChange(
+          async (
+            _event,
+            nextSession
+          ) => {
+            if (!mounted) {
+              return;
+            }
+
+            setSession(
+              nextSession
+            );
+
+            setAuthLoading(
+              false
+            );
+
+            setEditing(
+              null
+            );
+
+            setSelectedFiles(
+              []
+            );
+
+            setExistingMedia(
+              []
+            );
+
+            await loadLogs(
+              nextSession
+            );
+          }
         );
 
-        const guidanceRow =
-          guidanceResult.data;
+    return () => {
+      mounted = false;
 
-        const guidanceValue =
-          guidanceRow?.guidance &&
-          typeof guidanceRow
-            .guidance ===
-            "object" &&
-          !Array.isArray(
-            guidanceRow.guidance
-          )
-            ? guidanceRow.guidance
-            : null;
+      authListener
+        ?.subscription
+        ?.unsubscribe();
+    };
+  }, [loadLogs]);
 
-        setGuidance(
-          guidanceValue
+  /*
+   * 로그인 상태가 확인된 뒤에만
+   * 입력용 날씨를 수집한다.
+   *
+   * 비로그인 방문자는 공개 Daily만 보기 때문에
+   * 브라우저 위치 권한을 요구하지 않는다.
+   */
+  useEffect(() => {
+    if (
+      authLoading ||
+      !session
+    ) {
+      return;
+    }
+
+    collectWeather(
+      selectedDate
+    );
+  }, [
+    authLoading,
+    session,
+  ]);
+
+  /*
+   * 선택 날짜의 날씨 자동 수집
+   */
+  const collectWeather =
+    async (
+      date =
+        selectedDate
+    ) => {
+      if (
+        !date ||
+        !session
+      ) {
+        return;
+      }
+
+      setWeatherStatus(
+        "loading"
+      );
+
+      try {
+        const weather =
+          await getWeatherForDate(
+            date
+          );
+
+        setEnvironment(
+          weather
+        );
+
+        setWeatherStatus(
+          "success"
         );
       } catch (error) {
         console.error(
-          "Home load error:",
+          "Weather error:",
           error
         );
 
-        setErrorMessage(
+        setEnvironment(
+          null
+        );
+
+        setWeatherStatus(
+          "error"
+        );
+      }
+    };
+
+  /*
+   * LogForm의 날짜가 바뀌면
+   * 선택 날짜와 날씨를 함께 바꾼다.
+   */
+  const handleDateChange =
+    async (date) => {
+      if (!date) {
+        return;
+      }
+
+      setSelectedDate(
+        date
+      );
+
+      setEnvironment(
+        null
+      );
+
+      await collectWeather(
+        date
+      );
+    };
+
+  /*
+   * 선택한 파일을 Supabase Storage에 업로드한다.
+   */
+  const uploadSelectedFiles =
+    async () => {
+      if (
+        !selectedFiles.length
+      ) {
+        return [];
+      }
+
+      if (!session) {
+        throw new Error(
+          "You must be logged in."
+        );
+      }
+
+      const uploadedItems =
+        [];
+
+      for (
+        const item of selectedFiles
+      ) {
+        const file =
+          item.file;
+
+        if (!file) {
+          continue;
+        }
+
+        const cleanName =
+          safeFileName(
+            file.name
+          );
+
+        const uniqueName =
+          `${Date.now()}-` +
+          `${crypto.randomUUID()}-` +
+          cleanName;
+
+        const dateFolder =
+          selectedDate ||
+          getTodayString();
+
+        const filePath =
+          `${session.user.id}/` +
+          `${dateFolder}/` +
+          uniqueName;
+
+        const {
+          error:
+            uploadError,
+        } = await supabase
+          .storage
+          .from(
+            BUCKET_NAME
+          )
+          .upload(
+            filePath,
+            file,
+            {
+              cacheControl:
+                "3600",
+
+              upsert:
+                false,
+
+              contentType:
+                file.type ||
+                "application/octet-stream",
+            }
+          );
+
+        if (
+          uploadError
+        ) {
+          throw uploadError;
+        }
+
+        uploadedItems.push({
+          bucket:
+            BUCKET_NAME,
+
+          path:
+            filePath,
+
+          name:
+            file.name,
+
+          type:
+            getMediaType(
+              file
+            ),
+
+          mime_type:
+            file.type,
+
+          size:
+            file.size,
+
+          uploaded_at:
+            new Date()
+              .toISOString(),
+        });
+      }
+
+      return uploadedItems;
+    };
+
+  /*
+   * 저장된 Daily를 AI 분석 API에 전달한다.
+   */
+  const analyzeDaily =
+    async (
+      logId,
+      logPayload
+    ) => {
+      const {
+        data:
+          sessionData,
+      } =
+        await supabase.auth
+          .getSession();
+
+      const accessToken =
+        sessionData?.session
+          ?.access_token;
+
+      if (!accessToken) {
+        throw new Error(
+          "No login session was found."
+        );
+      }
+
+      const response =
+        await fetch(
+          "/api/analyze",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${accessToken}`,
+            },
+
+            body:
+              JSON.stringify({
+                log:
+                  logPayload,
+              }),
+          }
+        );
+
+      let result;
+
+      try {
+        result =
+          await response.json();
+      } catch {
+        throw new Error(
+          "The AI server returned an invalid response."
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          result?.error ||
+            "AI analysis failed."
+        );
+      }
+
+      if (
+        !result?.analysis
+      ) {
+        throw new Error(
+          "The AI returned no analysis."
+        );
+      }
+
+      const {
+        error:
+          updateError,
+      } = await supabase
+        .from(
+          "field_logs"
+        )
+        .update({
+          ai_analysis:
+            result.analysis,
+        })
+        .eq(
+          "id",
+          logId
+        )
+        .eq(
+          "user_id",
+          session.user.id
+        );
+
+      if (
+        updateError
+      ) {
+        throw updateError;
+      }
+
+      return result.analysis;
+    };
+
+  /*
+   * 파일 업로드
+   * → Daily 저장
+   * → AI 분석
+   * → 목록 갱신
+   */
+  const saveLog =
+    async (payload) => {
+      if (!session) {
+        window.alert(
+          "Please log in first."
+        );
+
+        return;
+      }
+
+      let newlyUploadedMedia =
+        [];
+
+      try {
+        setSaving(true);
+
+        setSaveStatus(
+          selectedFiles.length
+            ? "Uploading files…"
+            : "Saving Daily…"
+        );
+
+        newlyUploadedMedia =
+          await uploadSelectedFiles();
+
+        const finalMedia = [
+          ...existingMedia,
+          ...newlyUploadedMedia,
+        ];
+
+        const finalDate =
+          payload.date ||
+          selectedDate ||
+          getTodayString();
+
+        let finalEnvironment =
+          environment;
+
+        /*
+         * 현재 날씨 데이터가 다른 날짜의 값이면
+         * 선택 날짜 기준으로 다시 수집한다.
+         */
+        if (
+          !finalEnvironment ||
+          finalEnvironment.date !==
+            finalDate
+        ) {
+          setSaveStatus(
+            "Collecting weather for the selected date…"
+          );
+
+          try {
+            finalEnvironment =
+              await getWeatherForDate(
+                finalDate
+              );
+
+            setEnvironment(
+              finalEnvironment
+            );
+          } catch (
+            weatherError
+          ) {
+            console.error(
+              "Weather save error:",
+              weatherError
+            );
+
+            /*
+             * 기존 Daily 편집 중이라면
+             * 저장되어 있던 Environment를 보존한다.
+             */
+            finalEnvironment =
+              editing
+                ?.environment ||
+              {};
+          }
+        }
+
+        const finalPayload = {
+          ...payload,
+
+          date:
+            finalDate,
+
+          environment:
+            finalEnvironment ||
+            {},
+
+          media:
+            finalMedia,
+
+          /*
+           * 현재 LogForm은 공개 여부 입력이 없으므로
+           * 새 Daily는 기본 공개로 저장한다.
+           */
+          is_public:
+            payload.is_public !==
+            false,
+        };
+
+        let savedLogId;
+
+        setSaveStatus(
+          "Saving Daily…"
+        );
+
+        if (editing) {
+          const {
+            error:
+              updateError,
+          } = await supabase
+            .from(
+              "field_logs"
+            )
+            .update(
+              finalPayload
+            )
+            .eq(
+              "id",
+              editing.id
+            )
+            .eq(
+              "user_id",
+              session.user.id
+            );
+
+          if (
+            updateError
+          ) {
+            throw updateError;
+          }
+
+          savedLogId =
+            editing.id;
+        } else {
+          const {
+            data:
+              insertedLog,
+            error:
+              insertError,
+          } = await supabase
+            .from(
+              "field_logs"
+            )
+            .insert({
+              ...finalPayload,
+
+              user_id:
+                session.user.id,
+            })
+            .select(
+              "id"
+            )
+            .single();
+
+          if (
+            insertError
+          ) {
+            throw insertError;
+          }
+
+          if (
+            !insertedLog?.id
+          ) {
+            throw new Error(
+              "The saved Daily ID was not returned."
+            );
+          }
+
+          savedLogId =
+            insertedLog.id;
+        }
+
+        /*
+         * Daily 저장은 완료된 상태다.
+         * AI 분석이 실패해도 Daily는 유지한다.
+         */
+        setSaveStatus(
+          "Reading the Daily with AI…"
+        );
+
+        try {
+          await analyzeDaily(
+            savedLogId,
+            finalPayload
+          );
+
+          setSaveStatus(
+            "Daily and AI reading saved."
+          );
+        } catch (
+          analysisError
+        ) {
+          console.error(
+            "AI analysis error:",
+            analysisError
+          );
+
+          setSaveStatus(
+            "Daily saved. AI reading could not be completed."
+          );
+
+          window.alert(
+            `Daily was saved, but AI analysis failed: ${
+              analysisError
+                .message
+            }`
+          );
+        }
+
+        const today =
+          getTodayString();
+
+        setEditing(null);
+        setSelectedFiles([]);
+        setExistingMedia([]);
+        setSelectedDate(
+          today
+        );
+        setSaveStatus("");
+
+        await loadLogs(
+          session
+        );
+
+        await collectWeather(
+          today
+        );
+
+        window.alert(
+          "Daily saved."
+        );
+      } catch (error) {
+        console.error(
+          "Daily save error:",
+          error
+        );
+
+        /*
+         * Storage 업로드 후 DB 저장이 실패하면
+         * 이번 저장에서 새로 업로드한 파일만 되돌린다.
+         */
+        const rollbackPaths =
+          newlyUploadedMedia
+            .map(
+              (item) =>
+                item.path
+            )
+            .filter(Boolean);
+
+        if (
+          rollbackPaths.length
+        ) {
+          const {
+            error:
+              rollbackError,
+          } = await supabase
+            .storage
+            .from(
+              BUCKET_NAME
+            )
+            .remove(
+              rollbackPaths
+            );
+
+          if (
+            rollbackError
+          ) {
+            console.error(
+              "Rollback error:",
+              rollbackError
+            );
+          }
+        }
+
+        setSaveStatus(
+          "Daily could not be saved."
+        );
+
+        window.alert(
           error?.message ||
-            "The Home page could not be loaded."
+            "Daily could not be saved."
         );
       } finally {
-        setLoading(false);
+        setSaving(false);
       }
-    }
+    };
 
-    loadHome();
-  }, []);
+  /*
+   * 기존 Daily 편집 시작
+   */
+  const startEditing =
+    (log) => {
+      if (!session) {
+        return;
+      }
 
-  const homeState =
-    getHomeState(logs);
+      setEditing(log);
 
-  const movementAverage =
-    useMemo(
-      () =>
-        getMovementAverage(
-          logs
-        ),
-      [logs]
-    );
+      setSelectedDate(
+        log.date ||
+          getTodayString()
+      );
+
+      setSelectedFiles([]);
+
+      setExistingMedia(
+        Array.isArray(
+          log.media
+        )
+          ? log.media
+          : []
+      );
+
+      setEnvironment(
+        log.environment ||
+          null
+      );
+
+      setWeatherStatus(
+        log.environment
+          ? "success"
+          : "idle"
+      );
+
+      setSaveStatus("");
+
+      window.scrollTo({
+        top: 0,
+        behavior:
+          "smooth",
+      });
+    };
+
+  /*
+   * 편집 취소
+   */
+  const cancelEditing =
+    async () => {
+      const today =
+        getTodayString();
+
+      setEditing(null);
+      setSelectedFiles([]);
+      setExistingMedia([]);
+      setSelectedDate(
+        today
+      );
+      setSaveStatus("");
+
+      await collectWeather(
+        today
+      );
+    };
+
+  /*
+   * 편집 폼에서 기존 미디어를 제외한다.
+   *
+   * 이 단계에서는 Storage에서 즉시 삭제하지 않고,
+   * 저장된 Daily의 media 배열에서만 제외한다.
+   */
+  const removeExistingMedia =
+    async (item) => {
+      const confirmed =
+        window.confirm(
+          `Remove ${item.name}?`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setExistingMedia(
+        (current) =>
+          current.filter(
+            (
+              mediaItem
+            ) =>
+              mediaItem.path !==
+              item.path
+          )
+      );
+    };
+
+  /*
+   * 공개 / 비공개 전환
+   */
+  const toggleLog =
+    async (log) => {
+      if (!session) {
+        return;
+      }
+
+      const {
+        error,
+      } = await supabase
+        .from(
+          "field_logs"
+        )
+        .update({
+          is_public:
+            !log.is_public,
+        })
+        .eq(
+          "id",
+          log.id
+        )
+        .eq(
+          "user_id",
+          session.user.id
+        );
+
+      if (error) {
+        window.alert(
+          error.message
+        );
+
+        return;
+      }
+
+      await loadLogs(
+        session
+      );
+    };
+
+  /*
+   * Daily 삭제 시 연결된 Storage 파일도 삭제한다.
+   */
+  const deleteLog =
+    async (log) => {
+      if (!session) {
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          "Delete this Daily entry?"
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      const paths = (
+        Array.isArray(
+          log.media
+        )
+          ? log.media
+          : []
+      )
+        .map(
+          (item) =>
+            item.path
+        )
+        .filter(Boolean);
+
+      if (paths.length) {
+        const {
+          error:
+            storageError,
+        } = await supabase
+          .storage
+          .from(
+            BUCKET_NAME
+          )
+          .remove(paths);
+
+        if (
+          storageError
+        ) {
+          console.error(
+            "Storage deletion error:",
+            storageError
+          );
+
+          window.alert(
+            `Media deletion warning: ${
+              storageError
+                .message
+            }`
+          );
+        }
+      }
+
+      const {
+        error,
+      } = await supabase
+        .from(
+          "field_logs"
+        )
+        .delete()
+        .eq(
+          "id",
+          log.id
+        )
+        .eq(
+          "user_id",
+          session.user.id
+        );
+
+      if (error) {
+        window.alert(
+          error.message
+        );
+
+        return;
+      }
+
+      if (
+        editing?.id ===
+        log.id
+      ) {
+        await cancelEditing();
+      }
+
+      await loadLogs(
+        session
+      );
+    };
+
+  /*
+   * 현재 사용자가 볼 수 있는 Daily 목록을 JSON으로 내보낸다.
+   */
+  const exportDaily =
+    () => {
+      const blob =
+        new Blob(
+          [
+            JSON.stringify(
+              {
+                logs,
+              },
+              null,
+              2
+            ),
+          ],
+          {
+            type:
+              "application/json",
+          }
+        );
+
+      const url =
+        URL.createObjectURL(
+          blob
+        );
+
+      const link =
+        document.createElement(
+          "a"
+        );
+
+      link.href = url;
+
+      link.download =
+        "SOFTSYSTEMS_daily_archive.json";
+
+      link.click();
+
+      URL.revokeObjectURL(
+        url
+      );
+    };
 
   return (
     <>
-      <section className="grid four">
-        <div className="panel">
-          <p className="label">
-            Practice Rhythm
-          </p>
-
-          <div className="big">
-            {homeState.making.toFixed(
-              1
-            )}
-            h
-          </div>
-
+      {authLoading && (
+        <section className="panel">
           <p className="muted">
-            Making{" "}
-            {homeState.making.toFixed(
-              1
-            )}
-            h / day this month
+            Loading Daily…
           </p>
+        </section>
+      )}
 
-          <p className="muted">
-            Learning{" "}
-            {homeState.learning.toFixed(
-              1
-            )}
-            h / day this month
-          </p>
+      {!authLoading &&
+        session && (
+          <section className="panel">
+            <div className="entry-head">
+              <div>
+                <p className="eyebrow">
+                  Daily
+                </p>
 
-          <p className="muted">
-            Body Moving{" "}
-            {movementAverage.toFixed(
-              1
-            )}
-            h / day this month
-          </p>
-        </div>
+                <h2>
+                  {editing
+                    ? "Edit Daily"
+                    : "New Daily"}
+                </h2>
+              </div>
 
-        <div className="panel">
-          <p className="label">
-            Body Weather
-          </p>
+              {editing && (
+                <button
+                  type="button"
+                  onClick={
+                    cancelEditing
+                  }
+                  disabled={
+                    saving
+                  }
+                >
+                  Cancel Edit
+                </button>
+              )}
+            </div>
 
-          <div className="big">
-            {homeState.bodyWeather}
-          </div>
+            <section className="block">
+              <p className="block-title">
+                Environment
+              </p>
 
-          <p className="muted">
-            this week
-          </p>
-        </div>
+              <p className="muted">
+                Weather for{" "}
+                {selectedDate}
+              </p>
 
-        <div className="panel">
-          <p className="label">
-            Energy Tone
-          </p>
-
-          <div className="big">
-            {homeState.energyTone}
-          </div>
-
-          <p className="muted">
-            this week
-          </p>
-        </div>
-
-        <div className="panel">
-          <p className="label">
-            Current Mode
-          </p>
-
-          <div className="big">
-            {homeState.mode}
-          </div>
-        </div>
-      </section>
-
-      <section className="panel soft-suggestion">
-        <p className="eyebrow">
-          Today
-        </p>
-
-        <h2>
-          Soft Suggestion
-        </h2>
-
-        {loading && (
-          <p className="muted">
-            Loading suggestion…
-          </p>
-        )}
-
-        {!loading &&
-          errorMessage && (
-            <p className="muted">
-              {errorMessage}
-            </p>
-          )}
-
-        {!loading &&
-          !errorMessage &&
-          guidance && (
-            <>
-              {guidance.state && (
-                <p className="label">
-                  {guidance.state}
+              {weatherStatus ===
+                "loading" && (
+                <p>
+                  Collecting
+                  weather for the
+                  selected date…
                 </p>
               )}
 
-              <p className="soft-suggestion-reading">
-                {guidance.suggested_gesture ||
-                  guidance.reading}
-              </p>
-            </>
-          )}
+              {weatherStatus ===
+                "error" && (
+                <>
+                  <p className="muted">
+                    Weather could
+                    not be
+                    collected.
+                    Check your
+                    browser location
+                    permission.
+                  </p>
 
-        {!loading &&
-          !errorMessage &&
-          !guidance && (
-            <p className="muted">
-              The next suggestion
-              will appear after the
-              nightly update.
-            </p>
-          )}
-      </section>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      collectWeather(
+                        selectedDate
+                      )
+                    }
+                  >
+                    Try Again
+                  </button>
+                </>
+              )}
 
-      <section className="panel">
-        <div className="entry-head">
-          <div>
-            <p className="eyebrow">
-              Input
-            </p>
+              {environment && (
+                <div className="grid three">
+                  <p>
+                    Weather —{" "}
+                    {
+                      environment
+                        .weather
+                    }
+                  </p>
+
+                  <p>
+                    Temperature —{" "}
+                    {
+                      environment
+                        .temperature
+                    }
+                    {
+                      environment
+                        .units
+                        ?.temperature
+                    }
+                  </p>
+
+                  {environment
+                    .temperature_max !==
+                    null &&
+                    environment
+                      .temperature_max !==
+                      undefined && (
+                      <p>
+                        High —{" "}
+                        {
+                          environment
+                            .temperature_max
+                        }
+                        {
+                          environment
+                            .units
+                            ?.temperature
+                        }
+                      </p>
+                    )}
+
+                  {environment
+                    .temperature_min !==
+                    null &&
+                    environment
+                      .temperature_min !==
+                      undefined && (
+                      <p>
+                        Low —{" "}
+                        {
+                          environment
+                            .temperature_min
+                        }
+                        {
+                          environment
+                            .units
+                            ?.temperature
+                        }
+                      </p>
+                    )}
+
+                  <p>
+                    Humidity —{" "}
+                    {
+                      environment
+                        .humidity
+                    }
+                    {
+                      environment
+                        .units
+                        ?.humidity
+                    }
+                  </p>
+
+                  <p>
+                    Pressure —{" "}
+                    {
+                      environment
+                        .pressure
+                    }
+                    {
+                      environment
+                        .units
+                        ?.pressure
+                    }
+                  </p>
+
+                  <p>
+                    Wind —{" "}
+                    {
+                      environment
+                        .wind
+                    }
+                    {
+                      environment
+                        .units
+                        ?.wind
+                    }
+                  </p>
+
+                  <p>
+                    Sunrise —{" "}
+                    {
+                      environment
+                        .sunrise
+                    }
+                  </p>
+
+                  <p>
+                    Sunset —{" "}
+                    {
+                      environment
+                        .sunset
+                    }
+                  </p>
+
+                  {environment
+                    .source && (
+                    <p className="muted">
+                      Source —{" "}
+                      {
+                        environment
+                          .source
+                      }
+                    </p>
+                  )}
+                </div>
+              )}
+            </section>
+
+            <LogForm
+              key={
+                editing?.id ||
+                "new-daily"
+              }
+              initial={
+                editing
+              }
+              onSubmit={
+                saveLog
+              }
+              onDateChange={
+                handleDateChange
+              }
+            />
 
             <h2>
-              Latest Archive
+              Collection
             </h2>
-          </div>
 
-          <a href="/archive">
-            View All
-          </a>
-        </div>
+            <MediaUploader
+              selectedFiles={
+                selectedFiles
+              }
+              existingMedia={
+                existingMedia
+              }
+              onFilesChange={
+                setSelectedFiles
+              }
+              onRemoveExisting={
+                removeExistingMedia
+              }
+            />
 
-        {archiveEntries.length >
-          0 && (
-          <div className="archive-grid archive-grid-single">
-            {archiveEntries.map(
-              (entry) => (
-                <ArchiveCard
-                  key={
-                    entry.id
-                  }
-                  entry={
-                    entry
-                  }
-                />
-              )
+            {saveStatus && (
+              <p className="muted">
+                {saveStatus}
+              </p>
             )}
-          </div>
+          </section>
         )}
 
-        {!archiveEntries.length &&
-          !loading && (
-            <p className="muted">
-              No public Archive
-              entries yet.
+      {!authLoading &&
+        !session && (
+          <section className="panel">
+            <p className="eyebrow">
+              Daily
             </p>
-          )}
-      </section>
+
+            <h2>
+              Public Daily Records
+            </h2>
+
+            <p className="subtitle">
+              Public observations
+              of body, environment,
+              Body Moving, making,
+              learning, and
+              artistic practice.
+            </p>
+
+            <p className="muted">
+              Sign in to create
+              or manage Daily
+              entries.
+            </p>
+          </section>
+        )}
+
+      {!authLoading &&
+        session && (
+          <section className="panel">
+            <div className="actions">
+              <button
+                type="button"
+                onClick={
+                  exportDaily
+                }
+              >
+                Export Daily JSON
+              </button>
+            </div>
+          </section>
+        )}
 
       <section className="panel">
         <div className="entry-head">
@@ -543,35 +1501,69 @@ export default function Home() {
             </p>
 
             <h2>
-              Latest Daily
+              Daily Archive
             </h2>
           </div>
 
-          <a href="/daily">
-            View All
-          </a>
+          <span className="badge">
+            {logs.length}{" "}
+            {logs.length === 1
+              ? "record"
+              : "records"}
+          </span>
         </div>
 
-        {logs
-          .slice(0, 1)
-          .map(
+        {logsLoading && (
+          <p className="muted">
+            Loading Daily
+            records…
+          </p>
+        )}
+
+        {!logsLoading &&
+          loadError && (
+            <p className="muted">
+              {loadError}
+            </p>
+          )}
+
+        {!logsLoading &&
+          !loadError &&
+          logs.map(
             (log) => (
               <EntryCard
-                key={
-                  log.id
+                key={log.id}
+                log={log}
+                admin={Boolean(
+                  session &&
+                    log.user_id ===
+                      session.user.id
+                )}
+                onEdit={
+                  session
+                    ? startEditing
+                    : undefined
                 }
-                log={
-                  log
+                onDelete={
+                  session
+                    ? deleteLog
+                    : undefined
+                }
+                onToggle={
+                  session
+                    ? toggleLog
+                    : undefined
                 }
               />
             )
           )}
 
-        {!logs.length &&
-          !loading && (
+        {!logsLoading &&
+          !loadError &&
+          !logs.length && (
             <p className="muted">
               No public Daily
-              records yet.
+              entries yet.
             </p>
           )}
       </section>
