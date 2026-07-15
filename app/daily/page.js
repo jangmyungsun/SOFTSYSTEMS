@@ -16,8 +16,6 @@ import {
 import EntryCard from "../../components/EntryCard";
 import LogForm from "../../components/LogForm";
 import MediaUploader from "../../components/MediaUploader";
-import VideoForm from "../../components/VideoForm";
-import VideoCard from "../../components/VideoCard";
 
 const BUCKET_NAME =
   "softsystems-media";
@@ -76,11 +74,6 @@ export default function DailyPage() {
   ] = useState([]);
 
   const [
-    videos,
-    setVideos,
-  ] = useState([]);
-
-  const [
     editing,
     setEditing,
   ] = useState(null);
@@ -123,7 +116,7 @@ export default function DailyPage() {
   ] = useState("");
 
   /*
-   * 로그인 상태와 기존 기록 불러오기
+   * 로그인 상태와 기존 Daily 기록 불러오기
    */
   const load = async () => {
     const {
@@ -140,8 +133,6 @@ export default function DailyPage() {
 
     if (!currentSession) {
       setLogs([]);
-      setVideos([]);
-
       return;
     }
 
@@ -168,27 +159,6 @@ export default function DailyPage() {
 
     setLogs(
       rows || []
-    );
-
-    const {
-      data: videoRows,
-      error: videoError,
-    } = await supabase
-      .from("video_archive")
-      .select("*")
-      .order("date", {
-        ascending: false,
-      });
-
-    if (videoError) {
-      console.error(
-        "Video load error:",
-        videoError
-      );
-    }
-
-    setVideos(
-      videoRows || []
     );
   };
 
@@ -509,10 +479,6 @@ export default function DailyPage() {
           ...newlyUploadedMedia,
         ];
 
-        /*
-         * payload.date가 가장 최신의
-         * 사용자가 선택한 날짜다.
-         */
         const finalDate =
           payload.date ||
           selectedDate ||
@@ -643,7 +609,7 @@ export default function DailyPage() {
 
         /*
          * Daily DB 저장은 이미 완료됨.
-         * AI 분석 실패 시 Daily는 유지됨.
+         * AI 분석 실패 시에도 Daily는 유지됨.
          */
         setSaveStatus(
           "Reading the Daily with AI…"
@@ -791,10 +757,6 @@ export default function DailyPage() {
           : []
       );
 
-      /*
-       * 기존 기록에 저장된 날씨를
-       * 우선 표시한다.
-       */
       setEnvironment(
         log.environment ||
           null
@@ -988,108 +950,6 @@ export default function DailyPage() {
       await load();
     };
 
-  const saveVideo =
-    async (
-      payload
-    ) => {
-      if (!session) {
-        alert(
-          "Please log in first."
-        );
-
-        return;
-      }
-
-      const {
-        error,
-      } = await supabase
-        .from(
-          "video_archive"
-        )
-        .insert({
-          ...payload,
-
-          user_id:
-            session.user.id,
-        });
-
-      if (error) {
-        alert(
-          error.message
-        );
-
-        return;
-      }
-
-      await load();
-    };
-
-  const toggleVideo =
-    async (
-      video
-    ) => {
-      const {
-        error,
-      } = await supabase
-        .from(
-          "video_archive"
-        )
-        .update({
-          is_public:
-            !video.is_public,
-        })
-        .eq(
-          "id",
-          video.id
-        );
-
-      if (error) {
-        alert(
-          error.message
-        );
-
-        return;
-      }
-
-      await load();
-    };
-
-  const deleteVideo =
-    async (
-      video
-    ) => {
-      const confirmed =
-        window.confirm(
-          "Delete this video record?"
-        );
-
-      if (!confirmed) {
-        return;
-      }
-
-      const {
-        error,
-      } = await supabase
-        .from(
-          "video_archive"
-        )
-        .delete()
-        .eq(
-          "id",
-          video.id
-        );
-
-      if (error) {
-        alert(
-          error.message
-        );
-
-        return;
-      }
-
-      await load();
-    };
-
   const exportAll = () => {
     const blob =
       new Blob(
@@ -1097,7 +957,6 @@ export default function DailyPage() {
           JSON.stringify(
             {
               logs,
-              videos,
             },
             null,
             2
@@ -1123,7 +982,7 @@ export default function DailyPage() {
       url;
 
     link.download =
-      "SOFTSYSTEMS_archive.json";
+      "SOFTSYSTEMS_daily_archive.json";
 
     link.click();
 
@@ -1371,18 +1230,6 @@ export default function DailyPage() {
       </section>
 
       <section className="panel">
-        <h2>
-          Archive Video
-        </h2>
-
-        <VideoForm
-          onSubmit={
-            saveVideo
-          }
-        />
-      </section>
-
-      <section className="panel">
         <div className="actions">
           <button
             type="button"
@@ -1390,8 +1237,7 @@ export default function DailyPage() {
               exportAll
             }
           >
-            Export Full
-            Archive JSON
+            Export Daily JSON
           </button>
         </div>
       </section>
@@ -1427,40 +1273,6 @@ export default function DailyPage() {
         {!logs.length && (
           <p className="muted">
             No Daily entries yet.
-          </p>
-        )}
-      </section>
-
-      <section className="panel">
-        <h2>
-          Video Archive
-        </h2>
-
-        <div className="video-grid">
-          {videos.map(
-            (video) => (
-              <VideoCard
-                key={
-                  video.id
-                }
-                video={
-                  video
-                }
-                admin
-                onToggle={
-                  toggleVideo
-                }
-                onDelete={
-                  deleteVideo
-                }
-              />
-            )
-          )}
-        </div>
-
-        {!videos.length && (
-          <p className="muted">
-            No videos yet.
           </p>
         )}
       </section>
