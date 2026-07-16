@@ -67,7 +67,6 @@ function normalizeAttachment(item) {
       }),
     };
   }
-
   if (item.file_path || item.path) {
     return {
       id: item.id || item.file_path || item.path,
@@ -211,11 +210,6 @@ export default function DailyPage() {
     weatherStatus,
     setWeatherStatus,
   ] = useState("idle");
-
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
 
   const [
     saveStatus,
@@ -814,6 +808,13 @@ export default function DailyPage() {
           }
         }
 
+        const finalIsPublic =
+          typeof payload.is_public === "boolean"
+            ? payload.is_public
+            : typeof editing?.is_public === "boolean"
+              ? editing.is_public
+              : true;
+
         const finalPayload = {
           ...payload,
 
@@ -828,9 +829,6 @@ export default function DailyPage() {
            * 현재 LogForm은 공개 여부 입력이 없으므로
            * 새 Daily는 기본 공개로 저장한다.
            */
-          is_public:
-            payload.is_public !==
-            false,
         };
 
         let savedLogId;
@@ -910,6 +908,8 @@ export default function DailyPage() {
           environment: finalEnvironment || {},
         };
 
+        const attachmentIsPublic = Boolean(finalIsPublic);
+
         if (selectedFiles.length) {
           setSaveStatus(
             "Uploading attachments…"
@@ -927,6 +927,7 @@ export default function DailyPage() {
                 file_type: item.file_type || null,
                 file_size: item.file_size || null,
                 storage_bucket: item.storage_bucket || BUCKET_NAME,
+                is_public: attachmentIsPublic,
               }));
 
               const { error: attachmentError } = await supabase
