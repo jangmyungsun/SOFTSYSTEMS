@@ -86,3 +86,15 @@ drop policy if exists "owner deletes own videos" on public.video_archive;
 create policy "owner deletes own videos" on public.video_archive for delete to authenticated using (auth.uid() = user_id);
 alter table public.field_logs
 add column if not exists media jsonb default '[]'::jsonb;
+
+create table if not exists public.translation_cache (
+  id uuid primary key default gen_random_uuid(),
+  content_key text not null,
+  text_hash text not null,
+  source_language text not null,
+  target_language text not null,
+  translated_text text not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (content_key, text_hash, source_language, target_language)
+);

@@ -1,11 +1,37 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { useLanguage } from "./LanguageProvider";
 
 const CACHE_KEY_PREFIX = "softsystems_translation_cache";
-const MAX_TEXT_LENGTH = 4000;
+const SUPPORTED_LANGUAGES = ["en", "ko"];
+const LOADING_INDICATOR_DELAY_MS = 180;
+const SESSION_CACHE = new Map();
+const IN_FLIGHT = new Map();
+
+function normalizeLanguage(value, fallback = "en") {
+  const text = String(value || "").toLowerCase();
+
+  if (text.startsWith("ko")) {
+    return "ko";
+  }
+
+  if (text.startsWith("en")) {
+    return "en";
+  }
+
+  return fallback;
+}
+
+function isSupportedLanguage(value) {
+  return SUPPORTED_LANGUAGES.includes(value);
+}
 
 function getCacheKey(contentKey, sourceLanguage, targetLanguage, originalText) {
   return `${CACHE_KEY_PREFIX}:${contentKey}:${sourceLanguage}:${targetLanguage}:${originalText}`;
@@ -30,6 +56,11 @@ function readCache(contentKey, sourceLanguage, targetLanguage, originalText) {
   }
 }
 
+function readSessionCache(contentKey, sourceLanguage, targetLanguage, originalText) {
+  const key = getCacheKey(contentKey, sourceLanguage, targetLanguage, originalText);
+  return SESSION_CACHE.get(key) || null;
+}
+
 function writeCache(contentKey, sourceLanguage, targetLanguage, originalText, translatedText) {
   if (typeof window === "undefined") {
     return;
@@ -43,69 +74,139 @@ function writeCache(contentKey, sourceLanguage, targetLanguage, originalText, tr
   }
 }
 
+function writeSessionCache(contentKey, sourceLanguage, targetLanguage, originalText, translatedText) {
+  const key = getCacheKey(contentKey, sourceLanguage, targetLanguage, originalText);
+  SESSION_CACHE.set(key, { translatedText });
+}
+
+function getStatusLabel(t, statusLabel) {
+  if (!statusLabel) {
+    return t("translate.articleTranslating");
+  }
+
+  const translated = t(statusLabel);
+  return translated === statusLabel ? statusLabel : translated;
+}
+
 export default function TranslateButton({
+  text,
   originalText,
   sourceLanguage = "en",
   targetLanguage,
   contentKey,
+  autoTranslate = true,
+  showStatusAbove = false,
+  statusLabel = "",
+  showControls = true,
   className = "",
+  as = "div",
 }) {
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
-  const locale = language?.locale ?? "en";
-  const resolvedTargetLanguage = targetLanguage || locale;
+  const locale = normalizeLanguage(language?.locale || "en", "en");
+  const resolvedTargetLanguage = normalizeLanguage(targetLanguage || locale, locale);
+  const resolvedSourceLanguage = normalizeLanguage(sourceLanguage, "en");
   const [translatedText, setTranslatedText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
   const [error, setError] = useState("");
   const [isShowingOriginal, setIsShowingOriginal] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
+  const requestIdRef = useRef(0);
+  const loadingTimerRef = useRef(null);
+  const mountedRef = useRef(true);
 
-  const normalizedOriginalText = useMemo(() => String(originalText || ""), [originalText]);
-  const isSameLanguage = sourceLanguage === resolvedTargetLanguage;
+  const normalizedOriginalText = useMemo(() => String(text ?? originalText ?? ""), [text, originalText]);
+  const isSameLanguage = resolvedSourceLanguage === resolvedTargetLanguage;
   const hasText = normalizedOriginalText.trim().length > 0;
+  const canTranslate =
+    hasText &&
+    Boolean(contentKey) &&
+    autoTranslate &&
+    !isSameLanguage &&
+    isSupportedLanguage(resolvedSourceLanguage) &&
+    isSupportedLanguage(resolvedTargetLanguage);
+
+  const statusText = getStatusLabel(t, statusLabel);
+  const WrapperTag = as;
 
   useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+      if (loadingTimerRef.current) {
+        clearTimeout(loadingTimerRef.current);
+        loadingTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    requestIdRef.current += 1;
     setTranslatedText("");
     setError("");
     setIsShowingOriginal(false);
-  }, [contentKey, normalizedOriginalText, sourceLanguage, resolvedTargetLanguage]);
+
+    if (loadingTimerRef.current) {
+      clearTimeout(loadingTimerRef.current);
+      loadingTimerRef.current = null;
+    }
+
+    setIsLoading(false);
+    setShowLoadingIndicator(false);
+  }, [contentKey, normalizedOriginalText, resolvedSourceLanguage, resolvedTargetLanguage]);
 
   useEffect(() => {
-    if (!hasText || isSameLanguage || !contentKey) {
+    if (!canTranslate) {
       return;
     }
 
-    const cached = readCache(contentKey, sourceLanguage, resolvedTargetLanguage, normalizedOriginalText);
-    if (cached?.translatedText) {
-      setTranslatedText(cached.translatedText);
-      setIsShowingOriginal(false);
+    const currentRequestId = requestIdRef.current;
+    const cacheKey = getCacheKey(contentKey, resolvedSourceLanguage, resolvedTargetLanguage, normalizedOriginalText);
+
+    const sessionCached = readSessionCache(contentKey, resolvedSourceLanguage, resolvedTargetLanguage, normalizedOriginalText);
+    if (sessionCached?.translatedText) {
+      setTranslatedText(sessionCached.translatedText);
       return;
     }
 
-    handleTranslate();
-  }, [contentKey, hasText, isSameLanguage, normalizedOriginalText, resolvedTargetLanguage, sourceLanguage]);
+    const localCached = readCache(contentKey, resolvedSourceLanguage, resolvedTargetLanguage, normalizedOriginalText);
 
-  async function handleTranslate() {
-    if (!hasText || isSameLanguage || !contentKey) {
+    if (localCached?.translatedText) {
+      writeSessionCache(
+        contentKey,
+        resolvedSourceLanguage,
+        resolvedTargetLanguage,
+        normalizedOriginalText,
+        localCached.translatedText
+      );
+      setTranslatedText(localCached.translatedText);
       return;
     }
 
-    if (normalizedOriginalText.length > MAX_TEXT_LENGTH) {
-      setError(t("translate.tooLong"));
-      return;
-    }
-
-    const cached = readCache(contentKey, sourceLanguage, resolvedTargetLanguage, normalizedOriginalText);
-    if (cached?.translatedText) {
-      setTranslatedText(cached.translatedText);
-      setIsShowingOriginal(false);
-      return;
-    }
-
-    setIsLoading(true);
+    const controller = new AbortController();
     setError("");
+    setIsLoading(true);
+    setShowLoadingIndicator(false);
 
-    try {
-      const response = await fetch("/api/translate", {
+    loadingTimerRef.current = setTimeout(() => {
+      if (!mountedRef.current) {
+        return;
+      }
+
+      if (requestIdRef.current !== currentRequestId) {
+        return;
+      }
+
+      setShowLoadingIndicator(true);
+    }, LOADING_INDICATOR_DELAY_MS);
+
+    const existingPromise = IN_FLIGHT.get(cacheKey);
+
+    const promise =
+      existingPromise ||
+      fetch("/api/translate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -113,34 +214,94 @@ export default function TranslateButton({
         body: JSON.stringify({
           contentKey,
           originalText: normalizedOriginalText,
-          sourceLanguage,
+          sourceLanguage: resolvedSourceLanguage,
           targetLanguage: resolvedTargetLanguage,
         }),
+        signal: controller.signal,
+      })
+        .then((response) =>
+          response.json().catch(() => ({})).then((payload) => ({ response, payload }))
+        )
+        .finally(() => {
+          IN_FLIGHT.delete(cacheKey);
+        });
+
+    if (!existingPromise) {
+      IN_FLIGHT.set(cacheKey, promise);
+    }
+
+    promise
+      .then(({ response, payload }) => {
+        if (!mountedRef.current || requestIdRef.current !== currentRequestId) {
+          return;
+        }
+
+        if (!response?.ok || !payload?.translatedText) {
+          throw new Error(payload?.error || "Translation failed.");
+        }
+
+        setTranslatedText(payload.translatedText);
+        writeSessionCache(contentKey, resolvedSourceLanguage, resolvedTargetLanguage, normalizedOriginalText, payload.translatedText);
+        writeCache(contentKey, resolvedSourceLanguage, resolvedTargetLanguage, normalizedOriginalText, payload.translatedText);
+      })
+      .catch((translateError) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        if (!mountedRef.current || requestIdRef.current !== currentRequestId) {
+          return;
+        }
+
+        setError(translateError?.message || t("translate.failed"));
+      })
+      .finally(() => {
+        if (!mountedRef.current || requestIdRef.current !== currentRequestId) {
+          return;
+        }
+
+        if (loadingTimerRef.current) {
+          clearTimeout(loadingTimerRef.current);
+          loadingTimerRef.current = null;
+        }
+
+        setIsLoading(false);
+        setShowLoadingIndicator(false);
       });
 
-      const payload = await response.json().catch(() => ({}));
-
-      if (!response.ok || !payload.translatedText) {
-        throw new Error(payload.error || t("translate.failed"));
+    return () => {
+      controller.abort();
+      if (loadingTimerRef.current) {
+        clearTimeout(loadingTimerRef.current);
+        loadingTimerRef.current = null;
       }
-
-      setTranslatedText(payload.translatedText);
-      writeCache(contentKey, sourceLanguage, resolvedTargetLanguage, normalizedOriginalText, payload.translatedText);
-      setIsShowingOriginal(false);
-    } catch (error) {
-      console.error("Translation failed:", error);
-      setError(error.message || t("translate.failed"));
-    } finally {
+      setShowLoadingIndicator(false);
       setIsLoading(false);
-    }
-  }
+    };
+  }, [
+    autoTranslate,
+    canTranslate,
+    contentKey,
+    normalizedOriginalText,
+    retryToken,
+    resolvedSourceLanguage,
+    resolvedTargetLanguage,
+  ]);
 
-  function handleToggle() {
-    if (isSameLanguage) {
+  async function handleRetry() {
+    if (!canTranslate) {
       return;
     }
 
-    if (!translatedText) {
+    requestIdRef.current += 1;
+    setTranslatedText("");
+    setError("");
+    setIsShowingOriginal(false);
+    setRetryToken((value) => value + 1);
+  }
+
+  function handleToggle() {
+    if (!canTranslate || !translatedText) {
       return;
     }
 
@@ -150,41 +311,45 @@ export default function TranslateButton({
 
   const showTranslated = !isShowingOriginal && translatedText;
 
-  return (
-    <div className={className}>
-      <div className="translate-content">
-        {showTranslated ? (
-          <div className="translated-content">{translatedText}</div>
-        ) : (
-          <div className="original-content">{normalizedOriginalText || ""}</div>
-        )}
-      </div>
+  const controls = (
+    <div className="translate-actions">
+      {showControls && showLoadingIndicator ? (
+        <p className="translate-status" aria-live="polite">
+          {statusText}
+        </p>
+      ) : null}
 
-      <div className="translate-actions">
-        {!isSameLanguage && !translatedText ? (
-          <button
-            type="button"
-            className="translate-toggle"
-            onClick={handleTranslate}
-            disabled={isLoading}
-          >
-            {isLoading ? t("translate.loading") : t("translate.translate")}
+      {showControls && error ? (
+        <div className="translate-status translate-status-error" aria-live="polite">
+          <span>{t("translate.unavailableShowingOriginal")}</span>
+          <button type="button" className="translate-toggle" onClick={handleRetry} disabled={isLoading}>
+            {t("translate.retry")}
           </button>
-        ) : null}
+        </div>
+      ) : null}
 
-        {error ? <p className="translate-error">{error}</p> : null}
-
-        {!isSameLanguage && translatedText ? (
-          <button
-            type="button"
-            className="translate-toggle"
-            onClick={handleToggle}
-            disabled={isLoading}
-          >
+      {showControls && canTranslate && translatedText && !showLoadingIndicator && !error ? (
+        <div className="translate-status translate-status-ready" aria-live="polite">
+          <span>{showTranslated ? t("translate.translation") : t("translate.original")}</span>
+          <button type="button" className="translate-toggle" onClick={handleToggle} disabled={isLoading}>
             {showTranslated ? t("translate.showOriginal") : t("translate.showTranslation")}
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </div>
+  );
+
+  const content = showTranslated ? translatedText : normalizedOriginalText || "";
+
+  return (
+    <WrapperTag className={className}>
+      {showStatusAbove ? controls : null}
+
+      <div className="translate-content">
+        <span className={showTranslated ? "translated-content" : "original-content"}>{content}</span>
+      </div>
+
+      {!showStatusAbove ? controls : null}
+    </WrapperTag>
   );
 }

@@ -17,6 +17,7 @@ import {
 import { useLanguage } from "../components/LanguageProvider";
 import EntryCard from "../components/EntryCard";
 import ArchiveCard from "../components/ArchiveCard";
+import TranslateButton from "../components/TranslateButton";
 
 function toValueKey(value) {
   return String(value || "")
@@ -478,13 +479,26 @@ export default function Home() {
             <>
               {guidance.state && (
                 <p className="label">
-                  {guidance.state}
+                  <TranslateButton
+                    text={guidance.state}
+                    sourceLanguage="en"
+                    contentKey={`guidance:${guidance.guidance_date || guidance.generated_at || "latest"}:state`}
+                    className="translate-block"
+                    as="span"
+                    showControls={false}
+                  />
                 </p>
               )}
 
               <p className="soft-suggestion-reading">
-                {guidance.suggested_gesture ||
-                  guidance.reading}
+                <TranslateButton
+                  text={guidance.suggested_gesture || guidance.reading || ""}
+                  sourceLanguage="en"
+                  contentKey={`guidance:${guidance.guidance_date || guidance.generated_at || "latest"}:primary`}
+                  className="translate-block"
+                  as="span"
+                  showControls={false}
+                />
               </p>
             </>
           )}

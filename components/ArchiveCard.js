@@ -210,7 +210,14 @@ export default function ArchiveCard({
                 </p>
 
                 <h2>
-                  {entry.title}
+                  <TranslateButton
+                    text={entry.title || ""}
+                    sourceLanguage="en"
+                    contentKey={`archive:${entry.id || entry.title || "entry"}:title`}
+                    className="translate-block"
+                    as="span"
+                    showControls={false}
+                  />
                 </h2>
 
                 <p className="muted">
@@ -228,7 +235,14 @@ export default function ArchiveCard({
                 </p>
 
                 <h2>
-                  {entry.title}
+                  <TranslateButton
+                    text={entry.title || ""}
+                    sourceLanguage="en"
+                    contentKey={`archive:${entry.id || entry.title || "entry"}:title`}
+                    className="translate-block"
+                    as="span"
+                    showControls={false}
+                  />
                 </h2>
 
                 <p className="muted">
@@ -237,11 +251,18 @@ export default function ArchiveCard({
               </div>
 
               <p className="archive-preview-excerpt">
-                {shortenText(
-                  entry.body,
-                  190
-                ) ||
-                  t("common.noPreviewText")}
+                <TranslateButton
+                  text={shortenText(
+                    entry.body,
+                    190
+                  ) ||
+                    t("common.noPreviewText")}
+                  sourceLanguage="en"
+                  contentKey={`archive:${entry.id || entry.title || "entry"}:excerpt`}
+                  className="translate-block"
+                  as="span"
+                  showControls={false}
+                />
               </p>
 
               {tags.length > 0 && (
@@ -345,7 +366,14 @@ export default function ArchiveCard({
                 </p>
 
                 <h2>
-                  {entry.title}
+                  <TranslateButton
+                    text={entry.title || ""}
+                    sourceLanguage="en"
+                    contentKey={`archive:${entry.id || entry.title || "entry"}:title`}
+                    className="translate-block"
+                    as="span"
+                    showControls={false}
+                  />
                 </h2>
 
                 <p className="muted">
@@ -397,9 +425,11 @@ export default function ArchiveCard({
             {entry.body && (
               <div className="archive-modal-body">
                 <TranslateButton
-                  originalText={entry.body}
+                  text={entry.body}
                   sourceLanguage="en"
-                  contentKey={`archive:${entry.id || entry.title || "entry"}`}
+                  contentKey={`archive:${entry.id || entry.title || "entry"}:body`}
+                  showStatusAbove
+                  statusLabel="translate.articleTranslating"
                   className="translate-block"
                 />
               </div>

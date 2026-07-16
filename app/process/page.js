@@ -21,6 +21,7 @@ import {
 } from "../../lib/utils";
 
 import { useLanguage } from "../../components/LanguageProvider";
+import TranslateButton from "../../components/TranslateButton";
 
 function toValueKey(value) {
   return String(value || "")
@@ -876,9 +877,14 @@ export default function ProcessPage() {
                       </p>
 
                       <p className="system-reading">
-                        {
-                          reading.overview
-                        }
+                        <TranslateButton
+                          text={reading.overview}
+                          sourceLanguage="en"
+                          contentKey={`system:${systemSnapshot.snapshot_date || "latest"}:overview`}
+                          className="translate-block"
+                          as="span"
+                          showControls={false}
+                        />
                       </p>
                     </div>
                   )}
@@ -890,9 +896,14 @@ export default function ProcessPage() {
                       </p>
 
                       <p className="system-reading">
-                        {
-                          reading.open_question
-                        }
+                        <TranslateButton
+                          text={reading.open_question}
+                          sourceLanguage="en"
+                          contentKey={`system:${systemSnapshot.snapshot_date || "latest"}:open_question`}
+                          className="translate-block"
+                          as="span"
+                          showControls={false}
+                        />
                       </p>
                     </div>
                   )}

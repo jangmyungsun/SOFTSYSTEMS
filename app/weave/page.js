@@ -13,6 +13,7 @@ import {
 
 import { getIntlLocale } from "../../lib/i18n";
 import { useLanguage } from "../../components/LanguageProvider";
+import TranslateButton from "../../components/TranslateButton";
 
 function formatDateTime(value, locale) {
   if (!value) {
@@ -589,9 +590,14 @@ export default function WeavePage() {
                           </p>
 
                           <p className="weave-body">
-                            {
-                              source.summary
-                            }
+                            <TranslateButton
+                              text={source.summary || ""}
+                              sourceLanguage="en"
+                              contentKey={`weave:${snapshot?.snapshot_date || "latest"}:node:${source.id || index}:summary`}
+                              className="translate-block"
+                              as="span"
+                              showControls={false}
+                            />
                           </p>
 
                           {source
@@ -611,11 +617,14 @@ export default function WeavePage() {
                             ?.length >
                             0 && (
                             <p className="muted">
-                              {
-                                source.themes.join(
-                                  ", "
-                                )
-                              }
+                              <TranslateButton
+                                text={source.themes.join(", ")}
+                                sourceLanguage="en"
+                                contentKey={`weave:${snapshot?.snapshot_date || "latest"}:node:${source.id || index}:themes`}
+                                className="translate-block"
+                                as="span"
+                                showControls={false}
+                              />
                             </p>
                           )}
                         </div>
@@ -626,9 +635,14 @@ export default function WeavePage() {
                           </p>
 
                           <p className="weave-body">
-                            {
-                              target.summary
-                            }
+                            <TranslateButton
+                              text={target.summary || ""}
+                              sourceLanguage="en"
+                              contentKey={`weave:${snapshot?.snapshot_date || "latest"}:node:${target.id || index}:summary`}
+                              className="translate-block"
+                              as="span"
+                              showControls={false}
+                            />
                           </p>
 
                           {target
@@ -648,11 +662,14 @@ export default function WeavePage() {
                             ?.length >
                             0 && (
                             <p className="muted">
-                              {
-                                target.themes.join(
-                                  ", "
-                                )
-                              }
+                              <TranslateButton
+                                text={target.themes.join(", ")}
+                                sourceLanguage="en"
+                                contentKey={`weave:${snapshot?.snapshot_date || "latest"}:node:${target.id || index}:themes`}
+                                className="translate-block"
+                                as="span"
+                                showControls={false}
+                              />
                             </p>
                           )}
                         </div>

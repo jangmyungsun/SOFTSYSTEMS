@@ -270,8 +270,28 @@ export default function EntryCard({
         {aiAnalysis?.summary ? (
           <section className="block full ai-reading">
             <p className="block-title">{t("process.system")}</p>
-            <p className="ai-summary">{aiAnalysis.summary}</p>
-            {aiAnalysis.relationship ? <p className="muted ai-relationship">{aiAnalysis.relationship}</p> : null}
+            <p className="ai-summary">
+              <TranslateButton
+                text={aiAnalysis.summary}
+                sourceLanguage="en"
+                contentKey={`daily-ai:${log.id || log.date || "entry"}:summary`}
+                className="translate-block"
+                as="span"
+                showControls={false}
+              />
+            </p>
+            {aiAnalysis.relationship ? (
+              <p className="muted ai-relationship">
+                <TranslateButton
+                  text={aiAnalysis.relationship}
+                  sourceLanguage="en"
+                  contentKey={`daily-ai:${log.id || log.date || "entry"}:relationship`}
+                  className="translate-block"
+                  as="span"
+                  showControls={false}
+                />
+              </p>
+            ) : null}
 
             <div className="ai-groups">
               {Array.isArray(aiAnalysis.emotions) && aiAnalysis.emotions.length > 0 ? (

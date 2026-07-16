@@ -469,6 +469,19 @@ canvas {
   gap: 10px;
 }
 
+.translate-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.translate-status-ready,
+.translate-status-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .translate-toggle {
   padding: 7px 10px;
   border: 1px solid var(--line);

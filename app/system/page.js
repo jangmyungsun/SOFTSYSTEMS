@@ -11,6 +11,7 @@ import {
 
 import { getIntlLocale } from "../../lib/i18n";
 import { useLanguage } from "../../components/LanguageProvider";
+import TranslateButton from "../../components/TranslateButton";
 
 function formatDateTime(value, locale) {
   if (!value) {
@@ -274,15 +275,27 @@ export default function SystemPage() {
 
               {reading.overview && (
                 <p className="system-reading">
-                  {reading.overview}
+                  <TranslateButton
+                    text={reading.overview}
+                    sourceLanguage="en"
+                    contentKey={`system:${snapshot.snapshot_date || "latest"}:overview`}
+                    className="translate-block"
+                    as="span"
+                    showControls={false}
+                  />
                 </p>
               )}
 
               {reading.confidence_note && (
                 <p className="muted system-reading">
-                  {
-                    reading.confidence_note
-                  }
+                  <TranslateButton
+                    text={reading.confidence_note}
+                    sourceLanguage="en"
+                    contentKey={`system:${snapshot.snapshot_date || "latest"}:confidence_note`}
+                    className="translate-block"
+                    as="span"
+                    showControls={false}
+                  />
                 </p>
               )}
 
@@ -312,15 +325,25 @@ export default function SystemPage() {
                         key={`${item.signal}-${index}`}
                       >
                         <p>
-                          {
-                            item.signal
-                          }
+                          <TranslateButton
+                            text={item.signal}
+                            sourceLanguage="en"
+                            contentKey={`system:${snapshot.snapshot_date || "latest"}:recurring_signal:${index}:signal`}
+                            className="translate-block"
+                            as="span"
+                            showControls={false}
+                          />
                         </p>
 
                         <p className="muted system-reading">
-                          {
-                            item.evidence
-                          }
+                          <TranslateButton
+                            text={item.evidence}
+                            sourceLanguage="en"
+                            contentKey={`system:${snapshot.snapshot_date || "latest"}:recurring_signal:${index}:evidence`}
+                            className="translate-block"
+                            as="span"
+                            showControls={false}
+                          />
                         </p>
                       </article>
                     )
@@ -345,7 +368,14 @@ export default function SystemPage() {
                         className="system-reading"
                         key={`${item}-${index}`}
                       >
-                        {item}
+                        <TranslateButton
+                          text={item}
+                          sourceLanguage="en"
+                          contentKey={`system:${snapshot.snapshot_date || "latest"}:shift:${index}`}
+                          className="translate-block"
+                          as="span"
+                          showControls={false}
+                        />
                       </p>
                     )
                   )
@@ -374,15 +404,34 @@ export default function SystemPage() {
                       key={`${item.source}-${item.target}-${index}`}
                     >
                       <p>
-                        {item.source}
+                        <TranslateButton
+                          text={item.source}
+                          sourceLanguage="en"
+                          contentKey={`system:${snapshot.snapshot_date || "latest"}:relationship:${index}:source`}
+                          className="translate-block"
+                          as="span"
+                          showControls={false}
+                        />
                         {" → "}
-                        {item.target}
+                        <TranslateButton
+                          text={item.target}
+                          sourceLanguage="en"
+                          contentKey={`system:${snapshot.snapshot_date || "latest"}:relationship:${index}:target`}
+                          className="translate-block"
+                          as="span"
+                          showControls={false}
+                        />
                       </p>
 
                       <p className="muted system-reading">
-                        {
-                          item.observation
-                        }
+                        <TranslateButton
+                          text={item.observation}
+                          sourceLanguage="en"
+                          contentKey={`system:${snapshot.snapshot_date || "latest"}:relationship:${index}:observation`}
+                          className="translate-block"
+                          as="span"
+                          showControls={false}
+                        />
                       </p>
                     </article>
                   )
@@ -402,9 +451,14 @@ export default function SystemPage() {
 
                 <div className="big">
                   <span className="system-reading">
-                    {
-                    reading.open_question
-                    }
+                    <TranslateButton
+                      text={reading.open_question}
+                      sourceLanguage="en"
+                      contentKey={`system:${snapshot.snapshot_date || "latest"}:open_question`}
+                      className="translate-block"
+                      as="span"
+                      showControls={false}
+                    />
                   </span>
                 </div>
               </section>
