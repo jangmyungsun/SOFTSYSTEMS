@@ -102,26 +102,23 @@ create table if not exists public.translation_cache (
 create table if not exists public.daily_attachments (
   id uuid primary key default gen_random_uuid(),
   daily_id uuid not null references public.field_logs(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
   storage_bucket text not null default 'daily-collection',
-  storage_path text not null unique,
-  original_filename text not null,
-  mime_type text default '',
-  size_bytes bigint default 0,
-  uploaded_by uuid not null references auth.users(id) on delete cascade,
-  is_public boolean default false,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
+  file_name text not null,
+  file_path text not null unique,
+  file_type text default '',
+  file_size bigint default 0,
+  created_at timestamptz default now()
 );
 
 create index if not exists daily_attachments_daily_id_idx on public.daily_attachments (daily_id);
-create index if not exists daily_attachments_uploaded_by_idx on public.daily_attachments (uploaded_by);
+create index if not exists daily_attachments_user_id_idx on public.daily_attachments (user_id);
 
 alter table public.daily_attachments enable row level security;
 
 drop policy if exists "public reads public daily attachments" on public.daily_attachments;
 create policy "public reads public daily attachments" on public.daily_attachments for select using (
-  is_public = true
-  and exists (
+  exists (
     select 1
     from public.field_logs
     where field_logs.id = daily_id
@@ -131,7 +128,7 @@ create policy "public reads public daily attachments" on public.daily_attachment
 
 drop policy if exists "owner reads own daily attachments" on public.daily_attachments;
 create policy "owner reads own daily attachments" on public.daily_attachments for select to authenticated using (
-  auth.uid() = uploaded_by
+  auth.uid() = user_id
   or exists (
     select 1
     from public.field_logs
@@ -142,7 +139,7 @@ create policy "owner reads own daily attachments" on public.daily_attachments fo
 
 drop policy if exists "owner inserts own daily attachments" on public.daily_attachments;
 create policy "owner inserts own daily attachments" on public.daily_attachments for insert to authenticated with check (
-  auth.uid() = uploaded_by
+  auth.uid() = user_id
   and exists (
     select 1
     from public.field_logs
@@ -153,7 +150,7 @@ create policy "owner inserts own daily attachments" on public.daily_attachments 
 
 drop policy if exists "owner updates own daily attachments" on public.daily_attachments;
 create policy "owner updates own daily attachments" on public.daily_attachments for update to authenticated using (
-  auth.uid() = uploaded_by
+  auth.uid() = user_id
   and exists (
     select 1
     from public.field_logs
@@ -161,7 +158,7 @@ create policy "owner updates own daily attachments" on public.daily_attachments 
       and field_logs.user_id = auth.uid()
   )
 ) with check (
-  auth.uid() = uploaded_by
+  auth.uid() = user_id
   and exists (
     select 1
     from public.field_logs
@@ -172,7 +169,7 @@ create policy "owner updates own daily attachments" on public.daily_attachments 
 
 drop policy if exists "owner deletes own daily attachments" on public.daily_attachments;
 create policy "owner deletes own daily attachments" on public.daily_attachments for delete to authenticated using (
-  auth.uid() = uploaded_by
+  auth.uid() = user_id
   and exists (
     select 1
     from public.field_logs

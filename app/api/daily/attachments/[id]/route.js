@@ -18,12 +18,12 @@ async function getAttachmentWithParent(attachmentId) {
         id,
         daily_id,
         storage_bucket,
-        storage_path,
-        original_filename,
-        mime_type,
-        size_bytes,
+        file_name,
+        file_path,
+        file_type,
+        file_size,
         created_at,
-        uploaded_by,
+        user_id,
         is_public,
         field_logs:daily_id (
           id,
@@ -44,7 +44,7 @@ async function getAttachmentWithParent(attachmentId) {
 
 function isOwner(attachment, userId) {
   return Boolean(userId) && (
-    attachment?.uploaded_by === userId ||
+    attachment?.user_id === userId ||
     attachment?.field_logs?.user_id === userId
   );
 }
@@ -87,8 +87,8 @@ export async function GET(request, { params }) {
 
     const { data, error } = await supabaseAdmin.storage
       .from(attachment.storage_bucket || "daily-collection")
-      .createSignedUrl(attachment.storage_path, expiresIn, download
-        ? { download: attachment.original_filename || undefined }
+      .createSignedUrl(attachment.file_path, expiresIn, download
+        ? { download: attachment.file_name || undefined }
         : undefined);
 
     if (error || !data?.signedUrl) {
@@ -101,10 +101,10 @@ export async function GET(request, { params }) {
         id: attachment.id,
         daily_id: attachment.daily_id,
         storage_bucket: attachment.storage_bucket,
-        storage_path: attachment.storage_path,
-        original_filename: attachment.original_filename,
-        mime_type: attachment.mime_type,
-        size_bytes: attachment.size_bytes,
+        file_name: attachment.file_name,
+        file_path: attachment.file_path,
+        file_type: attachment.file_type,
+        file_size: attachment.file_size,
         created_at: attachment.created_at,
         is_public: attachment.is_public,
       },
@@ -145,7 +145,7 @@ export async function DELETE(request, { params }) {
 
     const { error: storageError } = await supabaseAdmin.storage
       .from(attachment.storage_bucket || "daily-collection")
-      .remove([attachment.storage_path]);
+      .remove([attachment.file_path]);
 
     if (storageError) {
       return NextResponse.json({ error: storageError.message || "Attachment deletion failed." }, { status: 500 });

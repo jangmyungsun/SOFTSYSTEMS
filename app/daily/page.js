@@ -45,40 +45,49 @@ function normalizeAttachment(item) {
     return null;
   }
 
-  if (item.id && item.storage_path) {
+  if (item.id && (item.file_path || item.storage_path)) {
     return {
       id: item.id,
       daily_id: item.daily_id,
+      user_id: item.user_id || item.uploaded_by || null,
       storage_bucket: item.storage_bucket || BUCKET_NAME,
-      storage_path: item.storage_path,
-      original_filename: item.original_filename || item.name || "file",
-      mime_type: item.mime_type || item.type || "",
-      size_bytes: Number(item.size_bytes || item.size || 0),
+      storage_path: item.file_path || item.storage_path,
+      original_filename: item.file_name || item.original_filename || item.name || "file",
+      mime_type: item.file_type || item.mime_type || item.type || "",
+      size_bytes: Number(item.file_size || item.size_bytes || item.size || 0),
       created_at: item.created_at || item.uploaded_at || new Date().toISOString(),
-      uploaded_by: item.uploaded_by || item.user_id || null,
       is_public: item.is_public !== false,
+      file_name: item.file_name || item.original_filename || item.name || "file",
+      file_path: item.file_path || item.storage_path || "",
+      file_type: item.file_type || item.mime_type || item.type || "",
+      file_size: Number(item.file_size || item.size_bytes || item.size || 0),
       kind: item.kind || getAttachmentKind({
-        type: item.mime_type || item.type || "",
-        name: item.original_filename || item.name || "",
+        type: item.file_type || item.mime_type || item.type || "",
+        name: item.file_name || item.original_filename || item.name || "",
       }),
     };
   }
 
-  if (item.path) {
+  if (item.file_path || item.path) {
     return {
-      id: item.id || item.path,
+      id: item.id || item.file_path || item.path,
       daily_id: item.daily_id || null,
       storage_bucket: item.bucket || BUCKET_NAME,
-      storage_path: item.path,
-      original_filename: item.name || "file",
-      mime_type: item.mime_type || "",
-      size_bytes: Number(item.size || 0),
+      storage_path: item.file_path || item.path,
+      original_filename: item.file_name || item.name || "file",
+      mime_type: item.file_type || item.mime_type || "",
+      size_bytes: Number(item.file_size || item.size || 0),
       created_at: item.uploaded_at || new Date().toISOString(),
-      uploaded_by: item.uploaded_by || null,
+      uploaded_by: item.user_id || item.uploaded_by || null,
+      user_id: item.user_id || item.uploaded_by || null,
       is_public: item.is_public !== false,
+      file_name: item.file_name || item.name || "file",
+      file_path: item.file_path || item.path || "",
+      file_type: item.file_type || item.mime_type || "",
+      file_size: Number(item.file_size || item.size || 0),
       kind: item.type || getAttachmentKind({
-        type: item.mime_type || item.type || "",
-        name: item.name || "",
+        type: item.file_type || item.mime_type || item.type || "",
+        name: item.file_name || item.name || "",
       }),
     };
   }
@@ -103,12 +112,12 @@ async function fetchAttachmentsByDailyId(logs) {
         id,
         daily_id,
         storage_bucket,
-        storage_path,
-        original_filename,
-        mime_type,
-        size_bytes,
+        file_name,
+        file_path,
+        file_type,
+        file_size,
         created_at,
-        uploaded_by,
+        user_id,
         is_public
       `
     )
@@ -590,13 +599,13 @@ export default function DailyPage() {
         }
 
         uploadedItems.push({
-          bucket:
+          storage_bucket:
             BUCKET_NAME,
 
-          path:
+          file_path:
             filePath,
 
-          original_filename:
+          file_name:
             file.name,
 
           kind:
@@ -605,15 +614,14 @@ export default function DailyPage() {
               name: file.name,
             }),
 
-          mime_type:
+          file_type:
             file.type,
 
-          size_bytes:
+          file_size:
             file.size,
 
-          uploaded_at:
-            new Date()
-              .toISOString(),
+          user_id:
+            session.user.id,
         });
       }
 
@@ -913,13 +921,12 @@ export default function DailyPage() {
             if (newlyUploadedMedia.length) {
               const attachmentRows = newlyUploadedMedia.map((item) => ({
                 daily_id: savedLogId,
-                storage_bucket: item.bucket,
-                storage_path: item.path,
-                original_filename: item.original_filename,
-                mime_type: item.mime_type,
-                size_bytes: item.size_bytes,
-                uploaded_by: session.user.id,
-                is_public: Boolean(finalPayload.is_public),
+                user_id: session.user.id,
+                file_name: item.file_name,
+                file_path: item.file_path,
+                file_type: item.file_type || null,
+                file_size: item.file_size || null,
+                storage_bucket: item.storage_bucket || BUCKET_NAME,
               }));
 
               const { error: attachmentError } = await supabase
@@ -934,7 +941,7 @@ export default function DailyPage() {
             attachmentIssue = error;
 
             const rollbackPaths = newlyUploadedMedia
-              .map((item) => item.path)
+              .map((item) => item.file_path || item.path)
               .filter(Boolean);
 
             if (rollbackPaths.length) {
