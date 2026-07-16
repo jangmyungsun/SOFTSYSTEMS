@@ -86,6 +86,54 @@ function normalizeAttachment(item) {
   return null;
 }
 
+async function fetchAttachmentsByDailyId(logs) {
+  const dailyIds = Array.isArray(logs)
+    ? logs.map((log) => log.id).filter(Boolean)
+    : [];
+
+  if (!dailyIds.length) {
+    return new Map();
+  }
+
+  const { data, error } = await supabase
+    .from("daily_attachments")
+    .select(
+      `
+        id,
+        daily_id,
+        storage_bucket,
+        storage_path,
+        original_filename,
+        mime_type,
+        size_bytes,
+        created_at,
+        uploaded_by,
+        is_public
+      `
+    )
+    .in("daily_id", dailyIds);
+
+  if (error) {
+    throw error;
+  }
+
+  const attachmentsByDailyId = new Map();
+
+  (data || []).forEach((attachment) => {
+    const normalized = normalizeAttachment(attachment);
+
+    if (!normalized?.daily_id) {
+      return;
+    }
+
+    const current = attachmentsByDailyId.get(normalized.daily_id) || [];
+    current.push(normalized);
+    attachmentsByDailyId.set(normalized.daily_id, current);
+  });
+
+  return attachmentsByDailyId;
+}
+
 export default function DailyPage() {
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
@@ -115,6 +163,11 @@ export default function DailyPage() {
   const [
     loadError,
     setLoadError,
+  ] = useState("");
+
+  const [
+    attachmentLoadError,
+    setAttachmentLoadError,
   ] = useState("");
 
   const [
@@ -160,8 +213,6 @@ export default function DailyPage() {
   ] = useState("");
 
   /*
-   * 로그인 여부에 따라 Daily를 다르게 불러온다.
-   *
    * 로그인:
    * 본인이 작성한 공개·비공개 기록 전체
    *
@@ -175,29 +226,14 @@ export default function DailyPage() {
       ) => {
         setLogsLoading(true);
         setLoadError("");
+        setAttachmentLoadError("");
 
         let query =
           supabase
             .from(
               "field_logs"
             )
-            .select(
-              `
-                *,
-                daily_attachments (
-                  id,
-                  daily_id,
-                  storage_bucket,
-                  storage_path,
-                  original_filename,
-                  mime_type,
-                  size_bytes,
-                  created_at,
-                  uploaded_by,
-                  is_public
-                )
-              `
-            )
+            .select("*")
             .order(
               "date",
               {
@@ -246,12 +282,28 @@ export default function DailyPage() {
           return;
         }
 
+        let attachmentsByDailyId = new Map();
+
+        try {
+          attachmentsByDailyId = await fetchAttachmentsByDailyId(data || []);
+          setAttachmentLoadError("");
+        } catch (attachmentError) {
+          console.error(
+            "Daily attachment load error:",
+            attachmentError
+          );
+
+          setAttachmentLoadError(
+            attachmentError?.message ||
+              "Attachment metadata could not be loaded."
+          );
+        }
+
         setLogs(
           (data || []).map((log) => ({
             ...log,
-            daily_attachments: Array.isArray(log.daily_attachments)
-              ? log.daily_attachments.map(normalizeAttachment).filter(Boolean)
-              : [],
+            daily_attachments:
+              attachmentsByDailyId.get(log.id) || [],
           }))
         );
 
@@ -531,6 +583,8 @@ export default function DailyPage() {
         if (
           uploadError
         ) {
+          uploadError.failedFile = file.name;
+          uploadError.uploadedItems = uploadedItems.slice();
           throw uploadError;
         }
 
@@ -691,27 +745,16 @@ export default function DailyPage() {
 
       let newlyUploadedMedia =
         [];
+      let attachmentIssue = null;
+      let savedDailyRecord = null;
 
       try {
         setSaving(true);
 
         setSaveStatus(
-          selectedFiles.length
-            ? "Uploading files…"
-            : "Saving Daily…"
+          "Saving Daily…"
         );
 
-        newlyUploadedMedia =
-          await uploadSelectedFiles();
-
-        const finalMedia = [
-          ...(
-            Array.isArray(existingMedia)
-              ? existingMedia
-              : []
-          ),
-          ...newlyUploadedMedia,
-        ];
 
         const finalDate =
           payload.date ||
@@ -786,10 +829,6 @@ export default function DailyPage() {
 
         let savedLogId;
 
-        setSaveStatus(
-          "Saving Daily…"
-        );
-
         if (editing) {
           const {
             error:
@@ -814,82 +853,6 @@ export default function DailyPage() {
             updateError
           ) {
             throw updateError;
-          }
-
-          const originalAttachments = Array.isArray(editing.daily_attachments)
-            ? editing.daily_attachments
-            : [];
-
-          const currentAttachmentIds = new Set(
-            existingMedia.map((item) => item.id).filter(Boolean)
-          );
-
-          const removedAttachments = originalAttachments.filter(
-            (item) => item.id && !currentAttachmentIds.has(item.id)
-          );
-
-          if (removedAttachments.length) {
-            const removedPaths = removedAttachments.map((item) => item.storage_path).filter(Boolean);
-
-            if (removedPaths.length) {
-              const { error: storageError } = await supabase.storage
-                .from(BUCKET_NAME)
-                .remove(removedPaths);
-
-              if (storageError) {
-                throw storageError;
-              }
-            }
-
-            const { error: deleteAttachmentsError } = await supabase
-              .from("daily_attachments")
-              .delete()
-              .in(
-                "id",
-                removedAttachments.map((item) => item.id)
-              );
-
-            if (deleteAttachmentsError) {
-              throw deleteAttachmentsError;
-            }
-          }
-
-          const legacyAttachmentRows = existingMedia
-            .filter((item) => !item.id && (item.path || item.storage_path))
-            .map((item) => ({
-              daily_id: editing.id,
-              storage_bucket: item.storage_bucket || item.bucket || BUCKET_NAME,
-              storage_path: item.storage_path || item.path,
-              original_filename: item.original_filename || item.name || "file",
-              mime_type: item.mime_type || "",
-              size_bytes: Number(item.size_bytes || item.size || 0),
-              uploaded_by: session.user.id,
-              is_public: item.is_public !== false,
-            }))
-            .filter((item) => item.storage_path);
-
-          const attachmentRows = [
-            ...legacyAttachmentRows,
-            ...newlyUploadedMedia.map((item) => ({
-              daily_id: editing.id,
-              storage_bucket: item.bucket,
-              storage_path: item.path,
-              original_filename: item.original_filename,
-              mime_type: item.mime_type,
-              size_bytes: item.size_bytes,
-              uploaded_by: session.user.id,
-              is_public: Boolean(finalPayload.is_public),
-            })),
-          ];
-
-          if (attachmentRows.length) {
-            const { error: attachmentError } = await supabase
-              .from("daily_attachments")
-              .insert(attachmentRows);
-
-            if (attachmentError) {
-              throw attachmentError;
-            }
           }
 
           savedLogId =
@@ -931,26 +894,62 @@ export default function DailyPage() {
 
           savedLogId =
             insertedLog.id;
+        }
 
-          if (newlyUploadedMedia.length) {
-            const attachmentRows = newlyUploadedMedia.map((item) => ({
-              daily_id: savedLogId,
-              storage_bucket: item.bucket,
-              storage_path: item.path,
-              original_filename: item.original_filename,
-              mime_type: item.mime_type,
-              size_bytes: item.size_bytes,
-              uploaded_by: session.user.id,
-              is_public: Boolean(finalPayload.is_public),
-            }));
+        savedDailyRecord = {
+          ...finalPayload,
+          id: savedLogId,
+          user_id: session.user.id,
+          date: finalDate,
+          environment: finalEnvironment || {},
+        };
 
-            const { error: attachmentError } = await supabase
-              .from("daily_attachments")
-              .insert(attachmentRows);
+        if (selectedFiles.length) {
+          setSaveStatus(
+            "Uploading attachments…"
+          );
 
-            if (attachmentError) {
-              throw attachmentError;
+          try {
+            newlyUploadedMedia = await uploadSelectedFiles();
+
+            if (newlyUploadedMedia.length) {
+              const attachmentRows = newlyUploadedMedia.map((item) => ({
+                daily_id: savedLogId,
+                storage_bucket: item.bucket,
+                storage_path: item.path,
+                original_filename: item.original_filename,
+                mime_type: item.mime_type,
+                size_bytes: item.size_bytes,
+                uploaded_by: session.user.id,
+                is_public: Boolean(finalPayload.is_public),
+              }));
+
+              const { error: attachmentError } = await supabase
+                .from("daily_attachments")
+                .insert(attachmentRows);
+
+              if (attachmentError) {
+                throw attachmentError;
+              }
             }
+          } catch (error) {
+            attachmentIssue = error;
+
+            const rollbackPaths = newlyUploadedMedia
+              .map((item) => item.path)
+              .filter(Boolean);
+
+            if (rollbackPaths.length) {
+              const { error: rollbackError } = await supabase.storage
+                .from(BUCKET_NAME)
+                .remove(rollbackPaths);
+
+              if (rollbackError) {
+                console.error("Attachment rollback error:", rollbackError);
+              }
+            }
+
+            console.error("Attachment upload error:", error);
           }
         }
 
@@ -994,67 +993,38 @@ export default function DailyPage() {
         const today =
           getTodayString();
 
-        setEditing(null);
-        setSelectedFiles([]);
-        setExistingMedia([]);
-        setSelectedDate(
-          today
-        );
-        setSaveStatus("");
+        if (!attachmentIssue) {
+          setEditing(null);
+          setSelectedFiles([]);
+          setExistingMedia([]);
+          setSelectedDate(today);
+          setSaveStatus("");
 
-        await loadLogs(
-          session
-        );
+          await loadLogs(session);
+          await collectWeather(today);
 
-        await collectWeather(
-          today
-        );
+          window.alert("Daily saved.");
+        } else {
+          setEditing(savedDailyRecord);
+          setSaveStatus(
+            `Daily was saved, but attachment upload failed for ${
+              attachmentIssue?.failedFile || "one file"
+            }.`
+          );
 
-        window.alert(
-          "Daily saved."
-        );
+          window.alert(
+            `Daily was saved, but attachment upload failed for ${
+              attachmentIssue?.failedFile || "one file"
+            }: ${attachmentIssue?.message || "Attachment upload failed."}`
+          );
+
+          await loadLogs(session);
+        }
       } catch (error) {
         console.error(
           "Daily save error:",
           error
         );
-
-        /*
-         * Storage 업로드 후 DB 저장이 실패하면
-         * 이번 저장에서 새로 업로드한 파일만 되돌린다.
-         */
-        const rollbackPaths =
-          newlyUploadedMedia
-            .map(
-              (item) =>
-                item.path
-            )
-            .filter(Boolean);
-
-        if (
-          rollbackPaths.length
-        ) {
-          const {
-            error:
-              rollbackError,
-          } = await supabase
-            .storage
-            .from(
-              BUCKET_NAME
-            )
-            .remove(
-              rollbackPaths
-            );
-
-          if (
-            rollbackError
-          ) {
-            console.error(
-              "Rollback error:",
-              rollbackError
-            );
-          }
-        }
 
         setSaveStatus(
           "Daily could not be saved."
@@ -1585,6 +1555,12 @@ export default function DailyPage() {
               }
             />
 
+            {attachmentLoadError && (
+              <p className="muted">
+                {attachmentLoadError}
+              </p>
+            )}
+
             {saveStatus && (
               <p className="muted">
                 {saveStatus}
@@ -1643,8 +1619,7 @@ export default function DailyPage() {
           </div>
 
           <span className="badge">
-            {logs.length}{" "}
-            {logs.length === 1
+            {logs.length} {logs.length === 1
               ? t("daily.record")
               : t("daily.records")}
           </span>
