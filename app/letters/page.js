@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { useLanguage } from "../../components/LanguageProvider";
 import { supabase } from "../../lib/supabaseClient";
 
 const EMPTY_FORM = {
@@ -29,6 +30,8 @@ function formatLetterDate(value) {
 }
 
 export default function VisitorLettersPage() {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
   const [letters, setLetters] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
@@ -131,17 +134,17 @@ export default function VisitorLettersPage() {
     const cleanMessage = form.message.trim();
 
     if (!cleanMessage) {
-      setErrorMessage("Please write a message before sending.");
+      setErrorMessage(t("letters.validationMessage"));
       return;
     }
 
     if (cleanName.length > 80) {
-      setErrorMessage("The name must be 80 characters or fewer.");
+      setErrorMessage(t("letters.validationName"));
       return;
     }
 
     if (cleanMessage.length > 2000) {
-      setErrorMessage("The letter must be 2,000 characters or fewer.");
+      setErrorMessage(t("letters.validationLength"));
       return;
     }
 
@@ -156,13 +159,13 @@ export default function VisitorLettersPage() {
 
     if (error) {
       console.error("Visitor Letter submit error:", error);
-      setErrorMessage(error.message || "The letter could not be sent.");
+      setErrorMessage(error.message || t("letters.submitError"));
       setSubmitting(false);
       return;
     }
 
     setForm(EMPTY_FORM);
-    setStatusMessage("Your letter has been sent.");
+    setStatusMessage(t("letters.success"));
     await loadLetters();
 
     if (session) {
@@ -198,9 +201,9 @@ export default function VisitorLettersPage() {
 
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
-      setErrorMessage(payload.error || "The update could not be completed.");
+      setErrorMessage(payload.error || t("letters.updateError"));
     } else {
-      setStatusMessage("The letter status has been updated.");
+      setStatusMessage(t("letters.updateSuccess"));
       await loadLetters();
       await loadLatestLetter();
     }
@@ -234,9 +237,9 @@ export default function VisitorLettersPage() {
 
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
-      setErrorMessage(payload.error || "The letter could not be deleted.");
+      setErrorMessage(payload.error || t("letters.deleteError"));
     } else {
-      setStatusMessage("The letter has been deleted.");
+      setStatusMessage(t("letters.deleteSuccess"));
       await loadLetters();
       await loadLatestLetter();
     }
@@ -247,26 +250,26 @@ export default function VisitorLettersPage() {
   return (
     <>
       <section className="panel">
-        <p className="eyebrow">Visitor Letters</p>
+        <p className="eyebrow">{t("letters.title")}</p>
 
-        <h1>Leave a letter for the system</h1>
+        <h1>{t("letters.heading")}</h1>
 
         <p className="subtitle">
-          A place for responses, traces, questions, and small messages from visitors.
+          {t("letters.subtitle")}
         </p>
       </section>
 
       <section className="panel">
-        <h2>Write a Letter</h2>
+        <h2>{t("letters.writeTitle")}</h2>
 
         <form onSubmit={submitLetter}>
           <div className="grid two">
             <label>
-              Name
+              {t("letters.name")}
               <input
                 type="text"
                 maxLength={80}
-                placeholder="Anonymous"
+                placeholder={t("letters.anonymous")}
                 value={form.name}
                 onChange={(event) => updateField("name", event.target.value)}
               />
@@ -274,11 +277,11 @@ export default function VisitorLettersPage() {
           </div>
 
           <label>
-            Message
+            {t("letters.message")}
             <textarea
               rows={8}
               maxLength={2000}
-              placeholder="Write a letter..."
+              placeholder={t("letters.placeholder")}
               value={form.message}
               onChange={(event) => updateField("message", event.target.value)}
             />
@@ -295,8 +298,8 @@ export default function VisitorLettersPage() {
                 onChange={() => updateField("wants_public", true)}
               />
               <span>
-                <strong>Public</strong>
-                This letter may be shown on the Visitor Letters page.
+                <strong>{t("letters.public")}</strong>
+                {t("letters.publicHelp")}
               </span>
             </label>
 
@@ -308,15 +311,15 @@ export default function VisitorLettersPage() {
                 onChange={() => updateField("wants_public", false)}
               />
               <span>
-                <strong>Private</strong>
-                This letter will only be visible to the logged-in owner.
+                <strong>{t("letters.private")}</strong>
+                {t("letters.privateHelp")}
               </span>
             </label>
           </div>
 
           <div className="actions">
             <button className="primary" type="submit" disabled={submitting}>
-              {submitting ? "Sending…" : "Send Letter"}
+              {submitting ? t("letters.sending") : t("letters.send")}
             </button>
           </div>
         </form>
@@ -329,55 +332,55 @@ export default function VisitorLettersPage() {
         <section className="panel">
           <div className="entry-head">
             <div>
-              <p className="eyebrow">Latest Incoming Letter</p>
-              <h2>Owner view</h2>
+              <p className="eyebrow">{t("letters.latest")}</p>
+              <h2>{t("letters.ownerView")}</h2>
             </div>
           </div>
 
-          {adminLoading ? <p className="muted">Loading latest letter…</p> : null}
+          {adminLoading ? <p className="muted">{t("letters.latestLoading")}</p> : null}
 
           {!adminLoading && latestLetter ? (
             <div className="admin-card">
               <p className="visitor-letter-message">{latestLetter.message}</p>
 
               <div className="visitor-letter-meta">
-                <span>— {latestLetter.name || "Anonymous"}</span>
+                <span>— {latestLetter.name || t("letters.anonymous")}</span>
                 <span className="muted">{formatLetterDate(latestLetter.created_at)}</span>
               </div>
 
               <p className="muted">
-                Status: {latestLetter.is_public ? "Public" : "Private"} · Wants public: {latestLetter.wants_public ? "Yes" : "No"}
+                {t("letters.status")}: {latestLetter.is_public ? t("letters.publicStatus") : t("letters.privateStatus")} · {t("letters.wantsPublic")}: {latestLetter.wants_public ? t("letters.yes") : t("letters.no")}
               </p>
 
               <div className="admin-actions">
                 <button type="button" disabled={adminActioning} onClick={() => handleAdminAction(latestLetter.id, "is_public", true)}>
-                  Make Public
+                  {t("letters.makePublic")}
                 </button>
                 <button type="button" disabled={adminActioning} onClick={() => handleAdminAction(latestLetter.id, "is_public", false)}>
-                  Make Private
+                  {t("letters.makePrivate")}
                 </button>
                 <button type="button" disabled={adminActioning} onClick={() => handleDelete(latestLetter.id)}>
-                  Delete
+                  {t("letters.delete")}
                 </button>
               </div>
             </div>
           ) : null}
 
-          {!adminLoading && !latestLetter ? <p className="muted">No letters yet.</p> : null}
+          {!adminLoading && !latestLetter ? <p className="muted">{t("letters.latestEmpty")}</p> : null}
         </section>
       ) : null}
 
       <section className="panel">
         <div className="entry-head">
           <div>
-            <p className="eyebrow">Public Letters</p>
-            <h2>Letters left behind</h2>
+            <p className="eyebrow">{t("letters.publicLetters")}</p>
+            <h2>{t("letters.publicLettersSub")}</h2>
           </div>
         </div>
 
-        {loading ? <p className="muted">Loading letters…</p> : null}
+        {loading ? <p className="muted">{t("letters.loading")}</p> : null}
 
-        {!loading && !letters.length ? <p className="muted">No public letters yet.</p> : null}
+        {!loading && !letters.length ? <p className="muted">{t("letters.empty")}</p> : null}
 
         {!loading && letters.length > 0 ? (
           <div className="visitor-letter-list">
@@ -386,7 +389,7 @@ export default function VisitorLettersPage() {
                 <p className="visitor-letter-message">{letter.message}</p>
 
                 <div className="visitor-letter-meta">
-                  <span>— {letter.name || "Anonymous"}</span>
+                  <span>— {letter.name || t("letters.anonymous")}</span>
                   <span className="muted">{formatLetterDate(letter.created_at)}</span>
                 </div>
               </article>

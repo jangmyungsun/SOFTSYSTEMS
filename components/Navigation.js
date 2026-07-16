@@ -4,21 +4,25 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useLanguage } from "./LanguageProvider";
 import { supabase } from "../lib/supabaseClient";
-
-const links = [
-  ["/", "Home"],
-  ["/input", "Input"],
-  ["/process", "Process"],
-  ["https://617068.cargo.site/", "Output", true],
-  ["/about", "About"],
-  ["/letters", "Visitor Letters"],
-];
 
 export default function Navigation() {
   const pathname = usePathname();
   const [session, setSession] = useState(null);
   const isAuthenticated = Boolean(session?.user);
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
+  const locale = language?.locale ?? "en";
+  const locales = language?.locales ?? ["en"];
+  const links = [
+    ["/", t("nav.home")],
+    ["/input", t("nav.input")],
+    ["/process", t("nav.process")],
+    ["https://617068.cargo.site/", t("nav.output"), true],
+    ["/about", t("nav.about")],
+    ["/letters", t("nav.letters")],
+  ];
 
   useEffect(() => {
     async function loadSession() {
@@ -70,13 +74,29 @@ export default function Navigation() {
         )
       )}
 
+      <label className="lang-switch" htmlFor="locale-select">
+        <span className="visually-hidden">Language</span>
+        <select
+          id="locale-select"
+          value={locale}
+          onChange={(event) => language?.setLocale(event.target.value)}
+          className="lang-select"
+        >
+          {locales.map((option) => (
+            <option key={option} value={option}>
+              {option.toUpperCase()}
+            </option>
+          ))}
+        </select>
+      </label>
+
       {isAuthenticated ? (
         <button
           type="button"
           className="nav-action"
           onClick={handleSignOut}
         >
-          Logout
+          {t("nav.logout")}
         </button>
       ) : null}
     </nav>

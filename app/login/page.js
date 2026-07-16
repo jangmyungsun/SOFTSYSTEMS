@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from 'react';
 
+import { useLanguage } from '../../components/LanguageProvider';
 import { supabase } from '../../lib/supabaseClient';
 
 export default function LoginPage() {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,33 +44,33 @@ export default function LoginPage() {
 
   return (
     <section className="panel">
-      <h2>{session ? 'Account' : 'Login'}</h2>
+      <h2>{session ? t('login.account') : t('login.title')}</h2>
 
       {session ? (
         <>
-          <p>Signed in as {session.user.email}</p>
+          <p>{t('login.signedIn')} {session.user.email}</p>
           <div className="actions">
-            <button onClick={signOut}>Sign out</button>
+            <button onClick={signOut}>{t('login.signOut')}</button>
           </div>
         </>
       ) : (
         <>
-          <p className="muted">Use the owner account created in Supabase Auth.</p>
+          <p className="muted">{t('login.instructions')}</p>
 
           <div className="grid two">
             <label>
-              Email
+              {t('login.email')}
               <input value={email} onChange={(event) => setEmail(event.target.value)} />
             </label>
 
             <label>
-              Password
+              {t('login.password')}
               <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
             </label>
           </div>
 
           <div className="actions">
-            <button className="primary" onClick={signIn}>Sign in</button>
+            <button className="primary" onClick={signIn}>{t('login.signIn')}</button>
           </div>
 
           {feedback ? <p className="status error">{feedback}</p> : null}

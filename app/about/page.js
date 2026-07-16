@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { useLanguage } from "../../components/LanguageProvider";
+
 function generateVisitorId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -11,6 +13,8 @@ function generateVisitorId() {
 }
 
 export default function AboutPage() {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
   const [visitorCount, setVisitorCount] = useState(null);
 
   useEffect(() => {
@@ -74,7 +78,7 @@ export default function AboutPage() {
     <>
       <section className="panel">
         <p className="eyebrow">
-          About
+          {t("about.title")}
         </p>
 
         <h1>
@@ -82,77 +86,47 @@ export default function AboutPage() {
         </h1>
 
         <p className="subtitle">
-          Sound-based media artist
-          working with body,
-          sensation, everyday life,
-          and systems of
-          observation.
+          {t("about.subtitle")}
         </p>
       </section>
 
       <section className="panel">
         <h2>
-          Practice
+          {t("about.practice")}
         </h2>
 
         <p>
-          Jang Myung Sun is a
-          sound-based media artist
-          who translates bodily
-          states, sensations, and
-          everyday environments
-          into sound, image, text,
-          video, performance, and
-          digital systems.
+          {t("about.practiceBody")}
         </p>
 
         <p>
-          Her work begins with the
-          body as a sensing and
-          responsive system. Rather
-          than treating the body as
-          an object of
-          representation, she
-          observes how it reacts,
-          adapts, remembers, and
-          connects with its
-          surroundings.
+          {t("about.practiceBody2")}
         </p>
       </section>
 
       <section className="panel">
         <h2>
-          SOFTSYSTEMS
+          {t("about.systems")}
         </h2>
 
         <p>
-          SOFTSYSTEMS is an
-          evolving artistic
-          ecology that gathers
-          Daily records, writing,
-          media, body data, and
-          creative processes.
+          {t("about.systemsBody")}
         </p>
 
         <p>
-          Through Input, Process,
-          and Output, the system
-          traces relationships
-          among body,
-          environment, memory,
-          and artistic practice.
+          {t("about.systemsBody2")}
         </p>
       </section>
 
       <section className="panel">
         <h2>
-          Contact
+          {t("about.contact")}
         </h2>
 
         <div className="grid three">
           <div>
             <p className="label">
-              Email
+              {t("about.email")}
             </p>
 
             <a href="mailto:jangms5999@gmail.com">
@@ -162,7 +136,7 @@ export default function AboutPage() {
 
           <div>
             <p className="label">
-              Instagram
+              {t("about.instagram")}
             </p>
 
             <a
@@ -176,7 +150,7 @@ export default function AboutPage() {
 
           <div>
             <p className="label">
-              Portfolio
+              {t("about.portfolio")}
             </p>
 
             <a
@@ -184,7 +158,7 @@ export default function AboutPage() {
               target="_blank"
               rel="noreferrer"
             >
-              View Portfolio ↗
+              {t("about.viewPortfolio")}
             </a>
           </div>
         </div>
@@ -192,7 +166,7 @@ export default function AboutPage() {
 
       <section className="panel">
         <p className="muted">
-          {visitorCount === null ? "Counting visitors…" : `${visitorCount} visitors have passed through this system.`}
+          {visitorCount === null ? t("about.countLoading") : t("about.count", { count: visitorCount })}
         </p>
       </section>
     </>
