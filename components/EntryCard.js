@@ -1,4 +1,5 @@
 import MediaPreview from "./MediaPreview";
+import TranslateButton from "./TranslateButton";
 
 function formatLabel(value) {
   if (!value) {
@@ -500,10 +501,13 @@ export default function EntryCard({
             Observation
           </p>
 
-          <p>
-            {log.observation ||
-              "No observation recorded."}
-          </p>
+          <TranslateButton
+            originalText={log.observation || "No observation recorded."}
+            sourceLanguage="en"
+            targetLanguage="ko"
+            contentKey={`daily-observation:${log.id || log.date || "entry"}`}
+            className="translate-block"
+          />
         </section>
 
         <section className="block full">
@@ -511,10 +515,13 @@ export default function EntryCard({
             Alignment
           </p>
 
-          <p>
-            {log.alignment ||
-              "No alignment recorded."}
-          </p>
+          <TranslateButton
+            originalText={log.alignment || "No alignment recorded."}
+            sourceLanguage="en"
+            targetLanguage="ko"
+            contentKey={`daily-alignment:${log.id || log.date || "entry"}`}
+            className="translate-block"
+          />
         </section>
 
         <section className="block full">

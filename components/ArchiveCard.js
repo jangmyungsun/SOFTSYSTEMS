@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import TranslateButton from "./TranslateButton";
+
 function formatLabel(value) {
   if (!value) {
     return "";
@@ -383,9 +385,13 @@ export default function ArchiveCard({
 
             {entry.body && (
               <div className="archive-modal-body">
-                <p>
-                  {entry.body}
-                </p>
+                <TranslateButton
+                  originalText={entry.body}
+                  sourceLanguage="en"
+                  targetLanguage="ko"
+                  contentKey={`archive:${entry.id || entry.title || "entry"}`}
+                  className="translate-block"
+                />
               </div>
             )}
 

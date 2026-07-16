@@ -446,6 +446,38 @@ canvas {
   font-size: 12px;
 }
 
+/* Translate blocks */
+
+.translate-block {
+  display: grid;
+  gap: 10px;
+}
+
+.translate-content {
+  white-space: pre-wrap;
+}
+
+.translate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.translate-toggle {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.translate-error {
+  margin: 0;
+  color: #7a2d24;
+  font-size: 12px;
+}
+
 /* Archive cards */
 
 .archive-card {
