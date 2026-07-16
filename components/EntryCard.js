@@ -1,5 +1,5 @@
 import MediaPreview from "./MediaPreview";
-import TranslatedContent from "./TranslatedContent";
+import TranslateButton from "./TranslateButton";
 import { useLanguage } from "./LanguageProvider";
 
 function formatLabel(value) {
@@ -504,12 +504,12 @@ export default function EntryCard({
             {t("common.observation")}
           </p>
 
-          <TranslatedContent
+          <TranslateButton
+            originalText={log.observation || "No observation recorded."}
+            sourceLanguage="en"
+            targetLanguage="ko"
             contentKey={`daily-observation:${log.id || log.date || "entry"}`}
-            text={log.observation || "No observation recorded."}
-            sourceLanguage={log.language || "en"}
             className="translate-block"
-            label="Daily observation"
           />
         </section>
 
@@ -518,12 +518,12 @@ export default function EntryCard({
             {t("common.alignment")}
           </p>
 
-          <TranslatedContent
+          <TranslateButton
+            originalText={log.alignment || "No alignment recorded."}
+            sourceLanguage="en"
+            targetLanguage="ko"
             contentKey={`daily-alignment:${log.id || log.date || "entry"}`}
-            text={log.alignment || "No alignment recorded."}
-            sourceLanguage={log.language || "en"}
             className="translate-block"
-            label="Daily alignment"
           />
         </section>
 
@@ -556,25 +556,12 @@ export default function EntryCard({
             </p>
 
             <p className="ai-summary">
-              <TranslatedContent
-                contentKey={`daily-ai:${log.id || log.date || "entry"}:summary`}
-                text={aiAnalysis.summary}
-                sourceLanguage={log.language || "en"}
-                className="translate-block"
-                label="Daily AI summary"
-              />
+              {aiAnalysis.summary}
             </p>
 
             {aiAnalysis.relationship && (
               <p className="muted">
-                <TranslatedContent
-                  contentKey={`daily-ai:${log.id || log.date || "entry"}:relationship`}
-                  text={aiAnalysis.relationship}
-                  sourceLanguage={log.language || "en"}
-                  as="span"
-                  className="translated-inline"
-                  label="Daily relationship"
-                />
+                {aiAnalysis.relationship}
               </p>
             )}
 
