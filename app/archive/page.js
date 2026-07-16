@@ -64,7 +64,10 @@ function normalizeTags(value) {
   return [];
 }
 
-function normalizeEntry(entry) {
+function normalizeEntry(
+  entry,
+  sourceTable = ""
+) {
   return {
     ...entry,
 
@@ -92,7 +95,37 @@ function normalizeEntry(entry) {
     is_public:
       entry?.is_public !==
       false,
+
+    _sourceTable:
+      sourceTable,
   };
+}
+
+function compareArchiveEntries(
+  left,
+  right
+) {
+  const leftDate =
+    left.entry_date ||
+    left.date ||
+    "";
+
+  const rightDate =
+    right.entry_date ||
+    right.date ||
+    "";
+
+  if (leftDate !== rightDate) {
+    return rightDate.localeCompare(
+      leftDate
+    );
+  }
+
+  return (
+    (right.created_at || "").localeCompare(
+      left.created_at || ""
+    )
+  );
 }
 
 export default function ArchivePage() {
@@ -252,6 +285,7 @@ export default function ArchivePage() {
 
         const [
           entriesResult,
+          legacyEntriesResult,
           videosResult,
         ] =
           await Promise.all([
@@ -262,6 +296,19 @@ export default function ArchivePage() {
               .select("*")
               .order(
                 "date",
+                {
+                  ascending:
+                    false,
+                }
+              ),
+
+            supabase
+              .from(
+                "archive_entries"
+              )
+              .select("*")
+              .order(
+                "entry_date",
                 {
                   ascending:
                     false,
@@ -287,7 +334,8 @@ export default function ArchivePage() {
           ]);
 
         if (
-          entriesResult.error
+          entriesResult.error &&
+          legacyEntriesResult.error
         ) {
           console.error(
             "Archive entries error:",
@@ -302,12 +350,43 @@ export default function ArchivePage() {
 
           setEntries([]);
         } else {
+          if (entriesResult.error) {
+            console.warn(
+              "Archive items could not be loaded:",
+              entriesResult.error
+            );
+          }
+
+          if (legacyEntriesResult.error) {
+            console.warn(
+              "Legacy archive entries could not be loaded:",
+              legacyEntriesResult.error
+            );
+          }
+
           setEntries(
-            (
-              entriesResult.data ||
-              []
-            ).map(
-              normalizeEntry
+            [
+              ...(
+                entriesResult.data ||
+                []
+              ).map((entry) =>
+                normalizeEntry(
+                  entry,
+                  "archive_items"
+                )
+              ),
+
+              ...(
+                legacyEntriesResult.data ||
+                []
+              ).map((entry) =>
+                normalizeEntry(
+                  entry,
+                  "archive_entries"
+                )
+              ),
+            ].sort(
+              compareArchiveEntries
             )
           );
         }
@@ -634,7 +713,7 @@ export default function ArchivePage() {
 
         if (editingEntry) {
           const {
-            data,
+            data: savedArchive,
             error,
           } = await supabase
             .from(
@@ -676,19 +755,25 @@ export default function ArchivePage() {
               "user_id",
               user.id
             )
-            .select("id")
+            .select("*")
             .single();
 
           if (error) {
             throw error;
           }
 
+          if (!savedArchive?.id) {
+            throw new Error(
+              "The saved Archive row was not returned."
+            );
+          }
+
           savedEntryId =
-            data?.id ||
+            savedArchive.id ||
             editingEntry.id;
         } else {
           const {
-            data,
+            data: savedArchive,
             error,
           } = await supabase
             .from(
@@ -725,21 +810,21 @@ export default function ArchivePage() {
               is_public:
                 values.is_public,
             })
-            .select("id")
+            .select("*")
             .single();
 
           if (error) {
             throw error;
           }
 
-          if (!data?.id) {
+          if (!savedArchive?.id) {
             throw new Error(
               "The saved Archive ID was not returned."
             );
           }
 
           savedEntryId =
-            data.id;
+            savedArchive.id;
         }
 
         setEmbeddingStatus(
@@ -1111,7 +1196,9 @@ export default function ArchivePage() {
                       entry
                     }
                     admin={
-                      ownsEntry
+                      ownsEntry &&
+                      entry._sourceTable !==
+                        "archive_entries"
                     }
                     onEdit={
                       startEditing

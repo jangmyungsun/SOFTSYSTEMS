@@ -62,6 +62,98 @@ function makeEmbeddingText(entry) {
     );
 }
 
+function normalizeArchiveEntry(
+  entry
+) {
+  return {
+    ...entry,
+
+    entry_date:
+      entry?.entry_date ||
+      entry?.date ||
+      "",
+
+    body:
+      entry?.body ||
+      entry?.notes ||
+      "",
+
+    url:
+      entry?.url ||
+      entry?.link ||
+      entry?.file_url ||
+      "",
+  };
+}
+
+async function loadEntriesFromTable({
+  tableName,
+  dateColumn,
+  userId,
+  entryId,
+  embedAll,
+}) {
+  let query =
+    supabaseAdmin
+      .from(tableName)
+      .select("*")
+      .eq("user_id", userId);
+
+  if (entryId) {
+    query = query.eq(
+      "id",
+      entryId
+    );
+  } else if (embedAll) {
+    query = query
+      .order(dateColumn, {
+        ascending: true,
+      })
+      .limit(MAX_BATCH_SIZE);
+  } else {
+    throw new Error(
+      "Provide entry_id or set all to true."
+    );
+  }
+
+  const {
+    data,
+    error,
+  } = await query;
+
+  if (error) {
+    if (tableName === "archive_entries") {
+      console.warn(
+        "Archive embed lookup failed:",
+        {
+          table: tableName,
+          entryId: entryId || "",
+          all: embedAll,
+          error: error.message,
+        }
+      );
+
+      return [];
+    }
+
+    throw error;
+  }
+
+  console.info(
+    "Archive embed lookup:",
+    {
+      table: tableName,
+      entryId: entryId || "",
+      all: embedAll,
+      found: (data || []).length,
+    }
+  );
+
+  return (data || []).map(
+    normalizeArchiveEntry
+  );
+}
+
 async function getAuthenticatedUser(
   request
 ) {
@@ -115,63 +207,54 @@ async function loadEntries({
   entryId,
   embedAll,
 }) {
-  let query =
-    supabaseAdmin
-      .from(
-        "archive_entries"
-      )
-      .select(
-        `
-          id,
-          user_id,
-          type,
-          title,
-          entry_date,
-          body,
-          url,
-          tags,
-          embedding,
-          embedding_text,
-          embedding_updated_at
-        `
-      )
-      .eq(
-        "user_id",
-        userId
+  const [archiveItems, legacyEntries] =
+    await Promise.all([
+      loadEntriesFromTable({
+        tableName:
+          "archive_items",
+
+        dateColumn: "date",
+
+        userId,
+
+        entryId,
+
+        embedAll,
+      }),
+
+      loadEntriesFromTable({
+        tableName:
+          "archive_entries",
+
+        dateColumn:
+          "entry_date",
+
+        userId,
+
+        entryId,
+
+        embedAll,
+      }),
+    ]);
+
+  const mergedEntries = new Map();
+
+  [...archiveItems, ...legacyEntries].forEach(
+    (entry) => {
+      if (!entry?.id) {
+        return;
+      }
+
+      mergedEntries.set(
+        entry.id,
+        entry
       );
+    }
+  );
 
-  if (entryId) {
-    query = query.eq(
-      "id",
-      entryId
-    );
-  } else if (embedAll) {
-    query = query
-      .order(
-        "entry_date",
-        {
-          ascending: true,
-        }
-      )
-      .limit(
-        MAX_BATCH_SIZE
-      );
-  } else {
-    throw new Error(
-      "Provide entry_id or set all to true."
-    );
-  }
-
-  const {
-    data,
-    error,
-  } = await query;
-
-  if (error) {
-    throw error;
-  }
-
-  return data || [];
+  return Array.from(
+    mergedEntries.values()
+  );
 }
 
 export async function POST(
