@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   useEffect,
@@ -52,13 +52,13 @@ function formatWeeklyComparison(summary, locale, t) {
 
   if (locale === "ko") {
     return summary.trend === "increased"
-      ? `지난주보다 ${deltaText} ${t("stats.increased")}`
-      : `지난주보다 ${deltaText} ${t("stats.decreased")}`;
+      ? `吏?쒖＜蹂대떎 ${deltaText} ${t("stats.increased")}`
+      : `吏?쒖＜蹂대떎 ${deltaText} ${t("stats.decreased")}`;
   }
 
   return summary.trend === "increased"
-    ? `↑ ${deltaText} ${t("stats.comparedWithLastWeek")}`
-    : `↓ ${deltaText} ${t("stats.comparedWithLastWeek")}`;
+    ? `??${deltaText} ${t("stats.comparedWithLastWeek")}`
+    : `??${deltaText} ${t("stats.comparedWithLastWeek")}`;
 }
 
 function formatWeeklyModeSummary(summary, t) {
@@ -68,7 +68,7 @@ function formatWeeklyModeSummary(summary, t) {
 
   const countLabel = summary.count === 1 ? t("stats.record") : t("stats.records");
 
-  return `${t("stats.thisWeek")}: ${translateValue(t, summary.value)} · ${summary.count} ${countLabel}`;
+  return `${t("stats.thisWeek")}: ${translateValue(t, summary.value)} 쨌 ${summary.count} ${countLabel}`;
 }
 
 function getSafeObject(value) {
@@ -399,6 +399,8 @@ export default function ProcessPage() {
             supabase
               .from(
                 "field_logs"
+
+
               )
               .select("*")
               .eq(
@@ -545,6 +547,91 @@ export default function ProcessPage() {
 
     loadProcess();
   }, []);
+
+  const [analysisOwner, setAnalysisOwner] = useState(false);
+  const [analysisAccessLoading, setAnalysisAccessLoading] = useState(true);
+  const [analysisActioning, setAnalysisActioning] = useState(false);
+  const [analysisMessage, setAnalysisMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAnalysisAccess() {
+      setAnalysisAccessLoading(true);
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token || "";
+
+      if (!accessToken) {
+        if (active) {
+          setAnalysisOwner(false);
+          setAnalysisAccessLoading(false);
+        }
+
+        return;
+      }
+
+      const response = await fetch("/api/system/generate", {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "x-softsystems-locale": locale,
+        },
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!active) {
+        return;
+      }
+
+      setAnalysisOwner(Boolean(payload.owner));
+      setAnalysisAccessLoading(false);
+    }
+
+    loadAnalysisAccess();
+
+    return () => {
+      active = false;
+    };
+  }, [locale]);
+
+
+  const handleGenerateAnalysis = async () => {
+    setAnalysisActioning(true);
+    setAnalysisMessage("");
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token || "";
+
+      if (!accessToken) {
+        setAnalysisMessage(t("process.analysisOwnerOnly"));
+        return;
+      }
+
+      const response = await fetch(`/api/system/generate?locale=${locale}`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "x-softsystems-locale": locale,
+        },
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setAnalysisMessage(payload.error || t("process.analysisLocked"));
+        return;
+      }
+
+      setAnalysisMessage(t("process.analysisGenerated"));
+      window.location.reload();
+    } catch (error) {
+      setAnalysisMessage(error?.message || t("process.loadError"));
+    } finally {
+      setAnalysisActioning(false);
+    }
+  };
 
   const homeState =
     getHomeState(logs);
@@ -950,10 +1037,31 @@ export default function ProcessPage() {
                   </h2>
                 </div>
 
-                <Link href="/system">
-                  {t("process.viewFull")}
-                </Link>
+                <div className="actions">
+                  <Link href="/system">
+                    {t("process.viewFull")}
+                  </Link>
+
+                  {analysisOwner || analysisAccessLoading ? (
+                    <button
+                      className="primary"
+                      type="button"
+                      onClick={handleGenerateAnalysis}
+                      disabled={analysisActioning || analysisAccessLoading}
+                    >
+                      {analysisActioning
+                        ? t("process.generatingAnalysis")
+                        : analysisAccessLoading
+                          ? t("process.checkAnalysisAccess")
+                          : t("process.generateAnalysis")}
+                    </button>
+                  ) : null}
+                </div>
               </div>
+
+              {analysisMessage ? (
+                <p className="muted">{analysisMessage}</p>
+              ) : null}
 
               {systemSnapshot ? (
                 <>

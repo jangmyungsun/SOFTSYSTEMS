@@ -19,6 +19,7 @@ const MAX_EDGES = 80;
 const MIN_SIMILARITY = 0.72;
 
 const SUPPORTED_LOCALES = ["en", "ko"];
+const ANALYSIS_RUN_TYPE = "weekly-analysis";
 
 function normalizeLocale(value) {
   if (!value) {
@@ -71,6 +72,7 @@ function localizeMessage(locale, key) {
       confidenceNote: "This suggestion is intentionally general because recent data is limited.",
       noGuidance: "The AI returned no guidance.",
       noPublicDaily: "No public Daily records were found.",
+      analysisAlreadyGenerated: "This week's analysis has already been generated.",
       cronFailed: "Nightly cron failed.",
       unauthorized: "Unauthorized cron request.",
     },
@@ -86,12 +88,76 @@ function localizeMessage(locale, key) {
       confidenceNote: "최근 데이터가 제한되어 있어 이 제안은 의도적으로 일반적으로 작성되었습니다.",
       noGuidance: "AI가 가이던스를 반환하지 않았습니다.",
       noPublicDaily: "공개된 Daily 기록이 없습니다.",
+      analysisAlreadyGenerated: "이번 주 분석은 이미 생성되었습니다.",
       cronFailed: "야간 크론 실행에 실패했습니다.",
       unauthorized: "인증되지 않은 크론 요청입니다.",
     },
   };
 
   return messages[locale]?.[key] || messages.en[key];
+}
+
+function getAnalysisPeriodKey(date = new Date()) {
+  const utcDate = new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate()
+    )
+  );
+
+  const day = utcDate.getUTCDay() || 7;
+
+  utcDate.setUTCDate(
+    utcDate.getUTCDate() - day + 1
+  );
+
+  return utcDate.toISOString().slice(0, 10);
+}
+
+function getAnalysisRunKey(periodKey) {
+  return `${ANALYSIS_RUN_TYPE}:${periodKey}`;
+}
+
+function getOwnerIdentifiers() {
+  return {
+    userIds: [
+      process.env.OWNER_USER_ID,
+      process.env.ADMIN_USER_ID,
+    ].filter(Boolean),
+
+    emails: [
+      process.env.OWNER_EMAIL,
+      process.env.ADMIN_EMAIL,
+    ]
+      .filter(Boolean)
+      .map((value) => value.toLowerCase()),
+  };
+}
+
+function isConfiguredOwner(user) {
+  if (!user) {
+    return false;
+  }
+
+  const {
+    userIds,
+    emails,
+  } = getOwnerIdentifiers();
+
+  if (
+    userIds.includes(user.id)
+  ) {
+    return true;
+  }
+
+  const email =
+    user.email?.toLowerCase();
+
+  return Boolean(
+    email &&
+      emails.includes(email)
+  );
 }
 
 const SYSTEM_SCHEMA = {
@@ -1767,6 +1833,7 @@ export async function GET(
 ) {
   const locale =
     resolveRequestLocale(request);
+  let analysisRunKey = "";
 
   try {
     const authorization =
@@ -1856,6 +1923,66 @@ export async function GET(
 
     const snapshotDate =
       getDateString();
+
+    const periodKey =
+      getAnalysisPeriodKey();
+
+    analysisRunKey =
+      getAnalysisRunKey(
+        periodKey
+      );
+
+    const {
+      error: analysisRunError,
+    } = await supabaseAdmin
+      .from(
+        "analysis_runs"
+      )
+      .insert({
+        run_key:
+          analysisRunKey,
+
+        run_type:
+          ANALYSIS_RUN_TYPE,
+
+        period_key:
+          periodKey,
+
+        trigger_source:
+          "cron",
+
+        status:
+          "running",
+
+        snapshot_date:
+          snapshotDate,
+
+        locale,
+      });
+
+    if (
+      analysisRunError
+    ) {
+      if (
+        analysisRunError.code ===
+        "23505"
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: localizeMessage(
+              locale,
+              "analysisAlreadyGenerated"
+            ),
+          },
+          {
+            status: 409,
+          }
+        );
+      }
+
+      throw analysisRunError;
+    }
 
     const systemReading =
       await generateSystemReading(
@@ -1985,6 +2112,25 @@ export async function GET(
       throw weaveSnapshotError;
     }
 
+    if (analysisRunKey) {
+      await supabaseAdmin
+        .from(
+          "analysis_runs"
+        )
+        .update({
+          status:
+            "completed",
+
+          finished_at:
+            new Date()
+              .toISOString(),
+        })
+        .eq(
+          "run_key",
+          analysisRunKey
+        );
+    }
+
     return NextResponse.json({
       success:
         true,
@@ -2024,6 +2170,29 @@ export async function GET(
       },
     });
   } catch (error) {
+    if (analysisRunKey) {
+      await supabaseAdmin
+        .from(
+          "analysis_runs"
+        )
+        .update({
+          status:
+            "failed",
+
+          error_message:
+            error?.message ||
+            "",
+
+          finished_at:
+            new Date()
+              .toISOString(),
+        })
+        .eq(
+          "run_key",
+          analysisRunKey
+        );
+    }
+
     console.error(
       "Nightly cron failed:",
       error

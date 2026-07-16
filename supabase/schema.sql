@@ -181,6 +181,21 @@ create policy "owner deletes own daily attachments" on public.daily_attachments 
   )
 );
 
+create table if not exists public.analysis_runs (
+  run_key text primary key,
+  run_type text not null,
+  period_key text not null,
+  trigger_source text not null,
+  triggered_by_user_id uuid,
+  triggered_by_email text default '',
+  status text not null default 'running',
+  snapshot_date text default '',
+  locale text default 'en',
+  error_message text default '',
+  started_at timestamptz default now(),
+  finished_at timestamptz
+);
+
 insert into storage.buckets (id, name, public)
 values ('daily-collection', 'daily-collection', false)
 on conflict (id) do nothing;
