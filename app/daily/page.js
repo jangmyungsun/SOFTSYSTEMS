@@ -216,6 +216,11 @@ export default function DailyPage() {
     setSaveStatus,
   ] = useState("");
 
+  const [
+    saving,
+    setSaving,
+  ] = useState(false);
+
   /*
    * 로그인:
    * 본인이 작성한 공개·비공개 기록 전체
