@@ -111,23 +111,25 @@ export default function MediaUploader({
               <div
                 className="media-item"
                 key={
+                  item.id ||
+                  item.storage_path ||
                   item.path ||
-                  `${item.name}-${index}`
+                  `${item.original_filename || item.name}-${index}`
                 }
               >
                 <div>
                   <p>
                     {translateMediaType(
                       t,
-                      item.type
+                      item.kind || item.type
                     )} —{" "}
-                    {item.name}
+                    {item.original_filename || item.name}
                   </p>
 
-                  {item.size && (
+                  {(item.size_bytes || item.size) && (
                     <p className="muted">
                       {(
-                        item.size /
+                        (item.size_bytes || item.size) /
                         1024 /
                         1024
                       ).toFixed(2)}

@@ -98,3 +98,110 @@ create table if not exists public.translation_cache (
   updated_at timestamptz default now(),
   unique (content_key, text_hash, source_language, target_language)
 );
+
+create table if not exists public.daily_attachments (
+  id uuid primary key default gen_random_uuid(),
+  daily_id uuid not null references public.field_logs(id) on delete cascade,
+  storage_bucket text not null default 'daily-collection',
+  storage_path text not null unique,
+  original_filename text not null,
+  mime_type text default '',
+  size_bytes bigint default 0,
+  uploaded_by uuid not null references auth.users(id) on delete cascade,
+  is_public boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists daily_attachments_daily_id_idx on public.daily_attachments (daily_id);
+create index if not exists daily_attachments_uploaded_by_idx on public.daily_attachments (uploaded_by);
+
+alter table public.daily_attachments enable row level security;
+
+drop policy if exists "public reads public daily attachments" on public.daily_attachments;
+create policy "public reads public daily attachments" on public.daily_attachments for select using (
+  is_public = true
+  and exists (
+    select 1
+    from public.field_logs
+    where field_logs.id = daily_id
+      and field_logs.is_public = true
+  )
+);
+
+drop policy if exists "owner reads own daily attachments" on public.daily_attachments;
+create policy "owner reads own daily attachments" on public.daily_attachments for select to authenticated using (
+  auth.uid() = uploaded_by
+  or exists (
+    select 1
+    from public.field_logs
+    where field_logs.id = daily_id
+      and field_logs.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "owner inserts own daily attachments" on public.daily_attachments;
+create policy "owner inserts own daily attachments" on public.daily_attachments for insert to authenticated with check (
+  auth.uid() = uploaded_by
+  and exists (
+    select 1
+    from public.field_logs
+    where field_logs.id = daily_id
+      and field_logs.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "owner updates own daily attachments" on public.daily_attachments;
+create policy "owner updates own daily attachments" on public.daily_attachments for update to authenticated using (
+  auth.uid() = uploaded_by
+  and exists (
+    select 1
+    from public.field_logs
+    where field_logs.id = daily_id
+      and field_logs.user_id = auth.uid()
+  )
+) with check (
+  auth.uid() = uploaded_by
+  and exists (
+    select 1
+    from public.field_logs
+    where field_logs.id = daily_id
+      and field_logs.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "owner deletes own daily attachments" on public.daily_attachments;
+create policy "owner deletes own daily attachments" on public.daily_attachments for delete to authenticated using (
+  auth.uid() = uploaded_by
+  and exists (
+    select 1
+    from public.field_logs
+    where field_logs.id = daily_id
+      and field_logs.user_id = auth.uid()
+  )
+);
+
+insert into storage.buckets (id, name, public)
+values ('daily-collection', 'daily-collection', false)
+on conflict (id) do nothing;
+
+drop policy if exists "authenticated uploads daily collection files" on storage.objects;
+create policy "authenticated uploads daily collection files" on storage.objects for insert to authenticated with check (
+  bucket_id = 'daily-collection'
+  and split_part(name, '/', 1) = auth.uid()::text
+);
+
+drop policy if exists "authenticated updates daily collection files" on storage.objects;
+create policy "authenticated updates daily collection files" on storage.objects for update to authenticated using (
+  bucket_id = 'daily-collection'
+  and split_part(name, '/', 1) = auth.uid()::text
+) with check (
+  bucket_id = 'daily-collection'
+  and split_part(name, '/', 1) = auth.uid()::text
+);
+
+drop policy if exists "authenticated deletes daily collection files" on storage.objects;
+create policy "authenticated deletes daily collection files" on storage.objects for delete to authenticated using (
+  bucket_id = 'daily-collection'
+  and split_part(name, '/', 1) = auth.uid()::text
+);

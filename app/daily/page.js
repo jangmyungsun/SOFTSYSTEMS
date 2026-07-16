@@ -13,6 +13,11 @@ import {
 import {
   getWeatherForDate,
 } from "../../lib/weather";
+import {
+  getAttachmentKind,
+  isAllowedAttachmentFile,
+  normalizeFileName,
+} from "../../lib/dailyAttachments";
 
 import EntryCard from "../../components/EntryCard";
 import LogForm from "../../components/LogForm";
@@ -20,7 +25,7 @@ import MediaUploader from "../../components/MediaUploader";
 import { useLanguage } from "../../components/LanguageProvider";
 
 const BUCKET_NAME =
-  "softsystems-media";
+  "daily-collection";
 
 function getTodayString() {
   return new Date()
@@ -35,39 +40,50 @@ function safeFileName(fileName) {
     .replace(/_+/g, "_");
 }
 
-function getMediaType(file) {
-  if (
-    file.type.startsWith(
-      "image/"
-    )
-  ) {
-    return "image";
+function normalizeAttachment(item) {
+  if (!item) {
+    return null;
   }
 
-  if (
-    file.type.startsWith(
-      "audio/"
-    )
-  ) {
-    return "audio";
+  if (item.id && item.storage_path) {
+    return {
+      id: item.id,
+      daily_id: item.daily_id,
+      storage_bucket: item.storage_bucket || BUCKET_NAME,
+      storage_path: item.storage_path,
+      original_filename: item.original_filename || item.name || "file",
+      mime_type: item.mime_type || item.type || "",
+      size_bytes: Number(item.size_bytes || item.size || 0),
+      created_at: item.created_at || item.uploaded_at || new Date().toISOString(),
+      uploaded_by: item.uploaded_by || item.user_id || null,
+      is_public: item.is_public !== false,
+      kind: item.kind || getAttachmentKind({
+        type: item.mime_type || item.type || "",
+        name: item.original_filename || item.name || "",
+      }),
+    };
   }
 
-  if (
-    file.type.startsWith(
-      "video/"
-    )
-  ) {
-    return "video";
+  if (item.path) {
+    return {
+      id: item.id || item.path,
+      daily_id: item.daily_id || null,
+      storage_bucket: item.bucket || BUCKET_NAME,
+      storage_path: item.path,
+      original_filename: item.name || "file",
+      mime_type: item.mime_type || "",
+      size_bytes: Number(item.size || 0),
+      created_at: item.uploaded_at || new Date().toISOString(),
+      uploaded_by: item.uploaded_by || null,
+      is_public: item.is_public !== false,
+      kind: item.type || getAttachmentKind({
+        type: item.mime_type || item.type || "",
+        name: item.name || "",
+      }),
+    };
   }
 
-  if (
-    file.type ===
-    "application/pdf"
-  ) {
-    return "pdf";
-  }
-
-  return "file";
+  return null;
 }
 
 export default function DailyPage() {
@@ -165,7 +181,23 @@ export default function DailyPage() {
             .from(
               "field_logs"
             )
-            .select("*")
+            .select(
+              `
+                *,
+                daily_attachments (
+                  id,
+                  daily_id,
+                  storage_bucket,
+                  storage_path,
+                  original_filename,
+                  mime_type,
+                  size_bytes,
+                  created_at,
+                  uploaded_by,
+                  is_public
+                )
+              `
+            )
             .order(
               "date",
               {
@@ -215,7 +247,12 @@ export default function DailyPage() {
         }
 
         setLogs(
-          data || []
+          (data || []).map((log) => ({
+            ...log,
+            daily_attachments: Array.isArray(log.daily_attachments)
+              ? log.daily_attachments.map(normalizeAttachment).filter(Boolean)
+              : [],
+          }))
         );
 
         setLogsLoading(
@@ -443,10 +480,15 @@ export default function DailyPage() {
           continue;
         }
 
-        const cleanName =
-          safeFileName(
-            file.name
+        if (!isAllowedAttachmentFile(file)) {
+          throw new Error(
+            `Unsupported file type: ${file.name}`
           );
+        }
+
+        const cleanName =
+          normalizeFileName(file.name) ||
+          safeFileName(file.name);
 
         const uniqueName =
           `${Date.now()}-` +
@@ -499,18 +541,19 @@ export default function DailyPage() {
           path:
             filePath,
 
-          name:
+          original_filename:
             file.name,
 
-          type:
-            getMediaType(
-              file
-            ),
+          kind:
+            getAttachmentKind({
+              type: file.type,
+              name: file.name,
+            }),
 
           mime_type:
             file.type,
 
-          size:
+          size_bytes:
             file.size,
 
           uploaded_at:
@@ -662,7 +705,11 @@ export default function DailyPage() {
           await uploadSelectedFiles();
 
         const finalMedia = [
-          ...existingMedia,
+          ...(
+            Array.isArray(existingMedia)
+              ? existingMedia
+              : []
+          ),
           ...newlyUploadedMedia,
         ];
 
@@ -769,6 +816,82 @@ export default function DailyPage() {
             throw updateError;
           }
 
+          const originalAttachments = Array.isArray(editing.daily_attachments)
+            ? editing.daily_attachments
+            : [];
+
+          const currentAttachmentIds = new Set(
+            existingMedia.map((item) => item.id).filter(Boolean)
+          );
+
+          const removedAttachments = originalAttachments.filter(
+            (item) => item.id && !currentAttachmentIds.has(item.id)
+          );
+
+          if (removedAttachments.length) {
+            const removedPaths = removedAttachments.map((item) => item.storage_path).filter(Boolean);
+
+            if (removedPaths.length) {
+              const { error: storageError } = await supabase.storage
+                .from(BUCKET_NAME)
+                .remove(removedPaths);
+
+              if (storageError) {
+                throw storageError;
+              }
+            }
+
+            const { error: deleteAttachmentsError } = await supabase
+              .from("daily_attachments")
+              .delete()
+              .in(
+                "id",
+                removedAttachments.map((item) => item.id)
+              );
+
+            if (deleteAttachmentsError) {
+              throw deleteAttachmentsError;
+            }
+          }
+
+          const legacyAttachmentRows = existingMedia
+            .filter((item) => !item.id && (item.path || item.storage_path))
+            .map((item) => ({
+              daily_id: editing.id,
+              storage_bucket: item.storage_bucket || item.bucket || BUCKET_NAME,
+              storage_path: item.storage_path || item.path,
+              original_filename: item.original_filename || item.name || "file",
+              mime_type: item.mime_type || "",
+              size_bytes: Number(item.size_bytes || item.size || 0),
+              uploaded_by: session.user.id,
+              is_public: item.is_public !== false,
+            }))
+            .filter((item) => item.storage_path);
+
+          const attachmentRows = [
+            ...legacyAttachmentRows,
+            ...newlyUploadedMedia.map((item) => ({
+              daily_id: editing.id,
+              storage_bucket: item.bucket,
+              storage_path: item.path,
+              original_filename: item.original_filename,
+              mime_type: item.mime_type,
+              size_bytes: item.size_bytes,
+              uploaded_by: session.user.id,
+              is_public: Boolean(finalPayload.is_public),
+            })),
+          ];
+
+          if (attachmentRows.length) {
+            const { error: attachmentError } = await supabase
+              .from("daily_attachments")
+              .insert(attachmentRows);
+
+            if (attachmentError) {
+              throw attachmentError;
+            }
+          }
+
           savedLogId =
             editing.id;
         } else {
@@ -808,6 +931,27 @@ export default function DailyPage() {
 
           savedLogId =
             insertedLog.id;
+
+          if (newlyUploadedMedia.length) {
+            const attachmentRows = newlyUploadedMedia.map((item) => ({
+              daily_id: savedLogId,
+              storage_bucket: item.bucket,
+              storage_path: item.path,
+              original_filename: item.original_filename,
+              mime_type: item.mime_type,
+              size_bytes: item.size_bytes,
+              uploaded_by: session.user.id,
+              is_public: Boolean(finalPayload.is_public),
+            }));
+
+            const { error: attachmentError } = await supabase
+              .from("daily_attachments")
+              .insert(attachmentRows);
+
+            if (attachmentError) {
+              throw attachmentError;
+            }
+          }
         }
 
         /*
@@ -944,11 +1088,11 @@ export default function DailyPage() {
       setSelectedFiles([]);
 
       setExistingMedia(
-        Array.isArray(
-          log.media
-        )
-          ? log.media
-          : []
+        Array.isArray(log.daily_attachments)
+          ? log.daily_attachments.map(normalizeAttachment).filter(Boolean)
+          : Array.isArray(log.media)
+            ? log.media.map(normalizeAttachment).filter(Boolean)
+            : []
       );
 
       setEnvironment(
@@ -1002,7 +1146,7 @@ export default function DailyPage() {
     async (item) => {
       const confirmed =
         window.confirm(
-          `Remove ${item.name}?`
+          `Remove ${item.original_filename || item.name}?`
         );
 
       if (!confirmed) {
@@ -1015,8 +1159,8 @@ export default function DailyPage() {
             (
               mediaItem
             ) =>
-              mediaItem.path !==
-              item.path
+              mediaItem.id !==
+              item.id
           )
       );
     };
@@ -1080,44 +1224,40 @@ export default function DailyPage() {
         return;
       }
 
-      const paths = (
-        Array.isArray(
-          log.media
-        )
+      const attachments = Array.isArray(log.daily_attachments)
+        ? log.daily_attachments
+        : Array.isArray(log.media)
           ? log.media
-          : []
-      )
-        .map(
-          (item) =>
-            item.path
-        )
+          : [];
+
+      const storagePaths = attachments
+        .map((item) => item.storage_path || item.path)
         .filter(Boolean);
 
-      if (paths.length) {
-        const {
-          error:
-            storageError,
-        } = await supabase
-          .storage
-          .from(
-            BUCKET_NAME
-          )
-          .remove(paths);
+      if (storagePaths.length) {
+        const { error: storageError } = await supabase.storage
+          .from(BUCKET_NAME)
+          .remove(storagePaths);
 
-        if (
-          storageError
-        ) {
-          console.error(
-            "Storage deletion error:",
-            storageError
-          );
+        if (storageError) {
+          console.error("Storage deletion error:", storageError);
 
-          window.alert(
-            `Media deletion warning: ${
-              storageError
-                .message
-            }`
-          );
+          window.alert(`Attachment deletion warning: ${storageError.message}`);
+        }
+      }
+
+      const attachmentIds = attachments
+        .map((item) => item.id)
+        .filter(Boolean);
+
+      if (attachmentIds.length) {
+        const { error: attachmentError } = await supabase
+          .from("daily_attachments")
+          .delete()
+          .in("id", attachmentIds);
+
+        if (attachmentError) {
+          console.error("Attachment row deletion error:", attachmentError);
         }
       }
 

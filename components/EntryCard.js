@@ -1,4 +1,4 @@
-import MediaPreview from "./MediaPreview";
+import DailyAttachments from "./DailyAttachments";
 import TranslateButton from "./TranslateButton";
 import { useLanguage } from "./LanguageProvider";
 
@@ -72,7 +72,11 @@ export default function EntryCard({
   const windUnit = environment.units?.wind || "";
 
   const learningItems = Array.isArray(log.learning) ? log.learning : [];
-  const mediaItems = Array.isArray(log.media) ? log.media : [];
+  const attachmentItems = Array.isArray(log.daily_attachments)
+    ? log.daily_attachments
+    : Array.isArray(log.media)
+      ? log.media
+      : [];
   const tomorrowItems = Array.isArray(log.tomorrow) ? log.tomorrow : [];
   const makingItems = Array.isArray(work.items) ? work.items : [];
 
@@ -218,21 +222,10 @@ export default function EntryCard({
         </section>
 
         <section className="block full">
-          <p className="block-title">{t("common.collection")}</p>
-
-          {mediaItems.length > 0 ? (
-            <div className="media-gallery">
-              {mediaItems.map((item, index) => (
-                <MediaPreview
-                  key={item.path || item.id || `${item.name || "media"}-${index}`}
-                  logId={log.id}
-                  item={item}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="muted">{t("common.noCollectedMedia")}</p>
-          )}
+          <DailyAttachments
+            attachments={attachmentItems}
+            label={t("media.attachments")}
+          />
         </section>
 
         <section className="block full">

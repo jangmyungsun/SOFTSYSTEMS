@@ -5,32 +5,60 @@ import {
   useState,
 } from "react";
 
+import { supabase } from "../lib/supabaseClient";
+import { getIntlLocale } from "../lib/i18n";
+import { getAttachmentKind, formatFileSize } from "../lib/dailyAttachments";
 import { useLanguage } from "./LanguageProvider";
 
-function translateMediaType(t, value) {
-  const key = `media.types.${String(value || "file").toLowerCase()}`;
-  const translated = t(key);
+function formatDate(value, locale) {
+  if (!value) {
+    return "";
+  }
 
-  return translated === key ? t("media.types.file") : translated;
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleString(getIntlLocale(locale), {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
-export default function MediaPreview({
-  logId,
-  item,
-}) {
+function translateAttachmentType(t, kind) {
+  const keyMap = {
+    image: "media.types.image",
+    audio: "media.types.audio",
+    video: "media.types.video",
+    pdf: "media.types.pdf",
+    document: "media.types.file",
+    file: "media.types.file",
+  };
+
+  return t(keyMap[kind] || keyMap.file);
+}
+
+export default function MediaPreview({ attachment }) {
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
-  const [signedUrl, setSignedUrl] =
-    useState("");
+  const locale = language?.locale ?? "en";
 
-  const [status, setStatus] =
-    useState("loading");
+  const [signedUrl, setSignedUrl] = useState("");
+  const [status, setStatus] = useState("loading");
+
+  const kind = getAttachmentKind({
+    type: attachment?.mime_type,
+    name: attachment?.original_filename,
+  });
 
   useEffect(() => {
-    let active = true;
+    let mounted = true;
 
     async function loadSignedUrl() {
-      if (!logId || !item?.path) {
+      if (!attachment?.id) {
         setStatus("error");
         return;
       }
@@ -38,44 +66,40 @@ export default function MediaPreview({
       try {
         setStatus("loading");
 
+        const {
+          data: sessionData,
+        } = await supabase.auth.getSession();
+
+        const accessToken =
+          sessionData?.session?.access_token || "";
+
         const response = await fetch(
-          "/api/media-url",
+          `/api/daily/attachments/${attachment.id}`,
           {
-            method: "POST",
-
             headers: {
-              "Content-Type":
-                "application/json",
+              ...(accessToken
+                ? {
+                    Authorization: `Bearer ${accessToken}`,
+                  }
+                : {}),
             },
-
-            body: JSON.stringify({
-              logId,
-              filePath: item.path,
-            }),
           }
         );
 
-        const result =
-          await response.json();
+        const result = await response.json().catch(() => ({}));
 
-        if (!response.ok) {
-          throw new Error(
-            result.error ||
-              t("media.requestFailed")
-          );
+        if (!response.ok || !result?.signedUrl) {
+          throw new Error(result?.error || t("media.requestFailed"));
         }
 
-        if (active) {
-          setSignedUrl(
-            result.signedUrl
-          );
-
+        if (mounted) {
+          setSignedUrl(result.signedUrl);
           setStatus("ready");
         }
       } catch (error) {
-        console.error(error);
+        console.error("Attachment preview error:", error);
 
-        if (active) {
+        if (mounted) {
           setStatus("error");
         }
       }
@@ -84,103 +108,107 @@ export default function MediaPreview({
     loadSignedUrl();
 
     return () => {
-      active = false;
+      mounted = false;
     };
-  }, [logId, item?.path]);
+  }, [attachment?.id, t]);
+
+  async function handleDownload() {
+    if (!attachment?.id) {
+      return;
+    }
+
+    try {
+      const {
+        data: sessionData,
+      } = await supabase.auth.getSession();
+
+      const accessToken = sessionData?.session?.access_token || "";
+
+      const response = await fetch(
+        `/api/daily/attachments/${attachment.id}?download=1`,
+        {
+          headers: {
+            ...(accessToken
+              ? {
+                  Authorization: `Bearer ${accessToken}`,
+                }
+              : {}),
+          },
+        }
+      );
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result?.signedUrl) {
+        throw new Error(result?.error || t("media.requestFailed"));
+      }
+
+      window.location.href = result.signedUrl;
+    } catch (error) {
+      console.error("Attachment download error:", error);
+
+      if (signedUrl) {
+        window.open(signedUrl, "_blank", "noreferrer");
+      }
+    }
+  }
 
   if (status === "loading") {
     return (
       <div className="media-preview">
-        <p className="muted">
-          {t("media.loading")}
-        </p>
+        <p className="muted">{t("media.loading")}</p>
       </div>
     );
   }
 
-  if (
-    status === "error" ||
-    !signedUrl
-  ) {
+  if (status === "error" || !signedUrl) {
     return (
       <div className="media-preview">
         <p>
-          {translateMediaType(
-            t,
-            item?.type
-          )} —{" "}
-          {item?.name || t("media.untitled")}
+          {translateAttachmentType(t, kind)} — {attachment?.original_filename || t("media.untitled")}
         </p>
 
-        <p className="muted">
-          {t("media.previewUnavailable")}
-        </p>
+        <p className="muted">{t("media.previewUnavailable")}</p>
       </div>
     );
   }
-
-  const mediaType =
-    item?.type || "file";
 
   return (
     <div className="media-preview">
       <div className="media-preview-head">
-        <p>
-          {translateMediaType(
-            t,
-            mediaType
-          )} —{" "}
-          {item?.name || t("media.untitled")}
-        </p>
+        <div>
+          <p>
+            {translateAttachmentType(t, kind)} — {attachment?.original_filename || t("media.untitled")}
+          </p>
 
-        <a
-          className="button-link"
-          href={signedUrl}
-          target="_blank"
-          rel="noreferrer"
-        >
-          {t("media.open")}
-        </a>
+          <p className="muted">
+            {[formatFileSize(attachment?.size_bytes), formatDate(attachment?.created_at, locale)]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+
+        <div className="actions">
+          <a className="button-link" href={signedUrl} target="_blank" rel="noreferrer">
+            {t("media.open")}
+          </a>
+
+          <button type="button" className="translate-toggle" onClick={handleDownload}>
+            {t("media.download")}
+          </button>
+        </div>
       </div>
 
-      {mediaType === "image" && (
-        <img
-          className="media-image"
-          src={signedUrl}
-          alt={
-            item?.name ||
-            t("media.collectedImage")
-          }
-        />
+      {kind === "image" && (
+        <img className="media-image" src={signedUrl} alt={attachment?.original_filename || t("media.collectedImage")} />
       )}
 
-      {mediaType === "audio" && (
-        <audio
-          className="media-audio"
-          controls
-          preload="metadata"
-          src={signedUrl}
-        />
-      )}
+      {kind === "audio" && <audio className="media-audio" controls preload="metadata" src={signedUrl} />}
 
-      {mediaType === "video" && (
-        <video
-          className="media-video"
-          controls
-          preload="metadata"
-          src={signedUrl}
-        />
-      )}
+      {kind === "video" && <video className="media-video" controls preload="metadata" src={signedUrl} />}
 
-      {mediaType === "pdf" && (
-        <iframe
-          className="media-pdf"
-          src={signedUrl}
-          title={
-            item?.name ||
-            t("media.collectedPdf")
-          }
-        />
+      {kind === "pdf" && (
+        <iframe className="media-pdf" src={signedUrl} title={attachment?.original_filename || t("media.collectedPdf")} />
       )}
     </div>
   );
