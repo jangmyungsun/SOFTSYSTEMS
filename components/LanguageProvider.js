@@ -4,7 +4,6 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 import {
   getBrowserLocaleValue,
-  getInitialLocale,
   getLocaleFromCountryCode,
   getLocaleFromStorage,
   getSupportedLocales,
@@ -13,24 +12,22 @@ import {
 } from "../lib/i18n";
 
 const LanguageContext = createContext(null);
+const DEFAULT_LOCALE = "en";
 
 export function LanguageProvider({ children }) {
-  const [locale, setLocale] = useState(() => getInitialLocale());
+  const [locale, setLocale] = useState(DEFAULT_LOCALE);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    const initialLocale = getInitialLocale();
-    setLocale(initialLocale);
     if (typeof document !== "undefined") {
-      document.documentElement.lang = initialLocale;
+      document.documentElement.lang = locale;
     }
+  }, [locale]);
 
-    if (getLocaleFromStorage()) {
-      return;
-    }
+  useEffect(() => {
+    let isCancelled = false;
 
-    if (getBrowserLocaleValue()) {
-      return;
-    }
+    setIsHydrated(true);
 
     async function resolveCountryLocale() {
       try {
@@ -46,32 +43,52 @@ export function LanguageProvider({ children }) {
         }
 
         const data = await response.json();
-        const resolvedLocale = getLocaleFromCountryCode(data?.country) || "en";
+        const resolvedLocale =
+          getLocaleFromCountryCode(data?.country) || DEFAULT_LOCALE;
+
+        if (isCancelled) {
+          return;
+        }
 
         setLocale(resolvedLocale);
-        if (typeof document !== "undefined") {
-          document.documentElement.lang = resolvedLocale;
-        }
       } catch (error) {
         // ignore unavailable locale detection
       }
     }
 
+    const storedLocale = getLocaleFromStorage();
+    if (storedLocale) {
+      setLocale(storedLocale);
+      return () => {
+        isCancelled = true;
+      };
+    }
+
+    const browserLocale = getBrowserLocaleValue();
+    if (browserLocale) {
+      setLocale(browserLocale);
+      return () => {
+        isCancelled = true;
+      };
+    }
+
     resolveCountryLocale();
+
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   const value = useMemo(() => ({
     locale,
+    isHydrated,
     setLocale: (nextLocale) => {
       const normalized = setLocalePreference(nextLocale);
       setLocale(normalized);
-      if (typeof document !== "undefined") {
-        document.documentElement.lang = normalized;
-      }
     },
     t: (key, params) => translate(locale, key, params),
     locales: getSupportedLocales(),
-  }), [locale]);
+  }), [isHydrated, locale]);
 
   return (
     <LanguageContext.Provider value={value}>
