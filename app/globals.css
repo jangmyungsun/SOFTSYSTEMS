@@ -1,28 +1,6 @@
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
-html,
-body {
-  font-family:
-    "Pretendard",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}
 
-html,
-body,
-button,
-input,
-textarea,
-select {
-  font-family:
-    "Pretendard",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}* 
-{
+* {
   box-sizing: border-box;
 }
 
@@ -33,6 +11,8 @@ select {
   --muted: #766f64;
   --line: #d8cec0;
   --soft: rgba(255, 255, 255, 0.58);
+  --font-ui: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --font-body: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 html,
@@ -55,20 +35,24 @@ body {
     );
 
   color: var(--ink);
-
-  font-family:
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    "Liberation Mono",
-    "Pretendard",
-    "Noto Sans KR",
-    sans-serif;
-
+  font-family: var(--font-ui);
   line-height: 1.6;
   word-break: keep-all;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+.long-form,
+.visitor-letter-message,
+.visitor-letter-meta,
+.subtitle,
+.muted {
+  font-family: var(--font-body);
 }
 
 a {
@@ -121,6 +105,75 @@ button {
 
   font: inherit;
   cursor: pointer;
+}
+
+.nav-action {
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+}
+
+.status {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--ink);
+}
+
+.status.success {
+  border-color: var(--ink);
+  background: rgba(33, 31, 27, 0.06);
+}
+
+.status.error {
+  border-color: #a85b4f;
+  color: #7a2d24;
+}
+
+.radio-group {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 18px;
+}
+
+.radio-option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.4);
+  color: var(--ink);
+}
+
+.radio-option input {
+  width: auto;
+  margin-top: 2px;
+}
+
+.radio-option strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.admin-card {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.admin-actions button {
+  padding: 8px 10px;
+  font-size: 12px;
 }
 
 /* Forms */

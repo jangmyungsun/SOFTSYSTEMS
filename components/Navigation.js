@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+
+import { supabase } from "../lib/supabaseClient";
 
 const links = [
   ["/", "Home"],
@@ -10,11 +13,38 @@ const links = [
   ["https://617068.cargo.site/", "Output", true],
   ["/about", "About"],
   ["/letters", "Visitor Letters"],
-  ["/login", "Login"],
 ];
 
 export default function Navigation() {
   const pathname = usePathname();
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    async function loadSession() {
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
+
+      setSession(currentSession);
+    }
+
+    loadSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      (_event, nextSession) => {
+        setSession(nextSession);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    setSession(null);
+  }
 
   return (
     <nav className="nav">
@@ -38,6 +68,16 @@ export default function Navigation() {
           </Link>
         )
       )}
+
+      {session ? (
+        <button
+          type="button"
+          className="nav-action"
+          onClick={handleSignOut}
+        >
+          Logout
+        </button>
+      ) : null}
     </nav>
   );
 }
