@@ -86,6 +86,7 @@ function normalizeAttachment(item) {
   return null;
 }
 
+
 async function fetchAttachmentsByDailyId(logs) {
   const dailyIds = Array.isArray(logs)
     ? logs.map((log) => log.id).filter(Boolean)
@@ -814,9 +815,6 @@ export default function DailyPage() {
           environment:
             finalEnvironment ||
             {},
-
-          media:
-            finalMedia,
 
           /*
            * 현재 LogForm은 공개 여부 입력이 없으므로
