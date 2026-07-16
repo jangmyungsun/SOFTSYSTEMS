@@ -5,6 +5,8 @@ import {
   useState,
 } from "react";
 
+import { useLanguage } from "./LanguageProvider";
+
 const ARCHIVE_TYPES = [
   {
     value: "essay",
