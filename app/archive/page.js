@@ -68,6 +68,22 @@ function normalizeEntry(entry) {
   return {
     ...entry,
 
+    entry_date:
+      entry?.entry_date ||
+      entry?.date ||
+      "",
+
+    body:
+      entry?.body ||
+      entry?.notes ||
+      "",
+
+    url:
+      entry?.url ||
+      entry?.link ||
+      entry?.file_url ||
+      "",
+
     tags:
       normalizeTags(
         entry?.tags
@@ -241,18 +257,11 @@ export default function ArchivePage() {
           await Promise.all([
             supabase
               .from(
-                "archive_entries"
+                "archive_items"
               )
               .select("*")
               .order(
-                "entry_date",
-                {
-                  ascending:
-                    false,
-                }
-              )
-              .order(
-                "created_at",
+                "date",
                 {
                   ascending:
                     false,
@@ -629,7 +638,7 @@ export default function ArchivePage() {
             error,
           } = await supabase
             .from(
-              "archive_entries"
+              "archive_items"
             )
             .update({
               type:
@@ -638,14 +647,20 @@ export default function ArchivePage() {
               title:
                 values.title,
 
-              entry_date:
+              date:
                 values.entry_date,
 
-              body:
+              notes:
                 values.body,
 
-              url:
+              link:
                 values.url,
+
+              file_url:
+                values.url,
+
+              creator:
+                editingEntry?.creator || "",
 
               tags:
                 values.tags,
@@ -677,7 +692,7 @@ export default function ArchivePage() {
             error,
           } = await supabase
             .from(
-              "archive_entries"
+              "archive_items"
             )
             .insert({
               user_id:
@@ -689,14 +704,20 @@ export default function ArchivePage() {
               title:
                 values.title,
 
-              entry_date:
+              date:
                 values.entry_date,
 
-              body:
+              notes:
                 values.body,
 
-              url:
+              link:
                 values.url,
+
+              file_url:
+                values.url,
+
+              creator:
+                "",
 
               tags:
                 values.tags,
@@ -795,7 +816,7 @@ export default function ArchivePage() {
         error,
       } = await supabase
         .from(
-          "archive_entries"
+          "archive_items"
         )
         .delete()
         .eq(
@@ -846,7 +867,7 @@ export default function ArchivePage() {
         error,
       } = await supabase
         .from(
-          "archive_entries"
+          "archive_items"
         )
         .update({
           is_public:
