@@ -109,6 +109,8 @@ export default function ArchiveForm({
   onCancel,
   submitting = false,
 }) {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
   const [
     form,
     setForm,
@@ -168,7 +170,7 @@ export default function ArchiveForm({
 
     if (!title) {
       window.alert(
-        "Please enter a title."
+        t("archiveForm.titleRequired")
       );
 
       return;
@@ -180,7 +182,7 @@ export default function ArchiveForm({
       !body
     ) {
       window.alert(
-        "Please enter the archive text."
+        t("archiveForm.bodyRequired")
       );
 
       return;
@@ -193,7 +195,7 @@ export default function ArchiveForm({
       !body
     ) {
       window.alert(
-        "Please enter a video URL or description."
+        t("archiveForm.videoRequired")
       );
 
       return;
@@ -229,26 +231,22 @@ export default function ArchiveForm({
     >
       <section className="form-section">
         <p className="eyebrow">
-          Archive Entry
+          {t("common.archiveEntry")}
         </p>
 
         <h2>
           {initial
-            ? "Edit Archive"
-            : "New Archive"}
+            ? t("common.editArchive")
+            : t("common.newArchive")}
         </h2>
 
         <p className="subtitle">
-          Store writing,
-          reflections, project
-          records, videos, and
-          references in one
-          archive.
+          {t("archiveForm.subtitle")}
         </p>
       </section>
 
       <section className="form-section">
-        <h3>Type</h3>
+        <h3>{t("common.type")}</h3>
 
         <div className="artistic-type-list">
           {ARCHIVE_TYPES.map(
@@ -285,7 +283,7 @@ export default function ArchiveForm({
                   />
 
                   <span>
-                    {item.label}
+                    {t(`archive.types.${item.value.replace(/-/g, "_")}`)}
                   </span>
                 </label>
               );
@@ -297,7 +295,7 @@ export default function ArchiveForm({
       <section className="form-section">
         <div className="grid two">
           <label>
-            Date
+            {t("common.date")}
 
             <input
               type="date"
@@ -318,11 +316,11 @@ export default function ArchiveForm({
           </label>
 
           <label>
-            Title
+            {t("common.title")}
 
             <input
               type="text"
-              placeholder="Archive title"
+              placeholder={t("common.archiveTitle")}
               value={
                 form.title
               }
@@ -345,25 +343,25 @@ export default function ArchiveForm({
         <label>
           {form.type ===
           "video"
-            ? "Description or Transcript"
-            : "Body"}
+            ? t("common.descriptionOrTranscript")
+            : t("common.bodyLabel")}
 
           <textarea
             rows={14}
             placeholder={
               form.type ===
               "essay"
-                ? "Write the full essay here."
+                ? t("archiveForm.placeholders.essay")
                 : form.type ===
                   "reflection"
-                ? "Write the thought or reflection you want to preserve."
+                ? t("archiveForm.placeholders.reflection")
                 : form.type ===
                   "project-log"
-                ? "Record the project process, decisions, questions, or changes."
+                ? t("archiveForm.placeholders.project_log")
                 : form.type ===
                   "video"
-                ? "Add a description, transcript, or notes about the video."
-                : "Record the reference and why it matters."
+                ? t("archiveForm.placeholders.video")
+                : t("archiveForm.placeholders.reference")
             }
             value={
               form.body
@@ -383,15 +381,15 @@ export default function ArchiveForm({
 
       <section className="form-section">
         <label>
-          URL
+          {t("common.url")}
 
           <input
             type="url"
             placeholder={
               form.type ===
               "video"
-                ? "YouTube or Vimeo URL"
-                : "Optional external link"
+                ? t("archiveForm.videoUrl")
+                : t("archiveForm.externalUrl")
             }
             value={
               form.url
@@ -411,11 +409,11 @@ export default function ArchiveForm({
 
       <section className="form-section">
         <label>
-          Tags
+          {t("common.tags")}
 
           <input
             type="text"
-            placeholder="care, maintenance, body, sound"
+            placeholder={t("archiveForm.tagsPlaceholder")}
             value={
               form.tags_text
             }
@@ -432,8 +430,7 @@ export default function ArchiveForm({
         </label>
 
         <p className="muted">
-          Separate tags with
-          commas.
+          {t("archiveForm.tagsHelp")}
         </p>
       </section>
 
@@ -456,16 +453,12 @@ export default function ArchiveForm({
           />
 
           <span>
-            Public Archive
+            {t("common.publicArchive")}
           </span>
         </label>
 
         <p className="muted">
-          Public entries can be
-          shown on the Archive
-          page. Private entries
-          remain visible only to
-          the signed-in owner.
+          {t("common.publicArchiveHelp")}
         </p>
       </section>
 
@@ -478,10 +471,10 @@ export default function ArchiveForm({
           }
         >
           {submitting
-            ? "Saving…"
+            ? t("common.saving")
             : initial
-            ? "Update Archive"
-            : "Save Archive"}
+            ? t("common.updateArchive")
+            : t("common.saveArchive")}
         </button>
 
         {onCancel && (
@@ -494,7 +487,7 @@ export default function ArchiveForm({
               submitting
             }
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         )}
       </div>

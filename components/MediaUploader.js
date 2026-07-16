@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "./LanguageProvider";
+
 function getMediaType(file) {
   if (file.type.startsWith("image/")) {
     return "image";
@@ -20,12 +22,21 @@ function getMediaType(file) {
   return "file";
 }
 
+function translateMediaType(t, value) {
+  const key = `media.types.${String(value || "file").toLowerCase()}`;
+  const translated = t(key);
+
+  return translated === key ? t("media.types.file") : translated;
+}
+
 export default function MediaUploader({
   selectedFiles = [],
   existingMedia = [],
   onFilesChange,
   onRemoveExisting,
 }) {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
   const selectFiles = (event) => {
     const files = Array.from(
       event.target.files || []
@@ -63,11 +74,11 @@ export default function MediaUploader({
   return (
     <section className="block">
       <p className="block-title">
-        Collection
+        {t("media.collection")}
       </p>
 
       <label>
-        Add files
+        {t("media.addFiles")}
         <input
           type="file"
           multiple
@@ -86,14 +97,13 @@ export default function MediaUploader({
       </label>
 
       <p className="muted">
-        Files will upload when you press
-        Save Daily.
+        {t("media.uploadHelp")}
       </p>
 
       {existingMedia.length > 0 && (
         <div className="media-list">
           <p className="block-title">
-            Saved Files
+            {t("media.savedFiles")}
           </p>
 
           {existingMedia.map(
@@ -107,7 +117,10 @@ export default function MediaUploader({
               >
                 <div>
                   <p>
-                    {item.type || "file"} —{" "}
+                    {translateMediaType(
+                      t,
+                      item.type
+                    )} —{" "}
                     {item.name}
                   </p>
 
@@ -129,7 +142,7 @@ export default function MediaUploader({
                     onRemoveExisting(item)
                   }
                 >
-                  Remove
+                  {t("media.remove")}
                 </button>
               </div>
             )
@@ -140,7 +153,7 @@ export default function MediaUploader({
       {selectedFiles.length > 0 && (
         <div className="media-list">
           <p className="block-title">
-            Waiting to Upload
+            {t("media.waitingToUpload")}
           </p>
 
           {selectedFiles.map((item) => (
@@ -150,7 +163,10 @@ export default function MediaUploader({
             >
               <div>
                 <p>
-                  {item.type} — {item.name}
+                  {translateMediaType(
+                    t,
+                    item.type
+                  )} — {item.name}
                 </p>
 
                 <p className="muted">
@@ -169,7 +185,7 @@ export default function MediaUploader({
                   removeSelected(item.id)
                 }
               >
-                Remove
+                {t("media.remove")}
               </button>
             </div>
           ))}

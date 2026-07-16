@@ -12,6 +12,7 @@ import {
   supabase,
 } from "../../lib/supabaseClient";
 
+import { getIntlLocale } from "../../lib/i18n";
 import {
   getHomeState,
   parseNumber,
@@ -20,6 +21,14 @@ import {
 } from "../../lib/utils";
 
 import { useLanguage } from "../../components/LanguageProvider";
+
+function toValueKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
 
 function getSafeObject(value) {
   if (
@@ -276,7 +285,7 @@ function download(
   URL.revokeObjectURL(url);
 }
 
-function formatDateTime(value) {
+function formatDateTime(value, locale) {
   if (!value) {
     return "";
   }
@@ -293,7 +302,7 @@ function formatDateTime(value) {
   }
 
   return date.toLocaleString(
-    "en-US",
+    getIntlLocale(locale),
     {
       month: "short",
       day: "numeric",
@@ -307,6 +316,7 @@ function formatDateTime(value) {
 export default function ProcessPage() {
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
+  const locale = language?.locale ?? "en";
 
   const [
     logs,
@@ -705,7 +715,9 @@ export default function ProcessPage() {
 
                   <div className="big">
                     {
-                      homeState.bodyWeather
+                      t(`values.${toValueKey(homeState.bodyWeather)}`) !== `values.${toValueKey(homeState.bodyWeather)}`
+                        ? t(`values.${toValueKey(homeState.bodyWeather)}`)
+                        : homeState.bodyWeather
                     }
                   </div>
                 </div>
@@ -716,7 +728,9 @@ export default function ProcessPage() {
                   </p>
 
                   <div className="big">
-                    {mindWeather}
+                    {t(`values.${toValueKey(mindWeather)}`) !== `values.${toValueKey(mindWeather)}`
+                      ? t(`values.${toValueKey(mindWeather)}`)
+                      : mindWeather}
                   </div>
                 </div>
 
@@ -727,7 +741,9 @@ export default function ProcessPage() {
 
                   <div className="big">
                     {
-                      homeState.energyTone
+                      t(`values.${toValueKey(homeState.energyTone)}`) !== `values.${toValueKey(homeState.energyTone)}`
+                        ? t(`values.${toValueKey(homeState.energyTone)}`)
+                        : homeState.energyTone
                     }
                   </div>
                 </div>
@@ -846,8 +862,11 @@ export default function ProcessPage() {
                   </p>
 
                   <div className="big">
-                    {reading.current_mode ||
-                      "Unresolved"}
+                    {reading.current_mode
+                      ? t(`values.${toValueKey(reading.current_mode)}`) !== `values.${toValueKey(reading.current_mode)}`
+                        ? t(`values.${toValueKey(reading.current_mode)}`)
+                        : reading.current_mode
+                      : t("values.unresolved")}
                   </div>
 
                   {reading.overview && (
@@ -880,10 +899,10 @@ export default function ProcessPage() {
 
                   {systemSnapshot.generated_at && (
                     <p className="muted">
-                      Updated{" "}
+                      {t("common.updated")}{" "}
                       {formatDateTime(
-                        systemSnapshot
-                          .generated_at
+                        systemSnapshot.generated_at,
+                        locale
                       )}
                     </p>
                   )}
@@ -953,10 +972,10 @@ export default function ProcessPage() {
 
                   {weaveSnapshot.generated_at && (
                     <p className="muted">
-                      Updated{" "}
+                      {t("common.updated")}{" "}
                       {formatDateTime(
-                        weaveSnapshot
-                          .generated_at
+                        weaveSnapshot.generated_at,
+                        locale
                       )}
                     </p>
                   )}

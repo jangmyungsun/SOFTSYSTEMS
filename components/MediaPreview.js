@@ -5,10 +5,21 @@ import {
   useState,
 } from "react";
 
+import { useLanguage } from "./LanguageProvider";
+
+function translateMediaType(t, value) {
+  const key = `media.types.${String(value || "file").toLowerCase()}`;
+  const translated = t(key);
+
+  return translated === key ? t("media.types.file") : translated;
+}
+
 export default function MediaPreview({
   logId,
   item,
 }) {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
   const [signedUrl, setSignedUrl] =
     useState("");
 
@@ -50,7 +61,7 @@ export default function MediaPreview({
         if (!response.ok) {
           throw new Error(
             result.error ||
-              "Media URL request failed."
+              t("media.requestFailed")
           );
         }
 
@@ -81,7 +92,7 @@ export default function MediaPreview({
     return (
       <div className="media-preview">
         <p className="muted">
-          Loading media…
+          {t("media.loading")}
         </p>
       </div>
     );
@@ -94,12 +105,15 @@ export default function MediaPreview({
     return (
       <div className="media-preview">
         <p>
-          {item?.type || "file"} —{" "}
-          {item?.name || "Untitled"}
+          {translateMediaType(
+            t,
+            item?.type
+          )} —{" "}
+          {item?.name || t("media.untitled")}
         </p>
 
         <p className="muted">
-          Preview unavailable.
+          {t("media.previewUnavailable")}
         </p>
       </div>
     );
@@ -112,8 +126,11 @@ export default function MediaPreview({
     <div className="media-preview">
       <div className="media-preview-head">
         <p>
-          {mediaType} —{" "}
-          {item?.name || "Untitled"}
+          {translateMediaType(
+            t,
+            mediaType
+          )} —{" "}
+          {item?.name || t("media.untitled")}
         </p>
 
         <a
@@ -122,7 +139,7 @@ export default function MediaPreview({
           target="_blank"
           rel="noreferrer"
         >
-          Open
+          {t("media.open")}
         </a>
       </div>
 
@@ -132,7 +149,7 @@ export default function MediaPreview({
           src={signedUrl}
           alt={
             item?.name ||
-            "Collected image"
+            t("media.collectedImage")
           }
         />
       )}
@@ -161,7 +178,7 @@ export default function MediaPreview({
           src={signedUrl}
           title={
             item?.name ||
-            "Collected PDF"
+            t("media.collectedPdf")
           }
         />
       )}

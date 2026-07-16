@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { getIntlLocale } from "../../lib/i18n";
 import { useLanguage } from "../../components/LanguageProvider";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -11,7 +12,7 @@ const EMPTY_FORM = {
   wants_public: true,
 };
 
-function formatLetterDate(value) {
+function formatLetterDate(value, locale) {
   if (!value) {
     return "";
   }
@@ -22,7 +23,7 @@ function formatLetterDate(value) {
     return "";
   }
 
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleDateString(getIntlLocale(locale), {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -32,6 +33,7 @@ function formatLetterDate(value) {
 export default function VisitorLettersPage() {
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
+  const locale = language?.locale ?? "en";
   const [letters, setLetters] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
@@ -130,7 +132,7 @@ export default function VisitorLettersPage() {
     setStatusMessage("");
     setErrorMessage("");
 
-    const cleanName = form.name.trim() || "Anonymous";
+    const cleanName = form.name.trim() || t("letters.anonymous");
     const cleanMessage = form.message.trim();
 
     if (!cleanMessage) {
@@ -289,7 +291,7 @@ export default function VisitorLettersPage() {
 
           <p className="muted">{form.message.length}/2000</p>
 
-          <div className="radio-group" role="radiogroup" aria-label="Letter visibility">
+          <div className="radio-group" role="radiogroup" aria-label={t("letters.visibility")}> 
             <label className="radio-option">
               <input
                 type="radio"
@@ -345,7 +347,7 @@ export default function VisitorLettersPage() {
 
               <div className="visitor-letter-meta">
                 <span>— {latestLetter.name || t("letters.anonymous")}</span>
-                <span className="muted">{formatLetterDate(latestLetter.created_at)}</span>
+                <span className="muted">{formatLetterDate(latestLetter.created_at, locale)}</span>
               </div>
 
               <p className="muted">
@@ -390,7 +392,7 @@ export default function VisitorLettersPage() {
 
                 <div className="visitor-letter-meta">
                   <span>— {letter.name || t("letters.anonymous")}</span>
-                  <span className="muted">{formatLetterDate(letter.created_at)}</span>
+                  <span className="muted">{formatLetterDate(letter.created_at, locale)}</span>
                 </div>
               </article>
             ))}

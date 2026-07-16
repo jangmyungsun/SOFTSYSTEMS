@@ -11,9 +11,10 @@ import {
   supabase,
 } from "../../lib/supabaseClient";
 
+import { getIntlLocale } from "../../lib/i18n";
 import { useLanguage } from "../../components/LanguageProvider";
 
-function formatDateTime(value) {
+function formatDateTime(value, locale) {
   if (!value) {
     return "";
   }
@@ -27,7 +28,7 @@ function formatDateTime(value) {
   }
 
   return date.toLocaleString(
-    "en-US",
+    getIntlLocale(locale),
     {
       month: "short",
       day: "numeric",
@@ -62,6 +63,7 @@ function shorten(
 export default function WeavePage() {
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
+  const locale = language?.locale ?? "en";
   const canvasRef =
     useRef(null);
 
@@ -227,7 +229,7 @@ export default function WeavePage() {
         "15px monospace";
 
       context.fillText(
-        "The nightly Weave has not been generated yet.",
+        t("weave.canvasEmpty"),
         32,
         56
       );
@@ -461,7 +463,8 @@ export default function WeavePage() {
             <span className="badge">
               {t("common.updated")}{" "}
               {formatDateTime(
-                snapshot.generated_at
+                snapshot.generated_at,
+                locale
               )}
             </span>
           )}
@@ -473,13 +476,11 @@ export default function WeavePage() {
 
         {snapshot?.meta && (
           <p className="muted">
-            {snapshot.meta
-              .record_count || 0}{" "}
-            records ·{" "}
-            {edges.length}{" "}
-            connections · threshold{" "}
-            {snapshot.meta
-              .threshold || 0.72}
+            {t("weave.summary", {
+              count: snapshot.meta.record_count || 0,
+              connections: edges.length,
+              threshold: snapshot.meta.threshold || 0.72,
+            })}
           </p>
         )}
       </section>

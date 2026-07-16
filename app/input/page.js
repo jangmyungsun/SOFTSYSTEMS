@@ -237,7 +237,7 @@ export default function InputPage() {
                 </div>
 
                 <Link href="/archive">
-                  View All
+                  {t("input.viewAll")}
                 </Link>
               </div>
 
@@ -277,7 +277,7 @@ export default function InputPage() {
                 </div>
 
                 <Link href="/daily">
-                  View All
+                  {t("input.viewAll")}
                 </Link>
               </div>
 
@@ -289,8 +289,7 @@ export default function InputPage() {
                 />
               ) : (
                 <p className="muted">
-                  No public Daily
-                  entries yet.
+                  {t("input.noDailyRecords")}
                 </p>
               )}
             </section>

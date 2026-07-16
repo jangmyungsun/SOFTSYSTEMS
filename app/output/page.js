@@ -1,21 +1,24 @@
+"use client";
+
+import { useLanguage } from "../../components/LanguageProvider";
+
 export default function OutputPage() {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
+
   return (
     <>
       <section className="panel hero">
         <p className="eyebrow">
-          Output
+          {t("output.eyebrow")}
         </p>
 
         <h1>
-          Works emerging from
-          the system
+          {t("output.title")}
         </h1>
 
         <p className="subtitle">
-          Selected sound,
-          media, publication,
-          performance, and
-          web-based works.
+          {t("output.subtitle")}
         </p>
       </section>
 
@@ -23,21 +26,17 @@ export default function OutputPage() {
         <div className="entry-head">
           <div>
             <p className="eyebrow">
-              Portfolio
+              {t("output.portfolio")}
             </p>
 
             <h2>
-              Jang Myung Sun
+              {t("output.portfolioHeading")}
             </h2>
           </div>
         </div>
 
         <p className="subtitle">
-          Visit the external
-          portfolio to see
-          selected projects,
-          documentation, and
-          works.
+          {t("output.portfolioBody")}
         </p>
 
         <div className="actions">
@@ -47,7 +46,7 @@ export default function OutputPage() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Open Portfolio ↗
+            {t("output.openPortfolio")}
           </a>
         </div>
       </section>

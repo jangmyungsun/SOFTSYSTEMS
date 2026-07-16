@@ -519,8 +519,7 @@ export default function DataPage() {
           !errorMessage &&
           !rows.length && (
             <p className="muted">
-              No public numeric
-              data yet.
+              {t("data.noRows")}
             </p>
           )}
       </section>

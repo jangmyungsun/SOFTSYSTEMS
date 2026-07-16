@@ -9,6 +9,14 @@ import {
 } from '../../lib/utils';
 import { useLanguage } from '../../components/LanguageProvider';
 
+function toValueKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
 function parseMovementHours(value) {
   if (!value) return 0;
 
@@ -109,7 +117,7 @@ export default function StatisticsPage() {
         </div>
 
         <p className="muted">
-          total public
+          {t('stats.totalPublic')}
         </p>
       </div>
 
@@ -123,7 +131,7 @@ export default function StatisticsPage() {
         </div>
 
         <p className="muted">
-          total public
+          {t('stats.totalPublic')}
         </p>
       </div>
 
@@ -137,7 +145,7 @@ export default function StatisticsPage() {
         </div>
 
         <p className="muted">
-          total public
+          {t('stats.totalPublic')}
         </p>
       </div>
 
@@ -147,7 +155,9 @@ export default function StatisticsPage() {
         </p>
 
         <div className="big">
-          {h.bodyWeather}
+          {t(`values.${toValueKey(h.bodyWeather)}`) !== `values.${toValueKey(h.bodyWeather)}`
+            ? t(`values.${toValueKey(h.bodyWeather)}`)
+            : h.bodyWeather}
         </div>
       </div>
 
@@ -157,7 +167,9 @@ export default function StatisticsPage() {
         </p>
 
         <div className="big">
-          {mindWeather}
+          {t(`values.${toValueKey(mindWeather)}`) !== `values.${toValueKey(mindWeather)}`
+            ? t(`values.${toValueKey(mindWeather)}`)
+            : mindWeather}
         </div>
       </div>
 
@@ -167,7 +179,9 @@ export default function StatisticsPage() {
         </p>
 
         <div className="big">
-          {h.energyTone}
+          {t(`values.${toValueKey(h.energyTone)}`) !== `values.${toValueKey(h.energyTone)}`
+            ? t(`values.${toValueKey(h.energyTone)}`)
+            : h.energyTone}
         </div>
       </div>
 

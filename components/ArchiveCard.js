@@ -5,6 +5,14 @@ import { useState } from "react";
 import TranslateButton from "./TranslateButton";
 import { useLanguage } from "./LanguageProvider";
 
+function toValueKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 function formatLabel(value) {
   if (!value) {
     return "";
@@ -214,9 +222,9 @@ export default function ArchiveCard({
             <div className="archive-text-content">
               <div>
                 <p className="eyebrow">
-                  {formatLabel(
-                    entry.type
-                  )}
+                  {t(`archive.types.${toValueKey(entry.type)}`) !== `archive.types.${toValueKey(entry.type)}`
+                    ? t(`archive.types.${toValueKey(entry.type)}`)
+                    : formatLabel(entry.type)}
                 </p>
 
                 <h2>
@@ -331,9 +339,9 @@ export default function ArchiveCard({
             <div className="archive-modal-head">
               <div>
                 <p className="eyebrow">
-                  {formatLabel(
-                    entry.type
-                  )}
+                  {t(`archive.types.${toValueKey(entry.type)}`) !== `archive.types.${toValueKey(entry.type)}`
+                    ? t(`archive.types.${toValueKey(entry.type)}`)
+                    : formatLabel(entry.type)}
                 </p>
 
                 <h2>
@@ -362,7 +370,7 @@ export default function ArchiveCard({
                     src={embedUrl}
                     title={
                       entry.title ||
-                      "Archive video"
+                      t("archive.videoTitle")
                     }
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
@@ -391,7 +399,6 @@ export default function ArchiveCard({
                 <TranslateButton
                   originalText={entry.body}
                   sourceLanguage="en"
-                  targetLanguage="ko"
                   contentKey={`archive:${entry.id || entry.title || "entry"}`}
                   className="translate-block"
                 />

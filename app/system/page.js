@@ -9,9 +9,10 @@ import {
   supabase,
 } from "../../lib/supabaseClient";
 
+import { getIntlLocale } from "../../lib/i18n";
 import { useLanguage } from "../../components/LanguageProvider";
 
-function formatDateTime(value) {
+function formatDateTime(value, locale) {
   if (!value) {
     return "";
   }
@@ -25,7 +26,7 @@ function formatDateTime(value) {
   }
 
   return date.toLocaleString(
-    "en-US",
+    getIntlLocale(locale),
     {
       month: "short",
       day: "numeric",
@@ -64,6 +65,7 @@ function downloadFile(
 export default function SystemPage() {
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
+  const locale = language?.locale ?? "en";
 
   const [
     snapshot,
@@ -214,7 +216,8 @@ export default function SystemPage() {
             <span className="badge">
               {t("common.updated")}{" "}
               {formatDateTime(
-                snapshot.generated_at
+                snapshot.generated_at,
+                locale
               )}
             </span>
           )}
@@ -266,7 +269,7 @@ export default function SystemPage() {
 
               <div className="big">
                 {reading.current_mode ||
-                  "Unresolved"}
+                  t("values.unresolved")}
               </div>
 
               {reading.overview && (
@@ -284,15 +287,10 @@ export default function SystemPage() {
               )}
 
               <p className="muted">
-                Based on{" "}
-                {reading.record_count ||
-                  0}{" "}
-                records from the
-                latest{" "}
-                {snapshot.period_days ||
-                  reading.period_days ||
-                  30}{" "}
-                days.
+                {t("system.basedOnRecords", {
+                  count: reading.record_count || 0,
+                  days: snapshot.period_days || reading.period_days || 30,
+                })}
               </p>
             </section>
 

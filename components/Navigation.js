@@ -75,7 +75,7 @@ export default function Navigation() {
       )}
 
       <label className="lang-switch" htmlFor="locale-select">
-        <span className="visually-hidden">Language</span>
+        <span className="visually-hidden">{t("nav.language")}</span>
         <select
           id="locale-select"
           value={locale}

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { useLanguage } from "./LanguageProvider";
+
 const CACHE_KEY_PREFIX = "softsystems_translation_cache";
 const MAX_TEXT_LENGTH = 4000;
 
@@ -44,36 +46,43 @@ function writeCache(contentKey, sourceLanguage, targetLanguage, originalText, tr
 export default function TranslateButton({
   originalText,
   sourceLanguage = "en",
-  targetLanguage = "ko",
+  targetLanguage,
   contentKey,
   className = "",
 }) {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
+  const locale = language?.locale ?? "en";
+  const resolvedTargetLanguage = targetLanguage || locale;
   const [translatedText, setTranslatedText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [isShowingOriginal, setIsShowingOriginal] = useState(true);
+  const [isShowingOriginal, setIsShowingOriginal] = useState(false);
 
   const normalizedOriginalText = useMemo(() => String(originalText || ""), [originalText]);
-  const isSameLanguage = sourceLanguage === targetLanguage;
+  const isSameLanguage = sourceLanguage === resolvedTargetLanguage;
   const hasText = normalizedOriginalText.trim().length > 0;
 
   useEffect(() => {
     setTranslatedText("");
     setError("");
-    setIsShowingOriginal(true);
-  }, [contentKey, normalizedOriginalText, sourceLanguage, targetLanguage]);
+    setIsShowingOriginal(false);
+  }, [contentKey, normalizedOriginalText, sourceLanguage, resolvedTargetLanguage]);
 
   useEffect(() => {
     if (!hasText || isSameLanguage || !contentKey) {
       return;
     }
 
-    const cached = readCache(contentKey, sourceLanguage, targetLanguage, normalizedOriginalText);
+    const cached = readCache(contentKey, sourceLanguage, resolvedTargetLanguage, normalizedOriginalText);
     if (cached?.translatedText) {
       setTranslatedText(cached.translatedText);
-      setIsShowingOriginal(true);
+      setIsShowingOriginal(false);
+      return;
     }
-  }, [contentKey, hasText, isSameLanguage, normalizedOriginalText, sourceLanguage, targetLanguage]);
+
+    handleTranslate();
+  }, [contentKey, hasText, isSameLanguage, normalizedOriginalText, resolvedTargetLanguage, sourceLanguage]);
 
   async function handleTranslate() {
     if (!hasText || isSameLanguage || !contentKey) {
@@ -81,11 +90,11 @@ export default function TranslateButton({
     }
 
     if (normalizedOriginalText.length > MAX_TEXT_LENGTH) {
-      setError("The selected text is too long to translate right now.");
+      setError(t("translate.tooLong"));
       return;
     }
 
-    const cached = readCache(contentKey, sourceLanguage, targetLanguage, normalizedOriginalText);
+    const cached = readCache(contentKey, sourceLanguage, resolvedTargetLanguage, normalizedOriginalText);
     if (cached?.translatedText) {
       setTranslatedText(cached.translatedText);
       setIsShowingOriginal(false);
@@ -105,22 +114,22 @@ export default function TranslateButton({
           contentKey,
           originalText: normalizedOriginalText,
           sourceLanguage,
-          targetLanguage,
+          targetLanguage: resolvedTargetLanguage,
         }),
       });
 
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok || !payload.translatedText) {
-        throw new Error(payload.error || "Translation failed.");
+        throw new Error(payload.error || t("translate.failed"));
       }
 
       setTranslatedText(payload.translatedText);
-      writeCache(contentKey, sourceLanguage, targetLanguage, normalizedOriginalText, payload.translatedText);
+      writeCache(contentKey, sourceLanguage, resolvedTargetLanguage, normalizedOriginalText, payload.translatedText);
       setIsShowingOriginal(false);
     } catch (error) {
       console.error("Translation failed:", error);
-      setError(error.message || "Translation failed.");
+      setError(error.message || t("translate.failed"));
     } finally {
       setIsLoading(false);
     }
@@ -152,18 +161,29 @@ export default function TranslateButton({
       </div>
 
       <div className="translate-actions">
-        {!isSameLanguage && (
+        {!isSameLanguage && !translatedText ? (
           <button
             type="button"
             className="translate-toggle"
-            onClick={showTranslated ? handleToggle : handleTranslate}
+            onClick={handleTranslate}
             disabled={isLoading}
           >
-            {isLoading ? "Translating…" : showTranslated ? "Show Original" : "Translate"}
+            {isLoading ? t("translate.loading") : t("translate.translate")}
           </button>
-        )}
+        ) : null}
 
         {error ? <p className="translate-error">{error}</p> : null}
+
+        {!isSameLanguage && translatedText ? (
+          <button
+            type="button"
+            className="translate-toggle"
+            onClick={handleToggle}
+            disabled={isLoading}
+          >
+            {showTranslated ? t("translate.showOriginal") : t("translate.showTranslation")}
+          </button>
+        ) : null}
       </div>
     </div>
   );

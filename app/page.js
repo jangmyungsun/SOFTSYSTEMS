@@ -18,6 +18,14 @@ import { useLanguage } from "../components/LanguageProvider";
 import EntryCard from "../components/EntryCard";
 import ArchiveCard from "../components/ArchiveCard";
 
+function toValueKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 function parseDurationToHours(value) {
   if (
     value === null ||
@@ -338,7 +346,7 @@ export default function Home() {
 
         setErrorMessage(
           error?.message ||
-            "The Home page could not be loaded."
+            t("home.loadError")
         );
       } finally {
         setLoading(false);
@@ -376,27 +384,24 @@ export default function Home() {
           </div>
 
           <p className="muted">
-            {t("home.making")}{" "}
-            {homeState.making.toFixed(
-              1
-            )}
-            h / day this month
+            {t("home.making")} {" "}
+            {t("home.perDayThisMonth", {
+              hours: homeState.making.toFixed(1),
+            })}
           </p>
 
           <p className="muted">
-            {t("home.learning")}{" "}
-            {homeState.learning.toFixed(
-              1
-            )}
-            h / day this month
+            {t("home.learning")} {" "}
+            {t("home.perDayThisMonth", {
+              hours: homeState.learning.toFixed(1),
+            })}
           </p>
 
           <p className="muted">
-            {t("home.bodyMoving")}{" "}
-            {movementAverage.toFixed(
-              1
-            )}
-            h / day this month
+            {t("home.bodyMoving")} {" "}
+            {t("home.perDayThisMonth", {
+              hours: movementAverage.toFixed(1),
+            })}
           </p>
         </div>
 
@@ -406,11 +411,13 @@ export default function Home() {
           </p>
 
           <div className="big">
-            {homeState.bodyWeather}
+            {t(`values.${toValueKey(homeState.bodyWeather)}`) !== `values.${toValueKey(homeState.bodyWeather)}`
+              ? t(`values.${toValueKey(homeState.bodyWeather)}`)
+              : homeState.bodyWeather}
           </div>
 
           <p className="muted">
-            this week
+            {t("home.thisWeek")}
           </p>
         </div>
 
@@ -420,11 +427,13 @@ export default function Home() {
           </p>
 
           <div className="big">
-            {homeState.energyTone}
+            {t(`values.${toValueKey(homeState.energyTone)}`) !== `values.${toValueKey(homeState.energyTone)}`
+              ? t(`values.${toValueKey(homeState.energyTone)}`)
+              : homeState.energyTone}
           </div>
 
           <p className="muted">
-            this week
+            {t("home.thisWeek")}
           </p>
         </div>
 
@@ -434,7 +443,9 @@ export default function Home() {
           </p>
 
           <div className="big">
-            {homeState.mode}
+            {t(`values.${toValueKey(homeState.mode)}`) !== `values.${toValueKey(homeState.mode)}`
+              ? t(`values.${toValueKey(homeState.mode)}`)
+              : homeState.mode}
           </div>
         </div>
       </section>
@@ -450,7 +461,7 @@ export default function Home() {
 
         {loading && (
           <p className="muted">
-            Loading suggestion…
+            {t("home.loadingSuggestion")}
           </p>
         )}
 
@@ -491,7 +502,7 @@ export default function Home() {
         <div className="entry-head">
           <div>
             <p className="eyebrow">
-              Input
+              {t("home.input")}
             </p>
 
             <h2>
@@ -500,7 +511,7 @@ export default function Home() {
           </div>
 
           <a href="/archive">
-            View All
+            {t("home.viewAll")}
           </a>
         </div>
 
@@ -534,7 +545,7 @@ export default function Home() {
         <div className="entry-head">
           <div>
             <p className="eyebrow">
-              Input
+              {t("home.input")}
             </p>
 
             <h2>
@@ -543,7 +554,7 @@ export default function Home() {
           </div>
 
           <a href="/daily">
-            View All
+            {t("home.viewAll")}
           </a>
         </div>
 
