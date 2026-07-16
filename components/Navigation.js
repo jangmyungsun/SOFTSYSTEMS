@@ -18,6 +18,7 @@ const links = [
 export default function Navigation() {
   const pathname = usePathname();
   const [session, setSession] = useState(null);
+  const isAuthenticated = Boolean(session?.user);
 
   useEffect(() => {
     async function loadSession() {
@@ -69,7 +70,7 @@ export default function Navigation() {
         )
       )}
 
-      {session ? (
+      {isAuthenticated ? (
         <button
           type="button"
           className="nav-action"

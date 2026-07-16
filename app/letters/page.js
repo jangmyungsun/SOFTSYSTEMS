@@ -78,7 +78,7 @@ export default function VisitorLettersPage() {
       return;
     }
 
-    const response = await fetch("/api/letters", {
+    const response = await fetch("/api/letters/latest", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
@@ -187,7 +187,7 @@ export default function VisitorLettersPage() {
       return;
     }
 
-    const response = await fetch("/api/letters", {
+    const response = await fetch("/api/letters/latest", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -214,10 +214,27 @@ export default function VisitorLettersPage() {
     }
 
     setAdminActioning(true);
-    const { error } = await supabase.from("visitor_letters").delete().eq("id", id);
 
-    if (error) {
-      setErrorMessage(error.message || "The letter could not be deleted.");
+    const { data, error } = await supabase.auth.getSession();
+    const accessToken = data?.session?.access_token;
+
+    if (!accessToken) {
+      setAdminActioning(false);
+      return;
+    }
+
+    const response = await fetch("/api/letters/latest", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ id }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      setErrorMessage(payload.error || "The letter could not be deleted.");
     } else {
       setStatusMessage("The letter has been deleted.");
       await loadLetters();
