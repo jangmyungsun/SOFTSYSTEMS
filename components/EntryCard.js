@@ -1,4 +1,3 @@
-import DailyAttachments from "./DailyAttachments";
 import TranslateButton from "./TranslateButton";
 import { useLanguage } from "./LanguageProvider";
 
@@ -72,11 +71,6 @@ export default function EntryCard({
   const windUnit = environment.units?.wind || "";
 
   const learningItems = Array.isArray(log.learning) ? log.learning : [];
-  const attachmentItems = Array.isArray(log.daily_attachments)
-    ? log.daily_attachments
-    : Array.isArray(log.media)
-      ? log.media
-      : [];
   const tomorrowItems = Array.isArray(log.tomorrow) ? log.tomorrow : [];
   const makingItems = Array.isArray(work.items) ? work.items : [];
 
@@ -219,13 +213,6 @@ export default function EntryCard({
           ) : (
             <p className="muted">{t("common.noArtisticInput")}</p>
           )}
-        </section>
-
-        <section className="block full">
-          <DailyAttachments
-            attachments={attachmentItems}
-            label={t("media.attachments")}
-          />
         </section>
 
         <section className="block full">

@@ -13,315 +13,68 @@ import {
 import {
   getWeatherForDate,
 } from "../../lib/weather";
-import {
-  getAttachmentKind,
-  isAllowedAttachmentFile,
-  normalizeFileName,
-} from "../../lib/dailyAttachments";
 
 import EntryCard from "../../components/EntryCard";
 import LogForm from "../../components/LogForm";
-import MediaUploader from "../../components/MediaUploader";
 import { useLanguage } from "../../components/LanguageProvider";
-
-const BUCKET_NAME =
-  "daily-collection";
-
 function getTodayString() {
   return new Date()
     .toISOString()
     .slice(0, 10);
 }
 
-function safeFileName(fileName) {
-  return String(fileName || "")
-    .normalize("NFKD")
-    .replace(/[^\w.-]+/g, "_")
-    .replace(/_+/g, "_");
-}
-
-function normalizeAttachment(item) {
-  if (!item) {
-    return null;
-  }
-
-  if (item.id && (item.file_path || item.storage_path)) {
-    return {
-      id: item.id,
-      daily_id: item.daily_id,
-      user_id: item.user_id || item.uploaded_by || null,
-      storage_bucket: item.storage_bucket || BUCKET_NAME,
-      storage_path: item.file_path || item.storage_path,
-      original_filename: item.file_name || item.original_filename || item.name || "file",
-      mime_type: item.file_type || item.mime_type || item.type || "",
-      size_bytes: Number(item.file_size || item.size_bytes || item.size || 0),
-      created_at: item.created_at || item.uploaded_at || new Date().toISOString(),
-      is_public: item.is_public !== false,
-      file_name: item.file_name || item.original_filename || item.name || "file",
-      file_path: item.file_path || item.storage_path || "",
-      file_type: item.file_type || item.mime_type || item.type || "",
-      file_size: Number(item.file_size || item.size_bytes || item.size || 0),
-      kind: item.kind || getAttachmentKind({
-        type: item.file_type || item.mime_type || item.type || "",
-        name: item.file_name || item.original_filename || item.name || "",
-      }),
-    };
-  }
-  if (item.file_path || item.path) {
-    return {
-      id: item.id || item.file_path || item.path,
-      daily_id: item.daily_id || null,
-      storage_bucket: item.bucket || BUCKET_NAME,
-      storage_path: item.file_path || item.path,
-      original_filename: item.file_name || item.name || "file",
-      mime_type: item.file_type || item.mime_type || "",
-      size_bytes: Number(item.file_size || item.size || 0),
-      created_at: item.uploaded_at || new Date().toISOString(),
-      uploaded_by: item.user_id || item.uploaded_by || null,
-      user_id: item.user_id || item.uploaded_by || null,
-      is_public: item.is_public !== false,
-      file_name: item.file_name || item.name || "file",
-      file_path: item.file_path || item.path || "",
-      file_type: item.file_type || item.mime_type || "",
-      file_size: Number(item.file_size || item.size || 0),
-      kind: item.type || getAttachmentKind({
-        type: item.file_type || item.mime_type || item.type || "",
-        name: item.file_name || item.name || "",
-      }),
-    };
-  }
-
-  return null;
-}
-
-
-async function fetchAttachmentsByDailyId(logs) {
-  const dailyIds = Array.isArray(logs)
-    ? logs.map((log) => log.id).filter(Boolean)
-    : [];
-
-  if (!dailyIds.length) {
-    return new Map();
-  }
-
-  const { data, error } = await supabase
-    .from("daily_attachments")
-    .select(
-      `
-        id,
-        daily_id,
-        storage_bucket,
-        file_name,
-        file_path,
-        file_type,
-        file_size,
-        created_at,
-        user_id,
-        is_public
-      `
-    )
-    .in("daily_id", dailyIds);
-
-  if (error) {
-    throw error;
-  }
-
-  const attachmentsByDailyId = new Map();
-
-  (data || []).forEach((attachment) => {
-    const normalized = normalizeAttachment(attachment);
-
-    if (!normalized?.daily_id) {
-      return;
-    }
-
-    const current = attachmentsByDailyId.get(normalized.daily_id) || [];
-    current.push(normalized);
-    attachmentsByDailyId.set(normalized.daily_id, current);
-  });
-
-  return attachmentsByDailyId;
-}
-
 export default function DailyPage() {
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
-  const locale =
-    language?.locale || "en";
+  const locale = language?.locale || "en";
 
-  const [
-    session,
-    setSession,
-  ] = useState(null);
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [logs, setLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(getTodayString());
+  const [environment, setEnvironment] = useState(null);
+  const [weatherStatus, setWeatherStatus] = useState("idle");
+  const [saveStatus, setSaveStatus] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const [
-    authLoading,
-    setAuthLoading,
-  ] = useState(true);
+  const loadLogs = useCallback(
+    async (currentSession) => {
+      setLogsLoading(true);
+      setLoadError("");
 
-  const [
-    logs,
-    setLogs,
-  ] = useState([]);
+      let query = supabase
+        .from("field_logs")
+        .select("*")
+        .order("date", {
+          ascending: false,
+        });
 
-  const [
-    logsLoading,
-    setLogsLoading,
-  ] = useState(true);
+      if (currentSession?.user?.id) {
+        query = query.eq("user_id", currentSession.user.id);
+      } else {
+        query = query.eq("is_public", true);
+      }
 
-  const [
-    loadError,
-    setLoadError,
-  ] = useState("");
+      const { data, error } = await query;
 
-  const [
-    attachmentLoadError,
-    setAttachmentLoadError,
-  ] = useState("");
+      if (error) {
+        console.error("Daily load error:", error);
 
-  const [
-    editing,
-    setEditing,
-  ] = useState(null);
+        setLogs([]);
+        setLoadError(error.message);
+        setLogsLoading(false);
 
-  const [
-    selectedFiles,
-    setSelectedFiles,
-  ] = useState([]);
+        return;
+      }
 
-  const [
-    existingMedia,
-    setExistingMedia,
-  ] = useState([]);
-
-  const [
-    selectedDate,
-    setSelectedDate,
-  ] = useState(
-    getTodayString()
+      setLogs(data || []);
+      setLogsLoading(false);
+    },
+    []
   );
-
-  const [
-    environment,
-    setEnvironment,
-  ] = useState(null);
-
-  const [
-    weatherStatus,
-    setWeatherStatus,
-  ] = useState("idle");
-
-  const [
-    saveStatus,
-    setSaveStatus,
-  ] = useState("");
-
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
-
-  /*
-   * 로그인:
-   * 본인이 작성한 공개·비공개 기록 전체
-   *
-   * 비로그인:
-   * 공개 기록만
-   */
-  const loadLogs =
-    useCallback(
-      async (
-        currentSession
-      ) => {
-        setLogsLoading(true);
-        setLoadError("");
-        setAttachmentLoadError("");
-
-        let query =
-          supabase
-            .from(
-              "field_logs"
-            )
-            .select("*")
-            .order(
-              "date",
-              {
-                ascending:
-                  false,
-              }
-            );
-
-        if (
-          currentSession
-            ?.user?.id
-        ) {
-          query =
-            query.eq(
-              "user_id",
-              currentSession
-                .user.id
-            );
-        } else {
-          query =
-            query.eq(
-              "is_public",
-              true
-            );
-        }
-
-        const {
-          data,
-          error,
-        } = await query;
-
-        if (error) {
-          console.error(
-            "Daily load error:",
-            error
-          );
-
-          setLogs([]);
-          setLoadError(
-            error.message
-          );
-          setLogsLoading(
-            false
-          );
-
-          return;
-        }
-
-        let attachmentsByDailyId = new Map();
-
-        try {
-          attachmentsByDailyId = await fetchAttachmentsByDailyId(data || []);
-          setAttachmentLoadError("");
-        } catch (attachmentError) {
-          console.error(
-            "Daily attachment load error:",
-            attachmentError
-          );
-
-          setAttachmentLoadError(
-            attachmentError?.message ||
-              "Attachment metadata could not be loaded."
-          );
-        }
-
-        setLogs(
-          (data || []).map((log) => ({
-            ...log,
-            daily_attachments:
-              attachmentsByDailyId.get(log.id) || [],
-          }))
-        );
-
-        setLogsLoading(
-          false
-        );
-      },
-      []
-    );
 
   /*
    * 초기 로그인 상태를 확인하고
@@ -392,14 +145,6 @@ export default function DailyPage() {
 
             setEditing(
               null
-            );
-
-            setSelectedFiles(
-              []
-            );
-
-            setExistingMedia(
-              []
             );
 
             await loadLogs(
@@ -509,122 +254,6 @@ export default function DailyPage() {
       await collectWeather(
         date
       );
-    };
-
-  /*
-   * 선택한 파일을 Supabase Storage에 업로드한다.
-   */
-  const uploadSelectedFiles =
-    async () => {
-      if (
-        !selectedFiles.length
-      ) {
-        return [];
-      }
-
-      if (!session) {
-        throw new Error(
-          "You must be logged in."
-        );
-      }
-
-      const uploadedItems =
-        [];
-
-      for (
-        const item of selectedFiles
-      ) {
-        const file =
-          item.file;
-
-        if (!file) {
-          continue;
-        }
-
-        if (!isAllowedAttachmentFile(file)) {
-          throw new Error(
-            `Unsupported file type: ${file.name}`
-          );
-        }
-
-        const cleanName =
-          normalizeFileName(file.name) ||
-          safeFileName(file.name);
-
-        const uniqueName =
-          `${Date.now()}-` +
-          `${crypto.randomUUID()}-` +
-          cleanName;
-
-        const dateFolder =
-          selectedDate ||
-          getTodayString();
-
-        const filePath =
-          `${session.user.id}/` +
-          `${dateFolder}/` +
-          uniqueName;
-
-        const {
-          error:
-            uploadError,
-        } = await supabase
-          .storage
-          .from(
-            BUCKET_NAME
-          )
-          .upload(
-            filePath,
-            file,
-            {
-              cacheControl:
-                "3600",
-
-              upsert:
-                false,
-
-              contentType:
-                file.type ||
-                "application/octet-stream",
-            }
-          );
-
-        if (
-          uploadError
-        ) {
-          uploadError.failedFile = file.name;
-          uploadError.uploadedItems = uploadedItems.slice();
-          throw uploadError;
-        }
-
-        uploadedItems.push({
-          storage_bucket:
-            BUCKET_NAME,
-
-          file_path:
-            filePath,
-
-          file_name:
-            file.name,
-
-          kind:
-            getAttachmentKind({
-              type: file.type,
-              name: file.name,
-            }),
-
-          file_type:
-            file.type,
-
-          file_size:
-            file.size,
-
-          user_id:
-            session.user.id,
-        });
-      }
-
-      return uploadedItems;
     };
 
   /*
@@ -751,11 +380,6 @@ export default function DailyPage() {
         return;
       }
 
-      let newlyUploadedMedia =
-        [];
-      let attachmentIssue = null;
-      let savedDailyRecord = null;
-
       try {
         setSaving(true);
 
@@ -813,13 +437,6 @@ export default function DailyPage() {
           }
         }
 
-        const finalIsPublic =
-          typeof payload.is_public === "boolean"
-            ? payload.is_public
-            : typeof editing?.is_public === "boolean"
-              ? editing.is_public
-              : true;
-
         const finalPayload = {
           ...payload,
 
@@ -840,128 +457,41 @@ export default function DailyPage() {
 
         if (editing) {
           const {
-            error:
-              updateError,
+            error: updateError,
           } = await supabase
-            .from(
-              "field_logs"
-            )
-            .update(
-              finalPayload
-            )
-            .eq(
-              "id",
-              editing.id
-            )
-            .eq(
-              "user_id",
-              session.user.id
-            );
+            .from("field_logs")
+            .update(finalPayload)
+            .eq("id", editing.id)
+            .eq("user_id", session.user.id);
 
-          if (
-            updateError
-          ) {
+          if (updateError) {
             throw updateError;
           }
 
-          savedLogId =
-            editing.id;
+          savedLogId = editing.id;
         } else {
           const {
-            data:
-              insertedLog,
-            error:
-              insertError,
+            data: insertedLog,
+            error: insertError,
           } = await supabase
-            .from(
-              "field_logs"
-            )
+            .from("field_logs")
             .insert({
               ...finalPayload,
 
-              user_id:
-                session.user.id,
+              user_id: session.user.id,
             })
-            .select(
-              "id"
-            )
+            .select("id")
             .single();
 
-          if (
-            insertError
-          ) {
+          if (insertError) {
             throw insertError;
           }
 
-          if (
-            !insertedLog?.id
-          ) {
-            throw new Error(
-              "The saved Daily ID was not returned."
-            );
+          if (!insertedLog?.id) {
+            throw new Error("The saved Daily ID was not returned.");
           }
 
-          savedLogId =
-            insertedLog.id;
-        }
-
-        savedDailyRecord = {
-          ...finalPayload,
-          id: savedLogId,
-          user_id: session.user.id,
-          date: finalDate,
-          environment: finalEnvironment || {},
-        };
-
-        const attachmentIsPublic = Boolean(finalIsPublic);
-
-        if (selectedFiles.length) {
-          setSaveStatus(
-            "Uploading attachments…"
-          );
-
-          try {
-            newlyUploadedMedia = await uploadSelectedFiles();
-
-            if (newlyUploadedMedia.length) {
-              const attachmentRows = newlyUploadedMedia.map((item) => ({
-                daily_id: savedLogId,
-                user_id: session.user.id,
-                file_name: item.file_name,
-                file_path: item.file_path,
-                file_type: item.file_type || null,
-                file_size: item.file_size || null,
-                storage_bucket: item.storage_bucket || BUCKET_NAME,
-                is_public: attachmentIsPublic,
-              }));
-
-              const { error: attachmentError } = await supabase
-                .from("daily_attachments")
-                .insert(attachmentRows);
-
-              if (attachmentError) {
-                throw attachmentError;
-              }
-            }
-          } catch (error) {
-            attachmentIssue = error;
-
-            const rollbackPaths = newlyUploadedMedia
-              .map((item) => item.file_path || item.path)
-              .filter(Boolean);
-
-            if (rollbackPaths.length) {
-              const { error: rollbackError } = await supabase.storage
-                .from(BUCKET_NAME)
-                .remove(rollbackPaths);
-
-              if (rollbackError) {
-                console.error("Attachment rollback error:", rollbackError);
-              }
-            }
-
-            console.error("Attachment upload error:", error);
-          }
+          savedLogId = insertedLog.id;
         }
 
         /*
@@ -1004,33 +534,14 @@ export default function DailyPage() {
         const today =
           getTodayString();
 
-        if (!attachmentIssue) {
-          setEditing(null);
-          setSelectedFiles([]);
-          setExistingMedia([]);
-          setSelectedDate(today);
-          setSaveStatus("");
+        setEditing(null);
+        setSelectedDate(today);
+        setSaveStatus("");
 
-          await loadLogs(session);
-          await collectWeather(today);
+        await loadLogs(session);
+        await collectWeather(today);
 
-          window.alert("Daily saved.");
-        } else {
-          setEditing(savedDailyRecord);
-          setSaveStatus(
-            `Daily was saved, but attachment upload failed for ${
-              attachmentIssue?.failedFile || "one file"
-            }.`
-          );
-
-          window.alert(
-            `Daily was saved, but attachment upload failed for ${
-              attachmentIssue?.failedFile || "one file"
-            }: ${attachmentIssue?.message || "Attachment upload failed."}`
-          );
-
-          await loadLogs(session);
-        }
+        window.alert("Daily saved.");
       } catch (error) {
         console.error(
           "Daily save error:",
@@ -1066,16 +577,6 @@ export default function DailyPage() {
           getTodayString()
       );
 
-      setSelectedFiles([]);
-
-      setExistingMedia(
-        Array.isArray(log.daily_attachments)
-          ? log.daily_attachments.map(normalizeAttachment).filter(Boolean)
-          : Array.isArray(log.media)
-            ? log.media.map(normalizeAttachment).filter(Boolean)
-            : []
-      );
-
       setEnvironment(
         log.environment ||
           null
@@ -1105,8 +606,6 @@ export default function DailyPage() {
         getTodayString();
 
       setEditing(null);
-      setSelectedFiles([]);
-      setExistingMedia([]);
       setSelectedDate(
         today
       );
@@ -1114,35 +613,6 @@ export default function DailyPage() {
 
       await collectWeather(
         today
-      );
-    };
-
-  /*
-   * 편집 폼에서 기존 미디어를 제외한다.
-   *
-   * 이 단계에서는 Storage에서 즉시 삭제하지 않고,
-   * 저장된 Daily의 media 배열에서만 제외한다.
-   */
-  const removeExistingMedia =
-    async (item) => {
-      const confirmed =
-        window.confirm(
-          `Remove ${item.original_filename || item.name}?`
-        );
-
-      if (!confirmed) {
-        return;
-      }
-
-      setExistingMedia(
-        (current) =>
-          current.filter(
-            (
-              mediaItem
-            ) =>
-              mediaItem.id !==
-              item.id
-          )
       );
     };
 
@@ -1203,43 +673,6 @@ export default function DailyPage() {
 
       if (!confirmed) {
         return;
-      }
-
-      const attachments = Array.isArray(log.daily_attachments)
-        ? log.daily_attachments
-        : Array.isArray(log.media)
-          ? log.media
-          : [];
-
-      const storagePaths = attachments
-        .map((item) => item.storage_path || item.path)
-        .filter(Boolean);
-
-      if (storagePaths.length) {
-        const { error: storageError } = await supabase.storage
-          .from(BUCKET_NAME)
-          .remove(storagePaths);
-
-        if (storageError) {
-          console.error("Storage deletion error:", storageError);
-
-          window.alert(`Attachment deletion warning: ${storageError.message}`);
-        }
-      }
-
-      const attachmentIds = attachments
-        .map((item) => item.id)
-        .filter(Boolean);
-
-      if (attachmentIds.length) {
-        const { error: attachmentError } = await supabase
-          .from("daily_attachments")
-          .delete()
-          .in("id", attachmentIds);
-
-        if (attachmentError) {
-          console.error("Attachment row deletion error:", attachmentError);
-        }
       }
 
       const {
@@ -1546,31 +979,6 @@ export default function DailyPage() {
                 handleDateChange
               }
             />
-
-            <h2>
-              {t("common.collection")}
-            </h2>
-
-            <MediaUploader
-              selectedFiles={
-                selectedFiles
-              }
-              existingMedia={
-                existingMedia
-              }
-              onFilesChange={
-                setSelectedFiles
-              }
-              onRemoveExisting={
-                removeExistingMedia
-              }
-            />
-
-            {attachmentLoadError && (
-              <p className="muted">
-                {attachmentLoadError}
-              </p>
-            )}
 
             {saveStatus && (
               <p className="muted">
