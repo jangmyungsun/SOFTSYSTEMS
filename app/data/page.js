@@ -16,6 +16,8 @@ import {
   getLearningHours,
 } from "../../lib/utils";
 
+import { useLanguage } from "../../components/LanguageProvider";
+
 function parseDurationHours(value) {
   if (
     value === null ||
@@ -291,6 +293,9 @@ function toCSV(rows) {
 }
 
 export default function DataPage() {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
+
   const [
     logs,
     setLogs,
@@ -370,16 +375,11 @@ export default function DataPage() {
     <>
       <section className="panel">
         <h2>
-          Data Output
+          {t("process.data")}
         </h2>
 
         <p className="subtitle">
-          Numeric body, Body
-          Moving, weather,
-          making, and learning
-          data for Max/MSP,
-          sound mapping, and
-          visual systems.
+          {t("process.dataSubtitle")}
         </p>
 
         <div className="actions">
@@ -394,7 +394,7 @@ export default function DataPage() {
               )
             }
           >
-            Export CSV
+            {t("process.exportCsv")}
           </button>
 
           <button
@@ -411,14 +411,14 @@ export default function DataPage() {
               )
             }
           >
-            Export JSON
+            {t("process.exportJson")}
           </button>
         </div>
       </section>
 
       <section className="panel">
         <h2>
-          Mapping Fields
+          {t("process.mappingFields")}
         </h2>
 
         <p>
@@ -445,12 +445,11 @@ export default function DataPage() {
       </section>
 
       <section className="panel">
-        <h2>Preview</h2>
+        <h2>{t("process.preview")}</h2>
 
         {loading && (
           <p className="muted">
-            Loading numeric
-            data…
+            {t("process.loadingData")}
           </p>
         )}
 

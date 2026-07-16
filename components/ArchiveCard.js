@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import TranslateButton from "./TranslateButton";
+import { useLanguage } from "./LanguageProvider";
 
 function formatLabel(value) {
   if (!value) {
@@ -136,6 +137,8 @@ export default function ArchiveCard({
   onDelete,
   onToggle,
 }) {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
   const [
     isOpen,
     setIsOpen,
@@ -187,7 +190,7 @@ export default function ArchiveCard({
                 />
               ) : (
                 <div className="archive-preview-placeholder">
-                  Video
+                  {t("common.video")}
                 </div>
               )}
 
@@ -195,7 +198,7 @@ export default function ArchiveCard({
 
               <div className="archive-video-content">
                 <p className="eyebrow">
-                  Video
+                  {t("common.video")}
                 </p>
 
                 <h2>
@@ -230,7 +233,7 @@ export default function ArchiveCard({
                   entry.body,
                   190
                 ) ||
-                  "No preview text."}
+                  t("common.noPreviewText")}
               </p>
 
               {tags.length > 0 && (
@@ -264,7 +267,7 @@ export default function ArchiveCard({
               setIsOpen(true)
             }
           >
-            View More
+            {t("common.viewMore")}
           </button>
         </div>
 
@@ -276,7 +279,7 @@ export default function ArchiveCard({
                 onEdit?.(entry)
               }
             >
-              Edit
+              {t("common.edit")}
             </button>
 
             <button
@@ -286,8 +289,8 @@ export default function ArchiveCard({
               }
             >
               {entry.is_public
-                ? "Private"
-                : "Public"}
+                ? t("common.private")
+                : t("common.public")}
             </button>
 
             <button
@@ -296,7 +299,7 @@ export default function ArchiveCard({
                 onDelete?.(entry)
               }
             >
-              Delete
+              {t("common.delete")}
             </button>
           </div>
         )}
@@ -348,7 +351,7 @@ export default function ArchiveCard({
                   closeModal
                 }
               >
-                Close
+                {t("common.close")}
               </button>
             </div>
 
@@ -378,7 +381,7 @@ export default function ArchiveCard({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Open video
+                    {t("common.openVideo")}
                   </a>
                 </p>
               )}
@@ -405,7 +408,7 @@ export default function ArchiveCard({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Open external link
+                    {t("common.openExternalLink")}
                   </a>
                 </div>
               )}

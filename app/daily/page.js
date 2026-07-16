@@ -17,6 +17,7 @@ import {
 import EntryCard from "../../components/EntryCard";
 import LogForm from "../../components/LogForm";
 import MediaUploader from "../../components/MediaUploader";
+import { useLanguage } from "../../components/LanguageProvider";
 
 const BUCKET_NAME =
   "softsystems-media";
@@ -70,6 +71,9 @@ function getMediaType(file) {
 }
 
 export default function DailyPage() {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
+
   const [
     session,
     setSession,
@@ -1195,7 +1199,7 @@ export default function DailyPage() {
       {authLoading && (
         <section className="panel">
           <p className="muted">
-            Loading Daily…
+            {t("daily.loading")}
           </p>
         </section>
       )}
@@ -1206,13 +1210,13 @@ export default function DailyPage() {
             <div className="entry-head">
               <div>
                 <p className="eyebrow">
-                  Daily
+                  {t("common.daily")}
                 </p>
 
                 <h2>
                   {editing
-                    ? "Edit Daily"
-                    : "New Daily"}
+                    ? t("daily.editDaily")
+                    : t("daily.newDaily")}
                 </h2>
               </div>
 
@@ -1226,27 +1230,24 @@ export default function DailyPage() {
                     saving
                   }
                 >
-                  Cancel Edit
+                  {t("daily.cancelEdit")}
                 </button>
               )}
             </div>
 
             <section className="block">
               <p className="block-title">
-                Environment
+                {t("common.environment")}
               </p>
 
               <p className="muted">
-                Weather for{" "}
-                {selectedDate}
+                {t("daily.weatherFor")} {selectedDate}
               </p>
 
               {weatherStatus ===
                 "loading" && (
                 <p>
-                  Collecting
-                  weather for the
-                  selected date…
+                  {t("daily.collectingWeather")}
                 </p>
               )}
 
@@ -1254,12 +1255,7 @@ export default function DailyPage() {
                 "error" && (
                 <>
                   <p className="muted">
-                    Weather could
-                    not be
-                    collected.
-                    Check your
-                    browser location
-                    permission.
+                    {t("daily.weatherError")}
                   </p>
 
                   <button
@@ -1270,7 +1266,7 @@ export default function DailyPage() {
                       )
                     }
                   >
-                    Try Again
+                    {t("daily.tryAgain")}
                   </button>
                 </>
               )}
@@ -1278,7 +1274,7 @@ export default function DailyPage() {
               {environment && (
                 <div className="grid three">
                   <p>
-                    Weather —{" "}
+                    {t("common.weather")} —{" "}
                     {
                       environment
                         .weather
@@ -1286,7 +1282,7 @@ export default function DailyPage() {
                   </p>
 
                   <p>
-                    Temperature —{" "}
+                    {t("common.temperature")} —{" "}
                     {
                       environment
                         .temperature
@@ -1305,7 +1301,7 @@ export default function DailyPage() {
                       .temperature_max !==
                       undefined && (
                       <p>
-                        High —{" "}
+                        {t("daily.high")} —{" "}
                         {
                           environment
                             .temperature_max
@@ -1325,7 +1321,7 @@ export default function DailyPage() {
                       .temperature_min !==
                       undefined && (
                       <p>
-                        Low —{" "}
+                        {t("daily.low")} —{" "}
                         {
                           environment
                             .temperature_min
@@ -1339,7 +1335,7 @@ export default function DailyPage() {
                     )}
 
                   <p>
-                    Humidity —{" "}
+                    {t("common.humidity")} —{" "}
                     {
                       environment
                         .humidity
@@ -1352,7 +1348,7 @@ export default function DailyPage() {
                   </p>
 
                   <p>
-                    Pressure —{" "}
+                    {t("common.pressure")} —{" "}
                     {
                       environment
                         .pressure
@@ -1365,7 +1361,7 @@ export default function DailyPage() {
                   </p>
 
                   <p>
-                    Wind —{" "}
+                    {t("common.wind")} —{" "}
                     {
                       environment
                         .wind
@@ -1378,7 +1374,7 @@ export default function DailyPage() {
                   </p>
 
                   <p>
-                    Sunrise —{" "}
+                    {t("common.sunrise")} —{" "}
                     {
                       environment
                         .sunrise
@@ -1386,7 +1382,7 @@ export default function DailyPage() {
                   </p>
 
                   <p>
-                    Sunset —{" "}
+                    {t("common.sunset")} —{" "}
                     {
                       environment
                         .sunset
@@ -1396,7 +1392,7 @@ export default function DailyPage() {
                   {environment
                     .source && (
                     <p className="muted">
-                      Source —{" "}
+                      {t("daily.source")} —{" "}
                       {
                         environment
                           .source
@@ -1424,7 +1420,7 @@ export default function DailyPage() {
             />
 
             <h2>
-              Collection
+              {t("common.collection")}
             </h2>
 
             <MediaUploader
@@ -1454,25 +1450,19 @@ export default function DailyPage() {
         !session && (
           <section className="panel">
             <p className="eyebrow">
-              Daily
+              {t("common.daily")}
             </p>
 
             <h2>
-              Public Daily Records
+              {t("daily.publicTitle")}
             </h2>
 
             <p className="subtitle">
-              Public observations
-              of body, environment,
-              Body Moving, making,
-              learning, and
-              artistic practice.
+              {t("daily.publicSubtitle")}
             </p>
 
             <p className="muted">
-              Sign in to create
-              or manage Daily
-              entries.
+              {t("daily.signInPrompt")}
             </p>
           </section>
         )}
@@ -1487,7 +1477,7 @@ export default function DailyPage() {
                   exportDaily
                 }
               >
-                Export Daily JSON
+                {t("daily.exportJson")}
               </button>
             </div>
           </section>
@@ -1497,26 +1487,25 @@ export default function DailyPage() {
         <div className="entry-head">
           <div>
             <p className="eyebrow">
-              Input
+              {t("input.title")}
             </p>
 
             <h2>
-              Daily Archive
+              {t("daily.archiveTitle")}
             </h2>
           </div>
 
           <span className="badge">
             {logs.length}{" "}
             {logs.length === 1
-              ? "record"
-              : "records"}
+              ? t("daily.record")
+              : t("daily.records")}
           </span>
         </div>
 
         {logsLoading && (
           <p className="muted">
-            Loading Daily
-            records…
+            {t("daily.loadingRecords")}
           </p>
         )}
 
@@ -1562,8 +1551,7 @@ export default function DailyPage() {
           !loadError &&
           !logs.length && (
             <p className="muted">
-              No public Daily
-              entries yet.
+              {t("daily.noEntries")}
             </p>
           )}
       </section>

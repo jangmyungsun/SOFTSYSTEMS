@@ -9,6 +9,8 @@ import {
   supabase,
 } from "../../lib/supabaseClient";
 
+import { useLanguage } from "../../components/LanguageProvider";
+
 function formatDateTime(value) {
   if (!value) {
     return "";
@@ -60,6 +62,9 @@ function downloadFile(
 }
 
 export default function SystemPage() {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
+
   const [
     snapshot,
     setSnapshot,
@@ -193,25 +198,21 @@ export default function SystemPage() {
         <div className="entry-head">
           <div>
             <p className="eyebrow">
-              System
+              {t("process.system")}
             </p>
 
             <h2>
-              Period Reading
+              {t("process.periodReading")}
             </h2>
 
             <p className="subtitle">
-              A nightly reading of
-              recent relationships
-              among body, environment,
-              practice, artistic input,
-              and creation.
+              {t("process.periodReadingSubtitle")}
             </p>
           </div>
 
           {snapshot?.generated_at && (
             <span className="badge">
-              Updated{" "}
+              {t("common.updated")}{" "}
               {formatDateTime(
                 snapshot.generated_at
               )}
@@ -220,16 +221,14 @@ export default function SystemPage() {
         </div>
 
         <p className="muted">
-          Generated automatically
-          once each night.
+          {t("process.generatedAutomatically")}
         </p>
       </section>
 
       {loading && (
         <section className="panel">
           <p className="muted">
-            Loading the latest
-            System reading…
+            {t("process.loadingSystemReading")}
           </p>
         </section>
       )}
@@ -248,13 +247,11 @@ export default function SystemPage() {
         !snapshot && (
           <section className="panel">
             <h2>
-              No System Reading Yet
+              {t("process.noSystemReadingYet")}
             </h2>
 
             <p className="muted">
-              The first reading will
-              appear after the nightly
-              update runs.
+              {t("process.noSystemReadingText")}
             </p>
           </section>
         )}
@@ -264,7 +261,7 @@ export default function SystemPage() {
           <>
             <section className="panel">
               <p className="label">
-                Current Mode
+                {t("process.currentMode")}
               </p>
 
               <div className="big">
@@ -302,7 +299,7 @@ export default function SystemPage() {
             <section className="grid two">
               <div className="panel">
                 <h2>
-                  Recurring Signals
+                  {t("process.recurringSignals")}
                 </h2>
 
                 {recurringSignals.length >
@@ -332,15 +329,13 @@ export default function SystemPage() {
                   )
                 ) : (
                   <p className="muted">
-                    No recurring
-                    signals were
-                    identified.
+                    {t("process.noRecurringSignals")}
                   </p>
                 )}
               </div>
 
               <div className="panel">
-                <h2>Shifts</h2>
+                <h2>{t("process.shifts")}</h2>
 
                 {shifts.length > 0 ? (
                   shifts.map(
@@ -357,8 +352,7 @@ export default function SystemPage() {
                   )
                 ) : (
                   <p className="muted">
-                    No clear shifts
-                    were identified.
+                    {t("process.noShifts")}
                   </p>
                 )}
               </div>
@@ -366,7 +360,7 @@ export default function SystemPage() {
 
             <section className="panel">
               <h2>
-                Relationships
+                {t("process.relationships")}
               </h2>
 
               {relationships.length >
@@ -396,9 +390,7 @@ export default function SystemPage() {
                 )
               ) : (
                 <p className="muted">
-                  No grounded
-                  relationships were
-                  identified.
+                  {t("process.noRelationships")}
                 </p>
               )}
             </section>
@@ -406,7 +398,7 @@ export default function SystemPage() {
             {reading.open_question && (
               <section className="panel">
                 <p className="label">
-                  Open Question
+                  {t("process.openQuestion")}
                 </p>
 
                 <div className="big">
@@ -425,8 +417,7 @@ export default function SystemPage() {
                     exportReading
                   }
                 >
-                  Export Latest
-                  Reading
+                  {t("process.exportLatestReading")}
                 </button>
               </div>
             </section>

@@ -14,6 +14,7 @@ import {
   getHomeState,
 } from "../lib/utils";
 
+import { useLanguage } from "../components/LanguageProvider";
 import EntryCard from "../components/EntryCard";
 import ArchiveCard from "../components/ArchiveCard";
 
@@ -178,6 +179,9 @@ function normalizeArchiveEntry(entry) {
 }
 
 export default function Home() {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
+
   const [
     logs,
     setLogs,
@@ -361,7 +365,7 @@ export default function Home() {
       <section className="grid four">
         <div className="panel">
           <p className="label">
-            Practice Rhythm
+            {t("home.practiceRhythm")}
           </p>
 
           <div className="big">
@@ -372,7 +376,7 @@ export default function Home() {
           </div>
 
           <p className="muted">
-            Making{" "}
+            {t("home.making")}{" "}
             {homeState.making.toFixed(
               1
             )}
@@ -380,7 +384,7 @@ export default function Home() {
           </p>
 
           <p className="muted">
-            Learning{" "}
+            {t("home.learning")}{" "}
             {homeState.learning.toFixed(
               1
             )}
@@ -388,7 +392,7 @@ export default function Home() {
           </p>
 
           <p className="muted">
-            Body Moving{" "}
+            {t("home.bodyMoving")}{" "}
             {movementAverage.toFixed(
               1
             )}
@@ -398,7 +402,7 @@ export default function Home() {
 
         <div className="panel">
           <p className="label">
-            Body Weather
+            {t("home.bodyWeather")}
           </p>
 
           <div className="big">
@@ -412,7 +416,7 @@ export default function Home() {
 
         <div className="panel">
           <p className="label">
-            Energy Tone
+            {t("home.energyTone")}
           </p>
 
           <div className="big">
@@ -426,7 +430,7 @@ export default function Home() {
 
         <div className="panel">
           <p className="label">
-            Current Mode
+            {t("home.currentMode")}
           </p>
 
           <div className="big">
@@ -437,11 +441,11 @@ export default function Home() {
 
       <section className="panel soft-suggestion">
         <p className="eyebrow">
-          Today
+          {t("home.today")}
         </p>
 
         <h2>
-          Soft Suggestion
+          {t("home.softSuggestion")}
         </h2>
 
         {loading && (
@@ -478,9 +482,7 @@ export default function Home() {
           !errorMessage &&
           !guidance && (
             <p className="muted">
-              The next suggestion
-              will appear after the
-              nightly update.
+              {t("home.noSuggestion")}
             </p>
           )}
       </section>
@@ -493,7 +495,7 @@ export default function Home() {
             </p>
 
             <h2>
-              Latest Archive
+              {t("home.latestArchive")}
             </h2>
           </div>
 
@@ -523,8 +525,7 @@ export default function Home() {
         {!archiveEntries.length &&
           !loading && (
             <p className="muted">
-              No public Archive
-              entries yet.
+              {t("home.noArchiveEntries")}
             </p>
           )}
       </section>
@@ -537,7 +538,7 @@ export default function Home() {
             </p>
 
             <h2>
-              Latest Daily
+              {t("home.latestDaily")}
             </h2>
           </div>
 
@@ -564,8 +565,7 @@ export default function Home() {
         {!logs.length &&
           !loading && (
             <p className="muted">
-              No public Daily
-              records yet.
+              {t("home.noDailyRecords")}
             </p>
           )}
       </section>

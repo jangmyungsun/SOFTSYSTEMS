@@ -1,5 +1,6 @@
 import MediaPreview from "./MediaPreview";
 import TranslateButton from "./TranslateButton";
+import { useLanguage } from "./LanguageProvider";
 
 function formatLabel(value) {
   if (!value) {
@@ -23,6 +24,8 @@ export default function EntryCard({
   onDelete,
   onToggle,
 }) {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
   const environment =
     log.environment &&
     typeof log.environment === "object" &&
@@ -175,7 +178,7 @@ export default function EntryCard({
       <div className="entry-head">
         <div>
           <p className="eyebrow">
-            Daily
+            {t("common.daily")}
           </p>
 
           <div className="entry-date">
@@ -192,8 +195,8 @@ export default function EntryCard({
 
           <span className="badge">
             {log.is_public
-              ? "public"
-              : "private"}
+              ? t("common.public")
+              : t("common.private")}
           </span>
         </div>
       </div>
@@ -201,68 +204,68 @@ export default function EntryCard({
       <div className="entry-grid">
         <section className="block">
           <p className="block-title">
-            Body
+            {t("common.body")}
           </p>
 
           {hasBodyData ? (
             <>
               {state.body_state !== "" && (
                 <p>
-                  Body State —{" "}
+                  {t("common.bodyState")}{" — "}
                   {state.body_state}
                 </p>
               )}
             {state.breathing_state && (
                 <p>
-                  Breathing State — {state.breathing_state}
+                  {t("common.breathingState")}{" — "}{state.breathing_state}
                   </p>
                 )}
 
               {state.energy !== "" && (
                 <p>
-                  Energy —{" "}
+                  {t("common.energy")}{" — "}
                   {state.energy}
                 </p>
               )}
 
               {state.mood !== "" && (
                 <p>
-                  Mood —{" "}
+                  {t("common.mood")}{" — "}
                   {state.mood}
                 </p>
               )}
 
               {state.weight !== "" && (
                 <p>
-                  Weight —{" "}
+                  {t("common.weight")}{" — "}
                   {state.weight}
                 </p>
               )}
 
               {state.temperature !== "" && (
                 <p>
-                  Body Temperature —{" "}
+                  {t("common.bodyTemperature")}{" — "}
                   {state.temperature}
                 </p>
               )}
             </>
           ) : (
             <p className="muted">
-              No body data recorded.
+              {t("common.noBodyData")}
             </p>
           )}
         </section>
 
         <section className="block">
           <p className="block-title">
-            Body Practice
+            {t("common.bodyPractice")}
           </p>
 
           {hasMovement ? (
             <>
               {movement.type && (
                 <p>
-                  Type —{" "}
+                  {t("common.bodyMovingType")}{" — "}
                   {formatLabel(
                     movement.type
                   )}
@@ -271,49 +274,49 @@ export default function EntryCard({
 
               {movement.time && (
                 <p>
-                  Time —{" "}
+                  {t("common.bodyMovingTime")}{" — "}
                   {movement.time}
                 </p>
               )}
 
               {movement.intensity && (
                 <p>
-                  Intensity —{" "}
+                  {t("common.bodyMovingIntensity")}{" — "}
                   {movement.intensity}/5
                 </p>
               )}
 
               {movement.notes && (
                 <p>
-                  Notes —{" "}
+                  {t("common.bodyMovingNotes")}{" — "}
                   {movement.notes}
                 </p>
               )}
             </>
           ) : (
             <p className="muted">
-              No body practice recorded.
+              {t("common.noBodyPractice")}
             </p>
           )}
         </section>
 
         <section className="block">
           <p className="block-title">
-            Environment
+            {t("common.environment")}
           </p>
 
           {hasEnvironmentData ? (
             <>
               {weather && (
                 <p>
-                  Weather —{" "}
+                  {t("common.weather")}{" — "}
                   {weather}
                 </p>
               )}
 
               {weatherTemperature !== "" && (
                 <p>
-                  Temperature —{" "}
+                  {t("common.temperature")}{" — "}
                   {weatherTemperature}
                   {temperatureUnit}
                 </p>
@@ -321,7 +324,7 @@ export default function EntryCard({
 
               {humidity !== "" && (
                 <p>
-                  Humidity —{" "}
+                  {t("common.humidity")}{" — "}
                   {humidity}
                   {humidityUnit}
                 </p>
@@ -329,7 +332,7 @@ export default function EntryCard({
 
               {pressure !== "" && (
                 <p>
-                  Pressure —{" "}
+                  {t("common.pressure")}{" — "}
                   {pressure}
                   {pressureUnit}
                 </p>
@@ -337,7 +340,7 @@ export default function EntryCard({
 
               {wind !== "" && (
                 <p>
-                  Wind —{" "}
+                  {t("common.wind")}{" — "}
                   {wind}
                   {windUnit}
                 </p>
@@ -345,42 +348,42 @@ export default function EntryCard({
 
               {sunrise && (
                 <p>
-                  Sunrise —{" "}
+                  {t("common.sunrise")}{" — "}
                   {sunrise}
                 </p>
               )}
 
               {sunset && (
                 <p>
-                  Sunset —{" "}
+                  {t("common.sunset")}{" — "}
                   {sunset}
                 </p>
               )}
             </>
           ) : (
             <p className="muted">
-              Weather data was not collected.
+              {t("common.noWeatherData")}
             </p>
           )}
         </section>
 
         <section className="block">
           <p className="block-title">
-            Making
+            {t("common.making")}
           </p>
 
           {hasMakingData ? (
             <>
               {work.time && (
                 <p>
-                  Time —{" "}
+                  {t("common.bodyMovingTime")}{" — "}
                   {work.time}
                 </p>
               )}
 
               {work.project && (
                 <p>
-                  Project —{" "}
+                  {t("common.project")}{" — "}
                   {work.project}
                 </p>
               )}
@@ -397,14 +400,14 @@ export default function EntryCard({
             </>
           ) : (
             <p className="muted">
-              No Making record.
+              {t("common.noMakingRecord")}
             </p>
           )}
         </section>
 
         <section className="block">
           <p className="block-title">
-            Learning
+            {t("common.learning")}
           </p>
 
           {learningItems.length > 0 ? (
@@ -419,21 +422,21 @@ export default function EntryCard({
             )
           ) : (
             <p className="muted">
-              No Learning record.
+              {t("common.noLearningRecord")}
             </p>
           )}
         </section>
 
         <section className="block full">
           <p className="block-title">
-            Artistic Input
+            {t("common.artisticInput")}
           </p>
 
           {hasArtisticInput ? (
             <>
               {artisticInput.type && (
                 <p>
-                  Type —{" "}
+                  {t("common.bodyMovingType")}{" — "}
                   {formatLabel(
                     artisticInput.type
                   )}
@@ -442,35 +445,35 @@ export default function EntryCard({
 
               {artisticInput.title && (
                 <p>
-                  Title —{" "}
+                  {t("common.title")}{" — "}
                   {artisticInput.title}
                 </p>
               )}
 
               {artisticInput.creator && (
                 <p>
-                  Creator —{" "}
+                  {t("common.creator")}{" — "}
                   {artisticInput.creator}
                 </p>
               )}
 
               {artisticInput.note && (
                 <p>
-                  Reference Note —{" "}
+                  {t("common.referenceNote")}{" — "}
                   {artisticInput.note}
                 </p>
               )}
             </>
           ) : (
             <p className="muted">
-              No artistic input recorded.
+              {t("common.noArtisticInput")}
             </p>
           )}
         </section>
 
         <section className="block full">
           <p className="block-title">
-            Collection
+            {t("common.collection")}
           </p>
 
           {mediaItems.length > 0 ? (
@@ -491,14 +494,14 @@ export default function EntryCard({
             </div>
           ) : (
             <p className="muted">
-              No collected media.
+              {t("common.noCollectedMedia")}
             </p>
           )}
         </section>
 
         <section className="block full">
           <p className="block-title">
-            Observation
+            {t("common.observation")}
           </p>
 
           <TranslateButton
@@ -512,7 +515,7 @@ export default function EntryCard({
 
         <section className="block full">
           <p className="block-title">
-            Alignment
+            {t("common.alignment")}
           </p>
 
           <TranslateButton
@@ -526,7 +529,7 @@ export default function EntryCard({
 
         <section className="block full">
           <p className="block-title">
-            Tomorrow
+            {t("common.tomorrow")}
           </p>
 
           {tomorrowItems.length > 0 ? (
@@ -541,7 +544,7 @@ export default function EntryCard({
             )
           ) : (
             <p className="muted">
-              Nothing recorded for tomorrow.
+              {t("common.noTomorrow")}
             </p>
           )}
         </section>
@@ -549,7 +552,7 @@ export default function EntryCard({
         {aiAnalysis?.summary && (
           <section className="block full ai-reading">
             <p className="block-title">
-              System Reading
+              {t("process.system")}
             </p>
 
             <p className="ai-summary">
@@ -570,7 +573,7 @@ export default function EntryCard({
                   0 && (
                   <div>
                     <p className="block-title">
-                      Emotions
+                      {t("process.emotions")}
                     </p>
 
                     <div className="tag-list">
@@ -595,7 +598,7 @@ export default function EntryCard({
                   0 && (
                   <div>
                     <p className="block-title">
-                      Themes
+                      {t("process.themes")}
                     </p>
 
                     <div className="tag-list">
@@ -620,7 +623,7 @@ export default function EntryCard({
                   0 && (
                   <div>
                     <p className="block-title">
-                      Keywords
+                      {t("process.keywords")}
                     </p>
 
                     <div className="tag-list">
@@ -700,7 +703,7 @@ export default function EntryCard({
                   onEdit?.(log)
                 }
               >
-                Edit
+                {t("common.edit")}
               </button>
 
               <button
@@ -710,8 +713,8 @@ export default function EntryCard({
                 }
               >
                 {log.is_public
-                  ? "Make Private"
-                  : "Make Public"}
+                  ? t("common.makePrivate")
+                  : t("common.makePublic")}
               </button>
 
               <button
@@ -720,7 +723,7 @@ export default function EntryCard({
                   onDelete?.(log)
                 }
               >
-                Delete
+                {t("common.delete")}
               </button>
             </div>
           </section>

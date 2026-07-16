@@ -11,6 +11,8 @@ import {
   supabase,
 } from "../../lib/supabaseClient";
 
+import { useLanguage } from "../../components/LanguageProvider";
+
 function formatDateTime(value) {
   if (!value) {
     return "";
@@ -58,6 +60,8 @@ function shorten(
 }
 
 export default function WeavePage() {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
   const canvasRef =
     useRef(null);
 
@@ -441,25 +445,21 @@ export default function WeavePage() {
         <div className="entry-head">
           <div>
             <p className="eyebrow">
-              Weave
+              {t("process.weave")}
             </p>
 
             <h2>
-              Semantic Connections
+              {t("process.semanticConnections")}
             </h2>
 
             <p className="subtitle">
-              Daily records are
-              connected by meaning,
-              atmosphere, artistic
-              input, body signals,
-              and recurring concerns.
+              {t("process.weaveSubtitle")}
             </p>
           </div>
 
           {snapshot?.generated_at && (
             <span className="badge">
-              Updated{" "}
+              {t("common.updated")}{" "}
               {formatDateTime(
                 snapshot.generated_at
               )}
@@ -468,8 +468,7 @@ export default function WeavePage() {
         </div>
 
         <p className="muted">
-          Generated automatically
-          once each night.
+          {t("process.generatedAutomatically")}
         </p>
 
         {snapshot?.meta && (
@@ -488,8 +487,7 @@ export default function WeavePage() {
       {loading && (
         <section className="panel">
           <p className="muted">
-            Loading the latest
-            Weave…
+            {t("process.loadingWeave")}
           </p>
         </section>
       )}
@@ -508,14 +506,11 @@ export default function WeavePage() {
         !snapshot && (
           <section className="panel">
             <h2>
-              No Weave Snapshot Yet
+              {t("process.noWeaveSnapshotYet")}
             </h2>
 
             <p className="muted">
-              The first semantic
-              network will appear
-              after the nightly
-              update runs.
+              {t("process.noWeaveSnapshotText")}
             </p>
           </section>
         )}
@@ -533,15 +528,13 @@ export default function WeavePage() {
 
             <section className="panel">
               <h2>
-                Strongest Connections
+                {t("process.strongestConnections")}
               </h2>
 
               {!strongestConnections
                 .length && (
                 <p className="muted">
-                  No connection reached
-                  the current similarity
-                  threshold.
+                  {t("process.noConnections")}
                 </p>
               )}
 
@@ -591,7 +584,7 @@ export default function WeavePage() {
                       <div className="grid two">
                         <div>
                           <p className="block-title">
-                            First Record
+                            {t("process.firstRecord")}
                           </p>
 
                           <p>
@@ -628,7 +621,7 @@ export default function WeavePage() {
 
                         <div>
                           <p className="block-title">
-                            Second Record
+                            {t("process.secondRecord")}
                           </p>
 
                           <p>

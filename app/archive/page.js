@@ -14,6 +14,7 @@ import {
 import ArchiveForm from "../../components/ArchiveForm";
 import ArchiveCard from "../../components/ArchiveCard";
 import VideoCard from "../../components/VideoCard";
+import { useLanguage } from "../../components/LanguageProvider";
 
 const FILTERS = [
   {
@@ -79,6 +80,9 @@ function normalizeEntry(entry) {
 }
 
 export default function ArchivePage() {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
+
   const [
     user,
     setUser,
@@ -879,21 +883,15 @@ export default function ArchivePage() {
         <div className="entry-head">
           <div>
             <p className="eyebrow">
-              Archive
+              {t("common.archiveEntry")}
             </p>
 
             <h2>
-              Writing, Videos,
-              and Process
+              {t("archive.title")}
             </h2>
 
             <p className="subtitle">
-              Essays,
-              reflections,
-              project records,
-              videos, and
-              references collected
-              in one memory layer.
+              {t("archive.subtitle")}
             </p>
           </div>
 
@@ -910,8 +908,8 @@ export default function ArchivePage() {
                 }
               >
                 {embedding
-                  ? "Reading Archive…"
-                  : "Update Archive Memory"}
+                  ? t("archive.reading")
+                  : t("archive.updateMemory")}
               </button>
 
               <button
@@ -928,8 +926,8 @@ export default function ArchivePage() {
                 }
               >
                 {showForm
-                  ? "Close Form"
-                  : "New Archive"}
+                  ? t("archive.closeForm")
+                  : t("archive.newArchive")}
               </button>
             </div>
           )}
@@ -938,10 +936,7 @@ export default function ArchivePage() {
         {!authLoading &&
           !user && (
             <p className="muted">
-              Public Archive
-              entries are visible
-              here. Sign in to add
-              or manage entries.
+              {t("archive.publicNotice")}
             </p>
           )}
       </section>
@@ -989,11 +984,11 @@ export default function ArchivePage() {
       <section className="panel">
         <div className="grid two">
           <label>
-            Search Archive
+            {t("archive.search")}
 
             <input
               type="search"
-              placeholder="Search title, text, or tags"
+              placeholder={t("archive.searchPlaceholder")}
               value={
                 searchText
               }
@@ -1044,11 +1039,11 @@ export default function ArchivePage() {
           {
             filteredEntries.length
           }{" "}
-          archive{" "}
+          {t("archive.archiveLabel")}{" "}
           {filteredEntries.length ===
           1
-            ? "entry"
-            : "entries"}
+            ? t("archive.entry")
+            : t("archive.entries")}
         </p>
       </section>
 
@@ -1064,12 +1059,11 @@ export default function ArchivePage() {
         !filteredEntries.length && (
           <section className="panel">
             <h2>
-              No Archive Entries
+              {t("archive.emptyTitle")}
             </h2>
 
             <p className="muted">
-              No entry matches the
-              current filter.
+              {t("archive.emptyMessage")}
             </p>
           </section>
         )}
@@ -1120,22 +1114,15 @@ export default function ArchivePage() {
           <div className="entry-head">
             <div>
               <p className="eyebrow">
-                Previous Archive
+                {t("archive.previousArchive")}
               </p>
 
               <h2>
-                Legacy Video
-                Archive
+                {t("archive.legacyVideoTitle")}
               </h2>
 
               <p className="subtitle">
-                Videos stored in
-                the original
-                video_archive
-                table remain here
-                until they are
-                moved into the
-                unified Archive.
+                {t("archive.legacyVideoSubtitle")}
               </p>
             </div>
           </div>

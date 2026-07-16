@@ -7,6 +7,7 @@ import {
   parseWorkHours,
   getLearningHours,
 } from '../../lib/utils';
+import { useLanguage } from '../../components/LanguageProvider';
 
 function parseMovementHours(value) {
   if (!value) return 0;
@@ -30,6 +31,8 @@ function parseMovementHours(value) {
 }
 
 export default function StatisticsPage() {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
   const [logs, setLogs] = useState([]);
 
   useEffect(() => {
@@ -98,7 +101,7 @@ export default function StatisticsPage() {
 
       <div className="panel">
         <p className="label">
-          Making
+          {t('process.making')}
         </p>
 
         <div className="big">
@@ -112,7 +115,7 @@ export default function StatisticsPage() {
 
       <div className="panel">
         <p className="label">
-          Learning
+          {t('process.learning')}
         </p>
 
         <div className="big">
@@ -126,7 +129,7 @@ export default function StatisticsPage() {
 
       <div className="panel">
         <p className="label">
-          Moving
+          {t('process.moving')}
         </p>
 
         <div className="big">
@@ -140,7 +143,7 @@ export default function StatisticsPage() {
 
       <div className="panel">
         <p className="label">
-          Body Weather
+          {t('process.bodyWeather')}
         </p>
 
         <div className="big">
@@ -150,7 +153,7 @@ export default function StatisticsPage() {
 
       <div className="panel">
         <p className="label">
-          Mind Weather
+          {t('process.mindWeather')}
         </p>
 
         <div className="big">
@@ -160,7 +163,7 @@ export default function StatisticsPage() {
 
       <div className="panel">
         <p className="label">
-          Energy Tone
+          {t('process.energyTone')}
         </p>
 
         <div className="big">

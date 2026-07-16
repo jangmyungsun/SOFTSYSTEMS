@@ -11,6 +11,7 @@ import {
   supabase,
 } from "../../lib/supabaseClient";
 
+import { useLanguage } from "../../components/LanguageProvider";
 import ArchiveCard from "../../components/ArchiveCard";
 import EntryCard from "../../components/EntryCard";
 
@@ -55,6 +56,9 @@ function normalizeArchiveEntry(entry) {
 }
 
 export default function InputPage() {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
+
   const [
     latestArchives,
     setLatestArchives,
@@ -174,7 +178,7 @@ export default function InputPage() {
 
         setErrorMessage(
           error?.message ||
-            "The latest Input records could not be loaded."
+            t("input.loadError")
         );
       } finally {
         setLoading(false);
@@ -188,29 +192,22 @@ export default function InputPage() {
     <>
       <section className="panel">
         <p className="eyebrow">
-          Input
+          {t("input.title")}
         </p>
 
         <h2>
-          Records entering the
-          system
+          {t("input.heading")}
         </h2>
 
         <p className="subtitle">
-          Archive holds longer
-          thoughts and media.
-          Daily records changing
-          conditions of the body,
-          environment, and
-          artistic practice.
+          {t("input.subtitle")}
         </p>
       </section>
 
       {loading && (
         <section className="panel">
           <p className="muted">
-            Loading the latest
-            Input…
+            {t("input.loading")}
           </p>
         </section>
       )}
@@ -231,11 +228,11 @@ export default function InputPage() {
               <div className="entry-head">
                 <div>
                   <p className="eyebrow">
-                    Archive
+                    {t("input.archive")}
                   </p>
 
                   <h2>
-                    Latest Archive
+                    {t("input.latestArchive")}
                   </h2>
                 </div>
 
@@ -262,8 +259,7 @@ export default function InputPage() {
                 </div>
               ) : (
                 <p className="muted">
-                  No public Archive
-                  entries yet.
+                  {t("input.noArchiveEntries")}
                 </p>
               )}
             </section>
@@ -272,11 +268,11 @@ export default function InputPage() {
               <div className="entry-head">
                 <div>
                   <p className="eyebrow">
-                    Daily
+                    {t("input.daily")}
                   </p>
 
                   <h2>
-                    Latest Daily
+                    {t("input.latestDaily")}
                   </h2>
                 </div>
 

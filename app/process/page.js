@@ -19,6 +19,8 @@ import {
   getLearningHours,
 } from "../../lib/utils";
 
+import { useLanguage } from "../../components/LanguageProvider";
+
 function getSafeObject(value) {
   if (
     value &&
@@ -303,6 +305,9 @@ function formatDateTime(value) {
 }
 
 export default function ProcessPage() {
+  const language = useLanguage();
+  const t = language?.t ?? ((key) => key);
+
   const [
     logs,
     setLogs,
@@ -480,7 +485,7 @@ export default function ProcessPage() {
 
         setErrorMessage(
           error?.message ||
-            "Process data could not be loaded."
+            t("process.loadError")
         );
       } finally {
         setLoading(false);
@@ -604,28 +609,22 @@ export default function ProcessPage() {
     <>
       <section className="panel">
         <p className="eyebrow">
-          Process
+          {t("process.title")}
         </p>
 
         <h2>
-          Records becoming
-          patterns and
-          relationships
+          {t("process.heading")}
         </h2>
 
         <p className="subtitle">
-          Accumulated rhythms,
-          numeric data, System
-          readings, and semantic
-          connections generated
-          from Input.
+          {t("process.subtitle")}
         </p>
       </section>
 
       {loading && (
         <section className="panel">
           <p className="muted">
-            Loading Process…
+            {t("process.loading")}
           </p>
         </section>
       )}
@@ -646,24 +645,23 @@ export default function ProcessPage() {
               <div className="entry-head">
                 <div>
                   <p className="eyebrow">
-                    Stats
+                    {t("process.stats")}
                   </p>
 
                   <h2>
-                    Accumulated
-                    Rhythms
+                    {t("process.accumulatedRhythms")}
                   </h2>
                 </div>
 
                 <Link href="/stats">
-                  Open Stats
+                  {t("process.openStats")}
                 </Link>
               </div>
 
               <div className="grid three">
                 <div className="panel">
                   <p className="label">
-                    Making
+                    {t("process.making")}
                   </p>
 
                   <div className="big">
@@ -676,7 +674,7 @@ export default function ProcessPage() {
 
                 <div className="panel">
                   <p className="label">
-                    Learning
+                    {t("process.learning")}
                   </p>
 
                   <div className="big">
@@ -689,7 +687,7 @@ export default function ProcessPage() {
 
                 <div className="panel">
                   <p className="label">
-                    Moving
+                    {t("process.moving")}
                   </p>
 
                   <div className="big">
@@ -702,7 +700,7 @@ export default function ProcessPage() {
 
                 <div className="panel">
                   <p className="label">
-                    Body Weather
+                    {t("process.bodyWeather")}
                   </p>
 
                   <div className="big">
@@ -714,7 +712,7 @@ export default function ProcessPage() {
 
                 <div className="panel">
                   <p className="label">
-                    Mind Weather
+                    {t("process.mindWeather")}
                   </p>
 
                   <div className="big">
@@ -724,7 +722,7 @@ export default function ProcessPage() {
 
                 <div className="panel">
                   <p className="label">
-                    Energy Tone
+                    {t("process.energyTone")}
                   </p>
 
                   <div className="big">
@@ -740,26 +738,21 @@ export default function ProcessPage() {
               <div className="entry-head">
                 <div>
                   <p className="eyebrow">
-                    Data
+                    {t("process.data")}
                   </p>
 
                   <h2>
-                    Numeric Data
+                    {t("process.numericData")}
                   </h2>
                 </div>
 
                 <Link href="/data">
-                  Open Data
+                  {t("process.openData")}
                 </Link>
               </div>
 
               <p className="subtitle">
-                Numeric body,
-                Body Moving,
-                making, learning,
-                and weather data
-                for mapping and
-                external systems.
+                {t("process.dataSubtitle")}
               </p>
 
               <div className="actions">
@@ -774,7 +767,7 @@ export default function ProcessPage() {
                     )
                   }
                 >
-                  Export CSV
+                  {t("process.exportCsv")}
                 </button>
 
                 <button
@@ -791,13 +784,13 @@ export default function ProcessPage() {
                     )
                   }
                 >
-                  Export JSON
+                  {t("process.exportJson")}
                 </button>
               </div>
 
               <div className="block">
                 <p className="block-title">
-                  Mapping Fields
+                  {t("process.mappingFields")}
                 </p>
 
                 <p>
@@ -825,8 +818,7 @@ export default function ProcessPage() {
               </div>
 
               <p className="muted">
-                {rows.length} public
-                records available.
+                {t("process.publicRecords", { count: rows.length })}
               </p>
             </section>
 
@@ -834,24 +826,23 @@ export default function ProcessPage() {
               <div className="entry-head">
                 <div>
                   <p className="eyebrow">
-                    System
+                    {t("process.system")}
                   </p>
 
                   <h2>
-                    Current System
-                    Reading
+                    {t("process.currentSystemReading")}
                   </h2>
                 </div>
 
                 <Link href="/system">
-                  View Full
+                  {t("process.viewFull")}
                 </Link>
               </div>
 
               {systemSnapshot ? (
                 <>
                   <p className="label">
-                    Current Mode
+                    {t("process.currentMode")}
                   </p>
 
                   <div className="big">
@@ -862,7 +853,7 @@ export default function ProcessPage() {
                   {reading.overview && (
                     <div className="block">
                       <p className="block-title">
-                        Overview
+                        {t("process.overview")}
                       </p>
 
                       <p>
@@ -876,7 +867,7 @@ export default function ProcessPage() {
                   {reading.open_question && (
                     <div className="block">
                       <p className="block-title">
-                        Open Question
+                        {t("process.openQuestion")}
                       </p>
 
                       <p>
@@ -899,8 +890,7 @@ export default function ProcessPage() {
                 </>
               ) : (
                 <p className="muted">
-                  No public System
-                  reading yet.
+                  {t("process.noSystemReading")}
                 </p>
               )}
             </section>
@@ -909,17 +899,16 @@ export default function ProcessPage() {
               <div className="entry-head">
                 <div>
                   <p className="eyebrow">
-                    Weave
+                    {t("process.weave")}
                   </p>
 
                   <h2>
-                    Latest Semantic
-                    Snapshot
+                    {t("process.latestSemanticSnapshot")}
                   </h2>
                 </div>
 
                 <Link href="/weave">
-                  View Weave
+                  {t("process.viewWeave")}
                 </Link>
               </div>
 
@@ -928,7 +917,7 @@ export default function ProcessPage() {
                   <div className="grid three">
                     <div className="panel">
                       <p className="label">
-                        Records
+                        {t("process.records")}
                       </p>
 
                       <div className="big">
@@ -940,7 +929,7 @@ export default function ProcessPage() {
 
                     <div className="panel">
                       <p className="label">
-                        Connections
+                        {t("process.connections")}
                       </p>
 
                       <div className="big">
@@ -952,7 +941,7 @@ export default function ProcessPage() {
 
                     <div className="panel">
                       <p className="label">
-                        Threshold
+                        {t("process.threshold")}
                       </p>
 
                       <div className="big">
@@ -974,8 +963,7 @@ export default function ProcessPage() {
                 </>
               ) : (
                 <p className="muted">
-                  No public Weave
-                  snapshot yet.
+                  {t("process.noWeaveSnapshot")}
                 </p>
               )}
             </section>
