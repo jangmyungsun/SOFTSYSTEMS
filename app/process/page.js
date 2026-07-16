@@ -52,13 +52,13 @@ function formatWeeklyComparison(summary, locale, t) {
 
   if (locale === "ko") {
     return summary.trend === "increased"
-      ? `吏?쒖＜蹂대떎 ${deltaText} ${t("stats.increased")}`
-      : `吏?쒖＜蹂대떎 ${deltaText} ${t("stats.decreased")}`;
+      ? `지난주보다 ${deltaText} ${t("stats.increased")}`
+      : `지난주보다 ${deltaText} ${t("stats.decreased")}`;
   }
 
   return summary.trend === "increased"
-    ? `??${deltaText} ${t("stats.comparedWithLastWeek")}`
-    : `??${deltaText} ${t("stats.comparedWithLastWeek")}`;
+    ? `↑ ${deltaText} ${t("stats.comparedWithLastWeek")}`
+    : `↓ ${deltaText} ${t("stats.comparedWithLastWeek")}`;
 }
 
 function formatWeeklyModeSummary(summary, t) {
@@ -68,7 +68,7 @@ function formatWeeklyModeSummary(summary, t) {
 
   const countLabel = summary.count === 1 ? t("stats.record") : t("stats.records");
 
-  return `${t("stats.thisWeek")}: ${translateValue(t, summary.value)} 쨌 ${summary.count} ${countLabel}`;
+  return `${t("stats.thisWeek")}: ${translateValue(t, summary.value)} · ${summary.count} ${countLabel}`;
 }
 
 function getSafeObject(value) {
