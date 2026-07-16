@@ -588,7 +588,7 @@ export default function WeavePage() {
                             {t("process.firstRecord")}
                           </p>
 
-                          <p>
+                          <p className="weave-body">
                             {
                               source.summary
                             }
@@ -625,7 +625,7 @@ export default function WeavePage() {
                             {t("process.secondRecord")}
                           </p>
 
-                          <p>
+                          <p className="weave-body">
                             {
                               target.summary
                             }

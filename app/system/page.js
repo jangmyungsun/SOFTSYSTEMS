@@ -273,13 +273,13 @@ export default function SystemPage() {
               </div>
 
               {reading.overview && (
-                <p>
+                <p className="system-reading">
                   {reading.overview}
                 </p>
               )}
 
               {reading.confidence_note && (
-                <p className="muted">
+                <p className="muted system-reading">
                   {
                     reading.confidence_note
                   }
@@ -317,7 +317,7 @@ export default function SystemPage() {
                           }
                         </p>
 
-                        <p className="muted">
+                        <p className="muted system-reading">
                           {
                             item.evidence
                           }
@@ -342,6 +342,7 @@ export default function SystemPage() {
                       index
                     ) => (
                       <p
+                        className="system-reading"
                         key={`${item}-${index}`}
                       >
                         {item}
@@ -378,7 +379,7 @@ export default function SystemPage() {
                         {item.target}
                       </p>
 
-                      <p className="muted">
+                      <p className="muted system-reading">
                         {
                           item.observation
                         }
@@ -400,9 +401,11 @@ export default function SystemPage() {
                 </p>
 
                 <div className="big">
-                  {
+                  <span className="system-reading">
+                    {
                     reading.open_question
-                  }
+                    }
+                  </span>
                 </div>
               </section>
             )}

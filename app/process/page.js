@@ -875,7 +875,7 @@ export default function ProcessPage() {
                         {t("process.overview")}
                       </p>
 
-                      <p>
+                      <p className="system-reading">
                         {
                           reading.overview
                         }
@@ -889,7 +889,7 @@ export default function ProcessPage() {
                         {t("process.openQuestion")}
                       </p>
 
-                      <p>
+                      <p className="system-reading">
                         {
                           reading.open_question
                         }

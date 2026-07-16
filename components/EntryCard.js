@@ -271,7 +271,7 @@ export default function EntryCard({
           <section className="block full ai-reading">
             <p className="block-title">{t("process.system")}</p>
             <p className="ai-summary">{aiAnalysis.summary}</p>
-            {aiAnalysis.relationship ? <p className="muted">{aiAnalysis.relationship}</p> : null}
+            {aiAnalysis.relationship ? <p className="muted ai-relationship">{aiAnalysis.relationship}</p> : null}
 
             <div className="ai-groups">
               {Array.isArray(aiAnalysis.emotions) && aiAnalysis.emotions.length > 0 ? (
