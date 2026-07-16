@@ -20,6 +20,7 @@ import {
 } from "../../lib/utils";
 
 import { useLanguage } from "../../components/LanguageProvider";
+import TranslatedContent from "../../components/TranslatedContent";
 
 function getSafeObject(value) {
   if (
@@ -857,9 +858,13 @@ export default function ProcessPage() {
                       </p>
 
                       <p>
-                        {
-                          reading.overview
-                        }
+                        <TranslatedContent
+                          contentKey={`system:${systemSnapshot?.id || systemSnapshot?.snapshot_date || "latest"}:overview`}
+                          text={reading.overview}
+                          sourceLanguage="en"
+                          className="translate-block"
+                          label="System overview"
+                        />
                       </p>
                     </div>
                   )}
@@ -871,9 +876,13 @@ export default function ProcessPage() {
                       </p>
 
                       <p>
-                        {
-                          reading.open_question
-                        }
+                        <TranslatedContent
+                          contentKey={`system:${systemSnapshot?.id || systemSnapshot?.snapshot_date || "latest"}:open_question`}
+                          text={reading.open_question}
+                          sourceLanguage="en"
+                          className="translate-block"
+                          label="System open question"
+                        />
                       </p>
                     </div>
                   )}

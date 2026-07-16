@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import TranslateButton from "./TranslateButton";
+import TranslatedContent from "./TranslatedContent";
 import { useLanguage } from "./LanguageProvider";
 
 function formatLabel(value) {
@@ -229,11 +229,13 @@ export default function ArchiveCard({
               </div>
 
               <p className="archive-preview-excerpt">
-                {shortenText(
-                  entry.body,
-                  190
-                ) ||
-                  t("common.noPreviewText")}
+                <TranslatedContent
+                  contentKey={`archive:${entry.id || entry.title || "entry"}:excerpt`}
+                  text={shortenText(entry.body, 190) || t("common.noPreviewText")}
+                  sourceLanguage={entry.language || "en"}
+                  as="span"
+                  className="translated-inline"
+                />
               </p>
 
               {tags.length > 0 && (
@@ -388,12 +390,12 @@ export default function ArchiveCard({
 
             {entry.body && (
               <div className="archive-modal-body">
-                <TranslateButton
-                  originalText={entry.body}
-                  sourceLanguage="en"
-                  targetLanguage="ko"
-                  contentKey={`archive:${entry.id || entry.title || "entry"}`}
+                <TranslatedContent
+                  contentKey={`archive:${entry.id || entry.title || "entry"}:body`}
+                  text={entry.body}
+                  sourceLanguage={entry.language || "en"}
                   className="translate-block"
+                  label="Archive body"
                 />
               </div>
             )}

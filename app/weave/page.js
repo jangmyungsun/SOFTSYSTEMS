@@ -12,6 +12,7 @@ import {
 } from "../../lib/supabaseClient";
 
 import { useLanguage } from "../../components/LanguageProvider";
+import TranslatedContent from "../../components/TranslatedContent";
 
 function formatDateTime(value) {
   if (!value) {
@@ -588,9 +589,14 @@ export default function WeavePage() {
                           </p>
 
                           <p>
-                            {
-                              source.summary
-                            }
+                            <TranslatedContent
+                              contentKey={`weave:${snapshot?.id || snapshot?.snapshot_date || "latest"}:node:${source.id || index}:summary`}
+                              text={source.summary}
+                              sourceLanguage="en"
+                              as="span"
+                              className="translated-inline"
+                              label="Weave node summary"
+                            />
                           </p>
 
                           {source
@@ -625,9 +631,14 @@ export default function WeavePage() {
                           </p>
 
                           <p>
-                            {
-                              target.summary
-                            }
+                            <TranslatedContent
+                              contentKey={`weave:${snapshot?.id || snapshot?.snapshot_date || "latest"}:node:${target.id || index}:summary`}
+                              text={target.summary}
+                              sourceLanguage="en"
+                              as="span"
+                              className="translated-inline"
+                              label="Weave node summary"
+                            />
                           </p>
 
                           {target

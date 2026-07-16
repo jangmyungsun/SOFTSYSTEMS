@@ -17,6 +17,7 @@ import {
 import { useLanguage } from "../components/LanguageProvider";
 import EntryCard from "../components/EntryCard";
 import ArchiveCard from "../components/ArchiveCard";
+import TranslatedContent from "../components/TranslatedContent";
 
 function parseDurationToHours(value) {
   if (
@@ -315,6 +316,10 @@ export default function Home() {
 
         const guidanceRow =
           guidanceResult.data;
+        const guidanceDate =
+          guidanceRow?.guidance_date ||
+          guidanceRow?.generated_at ||
+          "latest";
 
         const guidanceValue =
           guidanceRow?.guidance &&
@@ -472,8 +477,13 @@ export default function Home() {
               )}
 
               <p className="soft-suggestion-reading">
-                {guidance.suggested_gesture ||
-                  guidance.reading}
+                <TranslatedContent
+                  contentKey={`guidance:${guidanceDate}:body`}
+                  text={guidance.suggested_gesture || guidance.reading}
+                  sourceLanguage="en"
+                  className="translate-block"
+                  label="Home guidance"
+                />
               </p>
             </>
           )}

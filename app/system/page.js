@@ -10,6 +10,7 @@ import {
 } from "../../lib/supabaseClient";
 
 import { useLanguage } from "../../components/LanguageProvider";
+import TranslatedContent from "../../components/TranslatedContent";
 
 function formatDateTime(value) {
   if (!value) {
@@ -271,7 +272,13 @@ export default function SystemPage() {
 
               {reading.overview && (
                 <p>
-                  {reading.overview}
+                  <TranslatedContent
+                    contentKey={`system:${snapshot?.id || snapshot?.snapshot_date || "latest"}:overview`}
+                    text={reading.overview}
+                    sourceLanguage="en"
+                    className="translate-block"
+                    label="System overview"
+                  />
                 </p>
               )}
 
@@ -402,9 +409,13 @@ export default function SystemPage() {
                 </p>
 
                 <div className="big">
-                  {
-                    reading.open_question
-                  }
+                  <TranslatedContent
+                    contentKey={`system:${snapshot?.id || snapshot?.snapshot_date || "latest"}:open_question`}
+                    text={reading.open_question}
+                    sourceLanguage="en"
+                    className="translate-block"
+                    label="System open question"
+                  />
                 </div>
               </section>
             )}
