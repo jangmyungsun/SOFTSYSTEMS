@@ -1,12 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import {
   getHomeState,
   parseWorkHours,
   getLearningHours,
 } from '../../lib/utils';
+import {
+  buildWeeklyRhythmSummary,
+  formatDisplayHours,
+} from '../../lib/weeklyRhythms';
 import { useLanguage } from '../../components/LanguageProvider';
 
 function toValueKey(value) {
@@ -38,9 +42,46 @@ function parseMovementHours(value) {
   return total;
 }
 
+function translateValue(t, value) {
+  const key = `values.${toValueKey(value)}`;
+  const translated = t(key);
+
+  return translated === key ? value : translated;
+}
+
+function formatWeeklyComparison(summary, locale, t) {
+  const delta = Math.abs(summary.differenceHours);
+  const deltaText = formatDisplayHours(delta, locale);
+
+  if (summary.trend === 'same') {
+    return t('stats.sameAsLastWeek');
+  }
+
+  if (locale === 'ko') {
+    return summary.trend === 'increased'
+      ? `지난주보다 ${deltaText} ${t('stats.increased')}`
+      : `지난주보다 ${deltaText} ${t('stats.decreased')}`;
+  }
+
+  return summary.trend === 'increased'
+    ? `↑ ${deltaText} ${t('stats.comparedWithLastWeek')}`
+    : `↓ ${deltaText} ${t('stats.comparedWithLastWeek')}`;
+}
+
+function formatWeeklyModeSummary(summary, t) {
+  if (!summary?.value) {
+    return t('stats.noRecordsThisWeek');
+  }
+
+  const countLabel = summary.count === 1 ? t('stats.record') : t('stats.records');
+
+  return `${t('stats.thisWeek')}: ${translateValue(t, summary.value)} · ${summary.count} ${countLabel}`;
+}
+
 export default function StatisticsPage() {
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
+  const locale = language?.locale ?? 'en';
   const [logs, setLogs] = useState([]);
 
   useEffect(() => {
@@ -52,6 +93,8 @@ export default function StatisticsPage() {
   }, []);
 
   const h = getHomeState(logs);
+
+  const weekly = useMemo(() => buildWeeklyRhythmSummary(logs), [logs]);
 
   const making = logs.reduce(
     (sum, log) =>
@@ -113,8 +156,16 @@ export default function StatisticsPage() {
         </p>
 
         <div className="big">
-          {making.toFixed(1)}h
+          {formatDisplayHours(making, locale)}
         </div>
+
+        <p className="muted">
+          {t('stats.hoursThisWeek', { hours: formatDisplayHours(weekly.making.currentHours, locale) })}
+        </p>
+
+        <p className="muted">
+          {formatWeeklyComparison(weekly.making, locale, t)}
+        </p>
 
         <p className="muted">
           {t('stats.totalPublic')}
@@ -127,8 +178,16 @@ export default function StatisticsPage() {
         </p>
 
         <div className="big">
-          {learning.toFixed(1)}h
+          {formatDisplayHours(learning, locale)}
         </div>
+
+        <p className="muted">
+          {t('stats.hoursThisWeek', { hours: formatDisplayHours(weekly.learning.currentHours, locale) })}
+        </p>
+
+        <p className="muted">
+          {formatWeeklyComparison(weekly.learning, locale, t)}
+        </p>
 
         <p className="muted">
           {t('stats.totalPublic')}
@@ -141,8 +200,16 @@ export default function StatisticsPage() {
         </p>
 
         <div className="big">
-          {moving.toFixed(1)}h
+          {formatDisplayHours(moving, locale)}
         </div>
+
+        <p className="muted">
+          {t('stats.hoursThisWeek', { hours: formatDisplayHours(weekly.moving.currentHours, locale) })}
+        </p>
+
+        <p className="muted">
+          {formatWeeklyComparison(weekly.moving, locale, t)}
+        </p>
 
         <p className="muted">
           {t('stats.totalPublic')}
@@ -155,10 +222,12 @@ export default function StatisticsPage() {
         </p>
 
         <div className="big">
-          {t(`values.${toValueKey(h.bodyWeather)}`) !== `values.${toValueKey(h.bodyWeather)}`
-            ? t(`values.${toValueKey(h.bodyWeather)}`)
-            : h.bodyWeather}
+          {translateValue(t, h.bodyWeather)}
         </div>
+
+        <p className="muted">
+          {formatWeeklyModeSummary(weekly.bodyWeather, t)}
+        </p>
       </div>
 
       <div className="panel">
@@ -167,10 +236,12 @@ export default function StatisticsPage() {
         </p>
 
         <div className="big">
-          {t(`values.${toValueKey(mindWeather)}`) !== `values.${toValueKey(mindWeather)}`
-            ? t(`values.${toValueKey(mindWeather)}`)
-            : mindWeather}
+          {translateValue(t, mindWeather)}
         </div>
+
+        <p className="muted">
+          {formatWeeklyModeSummary(weekly.mindWeather, t)}
+        </p>
       </div>
 
       <div className="panel">
@@ -179,10 +250,12 @@ export default function StatisticsPage() {
         </p>
 
         <div className="big">
-          {t(`values.${toValueKey(h.energyTone)}`) !== `values.${toValueKey(h.energyTone)}`
-            ? t(`values.${toValueKey(h.energyTone)}`)
-            : h.energyTone}
+          {translateValue(t, h.energyTone)}
         </div>
+
+        <p className="muted">
+          {formatWeeklyModeSummary(weekly.energyTone, t)}
+        </p>
       </div>
 
     </section>

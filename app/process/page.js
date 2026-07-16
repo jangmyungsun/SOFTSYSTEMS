@@ -19,6 +19,10 @@ import {
   parseWorkHours,
   getLearningHours,
 } from "../../lib/utils";
+import {
+  buildWeeklyRhythmSummary,
+  formatDisplayHours,
+} from "../../lib/weeklyRhythms";
 
 import { useLanguage } from "../../components/LanguageProvider";
 import TranslateButton from "../../components/TranslateButton";
@@ -29,6 +33,42 @@ function toValueKey(value) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
+}
+
+function translateValue(t, value) {
+  const key = `values.${toValueKey(value)}`;
+  const translated = t(key);
+
+  return translated === key ? value : translated;
+}
+
+function formatWeeklyComparison(summary, locale, t) {
+  const delta = Math.abs(summary.differenceHours);
+  const deltaText = formatDisplayHours(delta, locale);
+
+  if (summary.trend === "same") {
+    return t("stats.sameAsLastWeek");
+  }
+
+  if (locale === "ko") {
+    return summary.trend === "increased"
+      ? `지난주보다 ${deltaText} ${t("stats.increased")}`
+      : `지난주보다 ${deltaText} ${t("stats.decreased")}`;
+  }
+
+  return summary.trend === "increased"
+    ? `↑ ${deltaText} ${t("stats.comparedWithLastWeek")}`
+    : `↓ ${deltaText} ${t("stats.comparedWithLastWeek")}`;
+}
+
+function formatWeeklyModeSummary(summary, t) {
+  if (!summary?.value) {
+    return t("stats.noRecordsThisWeek");
+  }
+
+  const countLabel = summary.count === 1 ? t("stats.record") : t("stats.records");
+
+  return `${t("stats.thisWeek")}: ${translateValue(t, summary.value)} · ${summary.count} ${countLabel}`;
 }
 
 function getSafeObject(value) {
@@ -556,6 +596,12 @@ export default function ProcessPage() {
       [logs]
     );
 
+  const weeklyRhythms =
+    useMemo(
+      () => buildWeeklyRhythmSummary(logs),
+      [logs]
+    );
+
   const moodValues =
     logs
       .map((log) =>
@@ -676,11 +722,25 @@ export default function ProcessPage() {
                   </p>
 
                   <div className="big">
-                    {making.toFixed(
-                      1
-                    )}
-                    h
+                    {formatDisplayHours(making, locale)}
                   </div>
+
+                  <p className="muted">
+                    {t("stats.hoursThisWeek", {
+                      hours: formatDisplayHours(
+                        weeklyRhythms.making.currentHours,
+                        locale
+                      ),
+                    })}
+                  </p>
+
+                  <p className="muted">
+                    {formatWeeklyComparison(
+                      weeklyRhythms.making,
+                      locale,
+                      t
+                    )}
+                  </p>
                 </div>
 
                 <div className="panel">
@@ -689,11 +749,25 @@ export default function ProcessPage() {
                   </p>
 
                   <div className="big">
-                    {learning.toFixed(
-                      1
-                    )}
-                    h
+                    {formatDisplayHours(learning, locale)}
                   </div>
+
+                  <p className="muted">
+                    {t("stats.hoursThisWeek", {
+                      hours: formatDisplayHours(
+                        weeklyRhythms.learning.currentHours,
+                        locale
+                      ),
+                    })}
+                  </p>
+
+                  <p className="muted">
+                    {formatWeeklyComparison(
+                      weeklyRhythms.learning,
+                      locale,
+                      t
+                    )}
+                  </p>
                 </div>
 
                 <div className="panel">
@@ -702,11 +776,25 @@ export default function ProcessPage() {
                   </p>
 
                   <div className="big">
-                    {moving.toFixed(
-                      1
-                    )}
-                    h
+                    {formatDisplayHours(moving, locale)}
                   </div>
+
+                  <p className="muted">
+                    {t("stats.hoursThisWeek", {
+                      hours: formatDisplayHours(
+                        weeklyRhythms.moving.currentHours,
+                        locale
+                      ),
+                    })}
+                  </p>
+
+                  <p className="muted">
+                    {formatWeeklyComparison(
+                      weeklyRhythms.moving,
+                      locale,
+                      t
+                    )}
+                  </p>
                 </div>
 
                 <div className="panel">
@@ -715,12 +803,15 @@ export default function ProcessPage() {
                   </p>
 
                   <div className="big">
-                    {
-                      t(`values.${toValueKey(homeState.bodyWeather)}`) !== `values.${toValueKey(homeState.bodyWeather)}`
-                        ? t(`values.${toValueKey(homeState.bodyWeather)}`)
-                        : homeState.bodyWeather
-                    }
+                    {translateValue(t, homeState.bodyWeather)}
                   </div>
+
+                  <p className="muted">
+                    {formatWeeklyModeSummary(
+                      weeklyRhythms.bodyWeather,
+                      t
+                    )}
+                  </p>
                 </div>
 
                 <div className="panel">
@@ -729,10 +820,15 @@ export default function ProcessPage() {
                   </p>
 
                   <div className="big">
-                    {t(`values.${toValueKey(mindWeather)}`) !== `values.${toValueKey(mindWeather)}`
-                      ? t(`values.${toValueKey(mindWeather)}`)
-                      : mindWeather}
+                    {translateValue(t, mindWeather)}
                   </div>
+
+                  <p className="muted">
+                    {formatWeeklyModeSummary(
+                      weeklyRhythms.mindWeather,
+                      t
+                    )}
+                  </p>
                 </div>
 
                 <div className="panel">
@@ -741,12 +837,15 @@ export default function ProcessPage() {
                   </p>
 
                   <div className="big">
-                    {
-                      t(`values.${toValueKey(homeState.energyTone)}`) !== `values.${toValueKey(homeState.energyTone)}`
-                        ? t(`values.${toValueKey(homeState.energyTone)}`)
-                        : homeState.energyTone
-                    }
+                    {translateValue(t, homeState.energyTone)}
                   </div>
+
+                  <p className="muted">
+                    {formatWeeklyModeSummary(
+                      weeklyRhythms.energyTone,
+                      t
+                    )}
+                  </p>
                 </div>
               </div>
             </section>
