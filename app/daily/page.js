@@ -73,6 +73,8 @@ function getMediaType(file) {
 export default function DailyPage() {
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
+  const locale =
+    language?.locale || "en";
 
   const [
     session,
@@ -556,12 +558,17 @@ export default function DailyPage() {
               "Content-Type":
                 "application/json",
 
+              "x-softsystems-locale":
+                locale,
+
               Authorization:
                 `Bearer ${accessToken}`,
             },
 
             body:
               JSON.stringify({
+                locale,
+
                 log:
                   logPayload,
               }),

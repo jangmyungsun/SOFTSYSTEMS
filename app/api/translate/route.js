@@ -53,7 +53,7 @@ export async function POST(request) {
       input: [
         {
           role: "system",
-          content: `Translate the provided text into ${targetLanguage}. Preserve tone, paragraph breaks, names, titles, URLs, and formatting. Return only the translated text, without commentary, explanation, or summary.`,
+          content: `Translate the provided text into ${targetLanguage}. Preserve tone, paragraph breaks, names, titles, URLs, and formatting. Respond entirely in the user's selected language. Return only the translated text, without commentary, explanation, or summary.`,
         },
         {
           role: "user",

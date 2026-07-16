@@ -18,6 +18,82 @@ const MAX_LOGS = 100;
 const MAX_EDGES = 80;
 const MIN_SIMILARITY = 0.72;
 
+const SUPPORTED_LOCALES = ["en", "ko"];
+
+function normalizeLocale(value) {
+  if (!value) {
+    return "en";
+  }
+
+  const normalized = String(value).toLowerCase();
+
+  if (normalized.startsWith("ko")) {
+    return "ko";
+  }
+
+  return "en";
+}
+
+function resolveRequestLocale(request) {
+  const url = new URL(request.url);
+  const queryLocale = url.searchParams.get("locale");
+  const normalizedQuery = normalizeLocale(queryLocale);
+
+  if (queryLocale && SUPPORTED_LOCALES.includes(normalizedQuery)) {
+    return normalizedQuery;
+  }
+
+  const localeHeader = request.headers.get("x-softsystems-locale");
+  const normalizedHeader = normalizeLocale(localeHeader);
+
+  if (localeHeader && SUPPORTED_LOCALES.includes(normalizedHeader)) {
+    return normalizedHeader;
+  }
+
+  return normalizeLocale(request.headers.get("accept-language"));
+}
+
+function languageName(locale) {
+  return locale === "ko" ? "Korean" : "English";
+}
+
+function localizeMessage(locale, key) {
+  const messages = {
+    en: {
+      noRecentDaily: "No recent Daily records were available.",
+      noSystemMaterial: "The system has not gathered enough recent material for a grounded period reading.",
+      openQuestion: "What is beginning to repeat?",
+      archiveSearchFailed: "Archive memory could not be searched for this reading.",
+      noSystemReading: "The AI returned no System reading.",
+      noGuidanceMaterial: "There is not enough recent material to make a grounded suggestion.",
+      suggestedGesture: "Notice one sound, image, or bodily signal without needing to develop it.",
+      avoid: "Avoid treating the absence of data as a problem.",
+      confidenceNote: "This suggestion is intentionally general because recent data is limited.",
+      noGuidance: "The AI returned no guidance.",
+      noPublicDaily: "No public Daily records were found.",
+      cronFailed: "Nightly cron failed.",
+      unauthorized: "Unauthorized cron request.",
+    },
+    ko: {
+      noRecentDaily: "최근 Daily 기록이 없습니다.",
+      noSystemMaterial: "근거 있는 기간 읽기를 만들기 위한 최근 자료가 충분하지 않습니다.",
+      openQuestion: "무엇이 반복되기 시작하고 있나요?",
+      archiveSearchFailed: "이번 읽기에서 아카이브 메모리를 검색할 수 없었습니다.",
+      noSystemReading: "AI가 시스템 읽기를 반환하지 않았습니다.",
+      noGuidanceMaterial: "근거 있는 제안을 만들기 위한 최근 자료가 충분하지 않습니다.",
+      suggestedGesture: "확장하려 하지 않고 소리 하나, 이미지 하나, 혹은 몸의 신호 하나를 알아차려 보세요.",
+      avoid: "데이터의 부재 자체를 문제로 취급하는 태도는 피하세요.",
+      confidenceNote: "최근 데이터가 제한되어 있어 이 제안은 의도적으로 일반적으로 작성되었습니다.",
+      noGuidance: "AI가 가이던스를 반환하지 않았습니다.",
+      noPublicDaily: "공개된 Daily 기록이 없습니다.",
+      cronFailed: "야간 크론 실행에 실패했습니다.",
+      unauthorized: "인증되지 않은 크론 요청입니다.",
+    },
+  };
+
+  return messages[locale]?.[key] || messages.en[key];
+}
+
 const SYSTEM_SCHEMA = {
   type: "object",
 
@@ -1008,7 +1084,8 @@ function makeWeaveNode(log) {
 }
 
 async function generateSystemReading(
-  logs
+  logs,
+  locale
 ) {
   const recentLogs =
     logs.filter(
@@ -1030,7 +1107,7 @@ async function generateSystemReading(
         "Not enough material",
 
       overview:
-        "The system has not gathered enough recent material for a grounded period reading.",
+        localizeMessage(locale, "noSystemMaterial"),
 
       recurring_signals:
         [],
@@ -1042,10 +1119,10 @@ async function generateSystemReading(
         [],
 
       open_question:
-        "What is beginning to repeat?",
+        localizeMessage(locale, "openQuestion"),
 
       confidence_note:
-        "No recent Daily records were available.",
+        localizeMessage(locale, "noRecentDaily"),
 
       period_days:
         SYSTEM_PERIOD_DAYS,
@@ -1085,7 +1162,7 @@ async function generateSystemReading(
     );
 
     archiveSearchNote =
-      "Archive memory could not be searched for this reading.";
+      localizeMessage(locale, "archiveSearchFailed");
   }
 
   const response =
@@ -1144,7 +1221,8 @@ Do not infer a stable pattern from one record.
 Do not invent unsupported evidence.
 Do not use Archive material merely because it was supplied.
 
-Use calm, precise, observational English.
+Use calm, precise, observational language.
+Respond entirely in the user's selected language.
 
 The open question should invite continued noticing rather than instruct the artist to work harder.
           `.trim(),
@@ -1157,6 +1235,11 @@ The open question should invite continued noticing rather than instruct the arti
           content:
             JSON.stringify(
               {
+                  selected_language:
+                    languageName(locale),
+
+                  locale,
+
                 period_days:
                   SYSTEM_PERIOD_DAYS,
 
@@ -1206,7 +1289,7 @@ The open question should invite continued noticing rather than instruct the arti
     !response.output_text
   ) {
     throw new Error(
-      "The AI returned no System reading."
+      localizeMessage(locale, "noSystemReading")
     );
   }
 
@@ -1246,7 +1329,8 @@ The open question should invite continued noticing rather than instruct the arti
 }
 async function generateGuidance(
   logs,
-  systemReading
+  systemReading,
+  locale
 ) {
   const recentLogs =
     logs
@@ -1269,20 +1353,20 @@ async function generateGuidance(
         "Listening",
 
       reading:
-        "There is not enough recent material to make a grounded suggestion.",
+        localizeMessage(locale, "noGuidanceMaterial"),
 
       suggested_gesture:
-        "Notice one sound, image, or bodily signal without needing to develop it.",
+        localizeMessage(locale, "suggestedGesture"),
 
       avoid:
-        "Avoid treating the absence of data as a problem.",
+        localizeMessage(locale, "avoid"),
 
       basis: [
-        "No recent Daily records were available.",
+        localizeMessage(locale, "noRecentDaily"),
       ],
 
       confidence_note:
-        "This suggestion is intentionally general because recent data is limited.",
+        localizeMessage(locale, "confidenceNote"),
 
       generated_at:
         new Date()
@@ -1346,7 +1430,8 @@ If recent records indicate pain, illness, fatigue, or strain, use cautious langu
 
 Never present the system as a substitute for medical care.
 
-Use calm, precise, concise English.
+Use calm, precise, concise language.
+Respond entirely in the user's selected language.
           `.trim(),
         },
 
@@ -1357,6 +1442,11 @@ Use calm, precise, concise English.
           content:
             JSON.stringify(
               {
+                  selected_language:
+                    languageName(locale),
+
+                  locale,
+
                 guidance_date:
                   getDateString(),
 
@@ -1393,7 +1483,7 @@ Use calm, precise, concise English.
     !response.output_text
   ) {
     throw new Error(
-      "The AI returned no guidance."
+      localizeMessage(locale, "noGuidance")
     );
   }
 
@@ -1675,6 +1765,9 @@ async function generateWeave(
 export async function GET(
   request
 ) {
+  const locale =
+    resolveRequestLocale(request);
+
   try {
     const authorization =
       request.headers.get(
@@ -1692,7 +1785,7 @@ export async function GET(
       return NextResponse.json(
         {
           error:
-            "Unauthorized cron request.",
+            localizeMessage(locale, "unauthorized"),
         },
         {
           status: 401,
@@ -1757,7 +1850,7 @@ export async function GET(
           true,
 
         message:
-          "No public Daily records were found.",
+          localizeMessage(locale, "noPublicDaily"),
       });
     }
 
@@ -1766,7 +1859,8 @@ export async function GET(
 
     const systemReading =
       await generateSystemReading(
-        logs
+        logs,
+        locale
       );
 
     const {
@@ -1809,7 +1903,8 @@ export async function GET(
     const guidance =
       await generateGuidance(
         logs,
-        systemReading
+        systemReading,
+        locale
       );
 
     const {
@@ -1941,7 +2036,7 @@ export async function GET(
 
         error:
           error?.message ||
-          "Nightly cron failed.",
+          localizeMessage(locale, "cronFailed"),
       },
       {
         status: 500,

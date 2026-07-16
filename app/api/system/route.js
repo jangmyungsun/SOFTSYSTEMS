@@ -3,6 +3,66 @@ import { NextResponse } from "next/server";
 import { openai } from "../../../lib/openai";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
+const SUPPORTED_LOCALES = ["en", "ko"];
+
+function normalizeLocale(value) {
+  if (!value) {
+    return "en";
+  }
+
+  const normalized = String(value).toLowerCase();
+
+  if (normalized.startsWith("ko")) {
+    return "ko";
+  }
+
+  return "en";
+}
+
+function resolveLocale(request, body) {
+  const fromBody = normalizeLocale(body?.locale);
+
+  if (body?.locale && SUPPORTED_LOCALES.includes(fromBody)) {
+    return fromBody;
+  }
+
+  const localeHeader = request.headers.get("x-softsystems-locale");
+  const fromHeader = normalizeLocale(localeHeader);
+
+  if (localeHeader && SUPPORTED_LOCALES.includes(fromHeader)) {
+    return fromHeader;
+  }
+
+  return normalizeLocale(request.headers.get("accept-language"));
+}
+
+function languageName(locale) {
+  return locale === "ko" ? "Korean" : "English";
+}
+
+function localizeMessage(locale, key) {
+  const messages = {
+    en: {
+      authRequired: "Authentication is required.",
+      invalidAuth: "Invalid authentication.",
+      noDaily: "There are no Daily records in this period.",
+      archiveSearchFailed: "Archive search could not be completed for this reading.",
+      noSystemReading: "The AI returned no System reading.",
+      failed: "System analysis failed.",
+    },
+    ko: {
+      authRequired: "인증이 필요합니다.",
+      invalidAuth: "유효하지 않은 인증입니다.",
+      noDaily: "이 기간의 일일 기록이 없습니다.",
+      archiveSearchFailed: "이번 읽기에서 아카이브 검색을 완료할 수 없었습니다.",
+      noSystemReading: "AI가 시스템 읽기를 반환하지 않았습니다.",
+      failed: "시스템 분석에 실패했습니다.",
+    },
+  };
+
+  return messages[locale]?.[key] || messages.en[key];
+}
+
 const CHAT_MODEL =
   process.env.OPENAI_MODEL ||
   "gpt-5.6";
@@ -726,7 +786,19 @@ async function findRelevantArchive({
 }
 
 export async function POST(request) {
+  let locale = "en";
+
   try {
+    let requestBody = {};
+
+    try {
+      requestBody = await request.json();
+    } catch {
+      requestBody = {};
+    }
+
+    locale = resolveLocale(request, requestBody);
+
     const authorization =
       request.headers.get(
         "authorization"
@@ -743,7 +815,7 @@ export async function POST(request) {
       return NextResponse.json(
         {
           error:
-            "Authentication is required.",
+            localizeMessage(locale, "authRequired"),
         },
         {
           status: 401,
@@ -766,21 +838,12 @@ export async function POST(request) {
       return NextResponse.json(
         {
           error:
-            "Invalid authentication.",
+            localizeMessage(locale, "invalidAuth"),
         },
         {
           status: 401,
         }
       );
-    }
-
-    let requestBody = {};
-
-    try {
-      requestBody =
-        await request.json();
-    } catch {
-      requestBody = {};
     }
 
     const days =
@@ -856,7 +919,7 @@ export async function POST(request) {
       return NextResponse.json(
         {
           error:
-            "There are no Daily records in this period.",
+            localizeMessage(locale, "noDaily"),
         },
         {
           status: 400,
@@ -884,7 +947,7 @@ export async function POST(request) {
       );
 
       archiveSearchNote =
-        "Archive search could not be completed for this reading.";
+        localizeMessage(locale, "archiveSearchFailed");
     }
 
     const input = {
@@ -964,7 +1027,7 @@ Your task:
 - do not infer a stable pattern from one record;
 - do not invent patterns unsupported by the supplied material.
 
-Use calm, precise, observational English.
+Respond entirely in the user's selected language.
 
 The open question should invite continued noticing rather than tell the artist what to do.
 
@@ -978,7 +1041,11 @@ When evidence is limited, say so clearly.
 
             content:
               JSON.stringify(
-                input,
+                {
+                  selected_language: languageName(locale),
+                  locale,
+                  analysis_input: input,
+                },
                 null,
                 2
               ),
@@ -1006,7 +1073,7 @@ When evidence is limited, say so clearly.
       !response.output_text
     ) {
       throw new Error(
-        "The AI returned no System reading."
+        localizeMessage(locale, "noSystemReading")
       );
     }
 
@@ -1055,7 +1122,7 @@ When evidence is limited, say so clearly.
       {
         error:
           error?.message ||
-          "System analysis failed.",
+            localizeMessage(locale, "failed"),
       },
       {
         status: 500,

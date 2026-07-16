@@ -3,6 +3,63 @@ import { NextResponse } from "next/server";
 import { openai } from "../../../lib/openai";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
+const SUPPORTED_LOCALES = ["en", "ko"];
+
+function normalizeLocale(value) {
+  if (!value) {
+    return "en";
+  }
+
+  const normalized = String(value).toLowerCase();
+
+  if (normalized.startsWith("ko")) {
+    return "ko";
+  }
+
+  return "en";
+}
+
+function resolveLocale(request, body) {
+  const fromBody = normalizeLocale(body?.locale);
+
+  if (SUPPORTED_LOCALES.includes(fromBody) && body?.locale) {
+    return fromBody;
+  }
+
+  const fromHeader = normalizeLocale(request.headers.get("x-softsystems-locale"));
+
+  if (SUPPORTED_LOCALES.includes(fromHeader) && request.headers.get("x-softsystems-locale")) {
+    return fromHeader;
+  }
+
+  return normalizeLocale(request.headers.get("accept-language"));
+}
+
+function languageName(locale) {
+  return locale === "ko" ? "Korean" : "English";
+}
+
+function localizeMessage(locale, key) {
+  const messages = {
+    en: {
+      authRequired: "Authentication is required.",
+      invalidAuth: "Invalid authentication.",
+      dailyRequired: "Daily data is required.",
+      noAnalysis: "The AI returned no analysis.",
+      failed: "AI analysis failed.",
+    },
+    ko: {
+      authRequired: "인증이 필요합니다.",
+      invalidAuth: "유효하지 않은 인증입니다.",
+      dailyRequired: "일일 데이터가 필요합니다.",
+      noAnalysis: "AI 분석 결과가 반환되지 않았습니다.",
+      failed: "AI 분석에 실패했습니다.",
+    },
+  };
+
+  return messages[locale]?.[key] || messages.en[key];
+}
+
 const ANALYSIS_SCHEMA = {
   type: "object",
 
@@ -207,7 +264,19 @@ function makeAnalysisInput(log) {
 }
 
 export async function POST(request) {
+  let locale = "en";
+
   try {
+    let requestBody = {};
+
+    try {
+      requestBody = await request.json();
+    } catch {
+      requestBody = {};
+    }
+
+    locale = resolveLocale(request, requestBody);
+
     const authorization =
       request.headers.get(
         "authorization"
@@ -224,7 +293,7 @@ export async function POST(request) {
       return NextResponse.json(
         {
           error:
-            "Authentication is required.",
+            localizeMessage(locale, "authRequired"),
         },
         {
           status: 401,
@@ -247,16 +316,13 @@ export async function POST(request) {
       return NextResponse.json(
         {
           error:
-            "Invalid authentication.",
+            localizeMessage(locale, "invalidAuth"),
         },
         {
           status: 401,
         }
       );
     }
-
-    const requestBody =
-      await request.json();
 
     const log =
       requestBody?.log;
@@ -265,7 +331,7 @@ export async function POST(request) {
       return NextResponse.json(
         {
           error:
-            "Daily data is required.",
+            localizeMessage(locale, "dailyRequired"),
         },
         {
           status: 400,
@@ -344,7 +410,7 @@ When appropriate, include:
 - relevant bodily or creative signals;
 in themes or keywords.
 
-Return all labels and observations in English.
+Respond entirely in the user's selected language.
             `.trim(),
           },
 
@@ -353,7 +419,11 @@ Return all labels and observations in English.
 
             content:
               JSON.stringify(
-                analysisInput,
+                {
+                  selected_language: languageName(locale),
+                  locale,
+                  analysis_input: analysisInput,
+                },
                 null,
                 2
               ),
@@ -379,7 +449,7 @@ Return all labels and observations in English.
 
     if (!response.output_text) {
       throw new Error(
-        "The AI returned no analysis."
+        localizeMessage(locale, "noAnalysis")
       );
     }
 
@@ -409,7 +479,7 @@ Return all labels and observations in English.
       {
         error:
           error?.message ||
-          "AI analysis failed.",
+          localizeMessage(locale, "failed"),
       },
       {
         status: 500,
