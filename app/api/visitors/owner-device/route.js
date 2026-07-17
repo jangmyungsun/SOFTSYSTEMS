@@ -3,7 +3,15 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 
 const OWNER_DEVICE_COOKIE = "softsystems_owner_device";
-const OWNER_DEVICE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+const OWNER_DEVICE_COOKIE_MAX_AGE = 31536000;
+
+function getHostName(request) {
+  try {
+    return new URL(request.url).hostname;
+  } catch {
+    return "unknown";
+  }
+}
 
 function getAccessToken(request) {
   const authorization = request.headers.get("authorization") || "";
@@ -74,7 +82,23 @@ export async function GET(request) {
     return NextResponse.json({ error: ownerCheck.error }, { status: ownerCheck.status });
   }
 
-  return NextResponse.json({ excluded: hasOwnerDeviceCookie(request) });
+  const cookieDetectedServerSide = hasOwnerDeviceCookie(request);
+
+  return NextResponse.json({
+    excluded: cookieDetectedServerSide,
+    ownerDeviceExclusion: cookieDetectedServerSide ? "ON" : "OFF",
+    cookieDetectedServerSide,
+    cookieSettings: {
+      name: OWNER_DEVICE_COOKIE,
+      value: "1",
+      path: "/",
+      httpOnly: true,
+      sameSite: "Lax",
+      secureInProduction: true,
+      maxAge: OWNER_DEVICE_COOKIE_MAX_AGE,
+    },
+    host: getHostName(request),
+  });
 }
 
 export async function POST(request) {
@@ -84,7 +108,13 @@ export async function POST(request) {
     return NextResponse.json({ error: ownerCheck.error }, { status: ownerCheck.status });
   }
 
-  const response = NextResponse.json({ ok: true, excluded: true });
+  const response = NextResponse.json({
+    ok: true,
+    excluded: true,
+    ownerDeviceExclusion: "ON",
+    cookieDetectedServerSide: true,
+    host: getHostName(request),
+  });
 
   response.cookies.set(OWNER_DEVICE_COOKIE, "1", {
     httpOnly: true,
@@ -104,7 +134,13 @@ export async function DELETE(request) {
     return NextResponse.json({ error: ownerCheck.error }, { status: ownerCheck.status });
   }
 
-  const response = NextResponse.json({ ok: true, excluded: false });
+  const response = NextResponse.json({
+    ok: true,
+    excluded: false,
+    ownerDeviceExclusion: "OFF",
+    cookieDetectedServerSide: false,
+    host: getHostName(request),
+  });
 
   response.cookies.set(OWNER_DEVICE_COOKIE, "", {
     httpOnly: true,

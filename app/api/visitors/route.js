@@ -189,7 +189,8 @@ function isSessionExpired(lastActivityAt, nowMs) {
 
 export async function POST(request) {
   if (hasOwnerDeviceCookie(request)) {
-    return NextResponse.json({ ok: true, ignored: "owner_device", deployedCommit });
+    console.log("[api/visitors] owner device ignored");
+    return NextResponse.json({ ok: true, ignored: "owner_device" });
   }
 
   const body = await getRequestBody(request);

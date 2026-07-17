@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 const SESSION_ID_KEY = "analytics_session_id";
@@ -142,9 +142,60 @@ function sendActivityBeacon(payload) {
 
 export default function VisitorTracker() {
   const pathname = usePathname() || "/";
+  const [exclusionReady, setExclusionReady] = useState(false);
+  const [serverExcluded, setServerExcluded] = useState(false);
 
   useEffect(() => {
-    if (shouldSkipTrackingForOwnerDevice()) {
+    let active = true;
+
+    async function loadExclusionStatus() {
+      try {
+        const response = await fetch("/api/visitors/owner-device/status", {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        const excluded = Boolean(response.ok && payload?.cookieDetectedServerSide);
+
+        if (!active) {
+          return;
+        }
+
+        setServerExcluded(excluded);
+
+        if (excluded) {
+          window.localStorage.setItem(OWNER_DEVICE_HINT_KEY, "1");
+        } else {
+          window.localStorage.removeItem(OWNER_DEVICE_HINT_KEY);
+        }
+      } catch {
+        if (!active) {
+          return;
+        }
+
+        setServerExcluded(shouldSkipTrackingForOwnerDevice());
+      } finally {
+        if (active) {
+          setExclusionReady(true);
+        }
+      }
+    }
+
+    loadExclusionStatus();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!exclusionReady) {
+      return;
+    }
+
+    if (serverExcluded || shouldSkipTrackingForOwnerDevice()) {
       return;
     }
 
@@ -163,6 +214,7 @@ export default function VisitorTracker() {
       try {
         const response = await fetch("/api/visitors", {
           method: "POST",
+          credentials: "same-origin",
           headers: {
             "Content-Type": "application/json",
           },
@@ -210,10 +262,14 @@ export default function VisitorTracker() {
     }
 
     trackVisitor();
-  }, [pathname]);
+  }, [pathname, exclusionReady, serverExcluded]);
 
   useEffect(() => {
-    if (shouldSkipTrackingForOwnerDevice()) {
+    if (!exclusionReady) {
+      return;
+    }
+
+    if (serverExcluded || shouldSkipTrackingForOwnerDevice()) {
       return;
     }
 
@@ -226,6 +282,7 @@ export default function VisitorTracker() {
       try {
         const response = await fetch("/api/visitors", {
           method: "POST",
+          credentials: "same-origin",
           headers: {
             "Content-Type": "application/json",
           },
@@ -298,7 +355,7 @@ export default function VisitorTracker() {
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [pathname]);
+  }, [pathname, exclusionReady, serverExcluded]);
 
   return null;
 }

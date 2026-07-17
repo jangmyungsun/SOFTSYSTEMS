@@ -130,8 +130,13 @@ export default function StatisticsPage() {
   const [ownerAccessLoading, setOwnerAccessLoading] = useState(true);
   const [ownerAuthorized, setOwnerAuthorized] = useState(false);
   const [ownerDeviceExcluded, setOwnerDeviceExcluded] = useState(false);
+  const [ownerCookieDetectedServerSide, setOwnerCookieDetectedServerSide] = useState(false);
+  const [ownerDeviceHost, setOwnerDeviceHost] = useState("");
+  const [ownerCookieSettings, setOwnerCookieSettings] = useState(null);
   const [ownerDeviceActioning, setOwnerDeviceActioning] = useState(false);
   const [ownerDeviceMessage, setOwnerDeviceMessage] = useState("");
+  const [ownerDeviceTestLoading, setOwnerDeviceTestLoading] = useState(false);
+  const [ownerDeviceTestResponse, setOwnerDeviceTestResponse] = useState("");
 
   useEffect(() => {
     supabase
@@ -167,6 +172,9 @@ export default function StatisticsPage() {
         setOwnerAccessLoading(false);
         setOwnerAuthorized(false);
         setOwnerDeviceExcluded(false);
+        setOwnerCookieDetectedServerSide(false);
+        setOwnerDeviceHost("");
+        setOwnerCookieSettings(null);
         return;
       }
 
@@ -188,11 +196,15 @@ export default function StatisticsPage() {
 
         if (!owner) {
           setOwnerDeviceExcluded(false);
+          setOwnerCookieDetectedServerSide(false);
+          setOwnerDeviceHost("");
+          setOwnerCookieSettings(null);
           return;
         }
 
         const statusResponse = await fetch("/api/visitors/owner-device", {
           method: "GET",
+          credentials: "same-origin",
           headers: {
             authorization: `Bearer ${session.access_token}`,
           },
@@ -201,9 +213,15 @@ export default function StatisticsPage() {
 
         const statusPayload = await statusResponse.json().catch(() => ({}));
         setOwnerDeviceExcluded(Boolean(statusResponse.ok && statusPayload?.excluded));
+        setOwnerCookieDetectedServerSide(Boolean(statusResponse.ok && statusPayload?.cookieDetectedServerSide));
+        setOwnerDeviceHost(String(statusPayload?.host || ""));
+        setOwnerCookieSettings(statusResponse.ok ? statusPayload?.cookieSettings || null : null);
       } catch {
         setOwnerAuthorized(false);
         setOwnerDeviceExcluded(false);
+        setOwnerCookieDetectedServerSide(false);
+        setOwnerDeviceHost("");
+        setOwnerCookieSettings(null);
       } finally {
         setOwnerAccessLoading(false);
       }
@@ -334,6 +352,7 @@ export default function StatisticsPage() {
     try {
       const response = await fetch("/api/visitors/owner-device", {
         method: "POST",
+        credentials: "same-origin",
         headers: {
           authorization: `Bearer ${session.access_token}`,
         },
@@ -347,6 +366,8 @@ export default function StatisticsPage() {
       }
 
       setOwnerDeviceExcluded(true);
+  setOwnerCookieDetectedServerSide(true);
+  setOwnerDeviceHost(String(payload?.host || ownerDeviceHost));
       window.localStorage.setItem("softsystems_owner_device_hint", "1");
       setOwnerDeviceMessage("This device is now excluded from analytics.");
     } catch (error) {
@@ -367,6 +388,7 @@ export default function StatisticsPage() {
     try {
       const response = await fetch("/api/visitors/owner-device", {
         method: "DELETE",
+        credentials: "same-origin",
         headers: {
           authorization: `Bearer ${session.access_token}`,
         },
@@ -380,6 +402,8 @@ export default function StatisticsPage() {
       }
 
       setOwnerDeviceExcluded(false);
+  setOwnerCookieDetectedServerSide(false);
+  setOwnerDeviceHost(String(payload?.host || ownerDeviceHost));
       window.localStorage.removeItem("softsystems_owner_device_hint");
       setOwnerDeviceMessage("This device will be included in analytics again.");
     } catch (error) {
@@ -408,6 +432,7 @@ export default function StatisticsPage() {
     try {
       const response = await fetch("/api/visitors/owner-device/cleanup", {
         method: "POST",
+        credentials: "same-origin",
         headers: {
           "content-type": "application/json",
           authorization: `Bearer ${session.access_token}`,
@@ -429,6 +454,41 @@ export default function StatisticsPage() {
       setOwnerDeviceMessage(error?.message || "Failed to clean up this device's analytics.");
     } finally {
       setOwnerDeviceActioning(false);
+    }
+  }
+
+  async function handleTestAnalyticsExclusion() {
+    if (!ownerAuthorized || ownerDeviceTestLoading || !session?.access_token) {
+      return;
+    }
+
+    setOwnerDeviceTestLoading(true);
+    setOwnerDeviceTestResponse("");
+
+    try {
+      const visitorId = window.localStorage.getItem("visitor_id") || "owner-device-test";
+
+      const response = await fetch("/api/visitors", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          visitorId,
+          path: "/stats",
+          eventType: "activity",
+          source: "direct",
+          sessionId: "owner-device-test-session",
+        }),
+      });
+
+      const text = await response.text().catch(() => "");
+      setOwnerDeviceTestResponse(text || "{}");
+    } catch (error) {
+      setOwnerDeviceTestResponse(JSON.stringify({ error: error?.message || "Failed to run test." }));
+    } finally {
+      setOwnerDeviceTestLoading(false);
     }
   }
 
@@ -575,11 +635,23 @@ export default function StatisticsPage() {
               <button type="button" onClick={handleCleanupDeviceAnalytics} disabled={ownerDeviceActioning}>
                 Remove this device's previous analytics
               </button>
+              <button type="button" onClick={handleTestAnalyticsExclusion} disabled={ownerDeviceActioning || ownerDeviceTestLoading}>
+                Test analytics exclusion
+              </button>
             </div>
             <p className="muted" style={{ marginTop: "0.5rem" }}>
               Device exclusion status: {ownerDeviceExcluded ? "excluded" : "included"}
             </p>
+            <p className="muted">Owner device exclusion: {ownerDeviceExcluded ? "ON" : "OFF"}</p>
+            <p className="muted">Cookie detected server-side: {ownerCookieDetectedServerSide ? "true" : "false"}</p>
+            <p className="muted">Owner-device API host: {ownerDeviceHost || "unknown"}</p>
+            {ownerCookieSettings ? (
+              <p className="muted">
+                Cookie settings: {ownerCookieSettings.name}={ownerCookieSettings.value}; Path={ownerCookieSettings.path}; HttpOnly={String(ownerCookieSettings.httpOnly)}; SameSite={ownerCookieSettings.sameSite}; Secure in production={String(ownerCookieSettings.secureInProduction)}; Max-Age={ownerCookieSettings.maxAge}
+              </p>
+            ) : null}
             {ownerDeviceMessage ? <p className="muted">{ownerDeviceMessage}</p> : null}
+            {ownerDeviceTestResponse ? <pre className="muted" style={{ whiteSpace: "pre-wrap" }}>{ownerDeviceTestResponse}</pre> : null}
           </>
         ) : null}
       </section>
