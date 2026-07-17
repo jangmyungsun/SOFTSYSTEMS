@@ -127,6 +127,11 @@ export default function StatisticsPage() {
   const [visitorError, setVisitorError] = useState("");
   const [visitorErrorDetails, setVisitorErrorDetails] = useState(null);
   const [visitorStats, setVisitorStats] = useState(null);
+  const [ownerAccessLoading, setOwnerAccessLoading] = useState(true);
+  const [ownerAuthorized, setOwnerAuthorized] = useState(false);
+  const [ownerDeviceExcluded, setOwnerDeviceExcluded] = useState(false);
+  const [ownerDeviceActioning, setOwnerDeviceActioning] = useState(false);
+  const [ownerDeviceMessage, setOwnerDeviceMessage] = useState("");
 
   useEffect(() => {
     supabase
@@ -155,6 +160,57 @@ export default function StatisticsPage() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    async function loadOwnerControls() {
+      if (!session?.access_token) {
+        setOwnerAccessLoading(false);
+        setOwnerAuthorized(false);
+        setOwnerDeviceExcluded(false);
+        return;
+      }
+
+      setOwnerAccessLoading(true);
+
+      try {
+        const accessResponse = await fetch("/api/system/generate", {
+          method: "GET",
+          headers: {
+            authorization: `Bearer ${session.access_token}`,
+          },
+          cache: "no-store",
+        });
+
+        const accessPayload = await accessResponse.json().catch(() => ({}));
+        const owner = Boolean(accessResponse.ok && accessPayload?.owner);
+
+        setOwnerAuthorized(owner);
+
+        if (!owner) {
+          setOwnerDeviceExcluded(false);
+          return;
+        }
+
+        const statusResponse = await fetch("/api/visitors/owner-device", {
+          method: "GET",
+          headers: {
+            authorization: `Bearer ${session.access_token}`,
+          },
+          cache: "no-store",
+        });
+
+        const statusPayload = await statusResponse.json().catch(() => ({}));
+        setOwnerDeviceExcluded(Boolean(statusResponse.ok && statusPayload?.excluded));
+      } catch {
+        setOwnerAuthorized(false);
+        setOwnerDeviceExcluded(false);
+      } finally {
+        setOwnerAccessLoading(false);
+      }
+    }
+
+    loadOwnerControls();
+  }, [session?.access_token]);
 
   useEffect(() => {
     async function loadVisitorStats() {
@@ -266,6 +322,115 @@ export default function StatisticsPage() {
   const trafficSources = analytics.trafficSources || [];
   const topPages = analytics.topPages || [];
   const countries = analytics.countries || [];
+
+  async function handleExcludeDevice() {
+    if (!session?.access_token || ownerDeviceActioning) {
+      return;
+    }
+
+    setOwnerDeviceActioning(true);
+    setOwnerDeviceMessage("");
+
+    try {
+      const response = await fetch("/api/visitors/owner-device", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setOwnerDeviceMessage(payload?.error || "Failed to exclude this device.");
+        return;
+      }
+
+      setOwnerDeviceExcluded(true);
+      window.localStorage.setItem("softsystems_owner_device_hint", "1");
+      setOwnerDeviceMessage("This device is now excluded from analytics.");
+    } catch (error) {
+      setOwnerDeviceMessage(error?.message || "Failed to exclude this device.");
+    } finally {
+      setOwnerDeviceActioning(false);
+    }
+  }
+
+  async function handleIncludeDevice() {
+    if (!session?.access_token || ownerDeviceActioning) {
+      return;
+    }
+
+    setOwnerDeviceActioning(true);
+    setOwnerDeviceMessage("");
+
+    try {
+      const response = await fetch("/api/visitors/owner-device", {
+        method: "DELETE",
+        headers: {
+          authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setOwnerDeviceMessage(payload?.error || "Failed to include this device again.");
+        return;
+      }
+
+      setOwnerDeviceExcluded(false);
+      window.localStorage.removeItem("softsystems_owner_device_hint");
+      setOwnerDeviceMessage("This device will be included in analytics again.");
+    } catch (error) {
+      setOwnerDeviceMessage(error?.message || "Failed to include this device again.");
+    } finally {
+      setOwnerDeviceActioning(false);
+    }
+  }
+
+  async function handleCleanupDeviceAnalytics() {
+    if (!session?.access_token || ownerDeviceActioning) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Remove this device's previous analytics only? This deletes this browser's matching visitor, page-view, and session rows."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setOwnerDeviceActioning(true);
+    setOwnerDeviceMessage("");
+
+    try {
+      const response = await fetch("/api/visitors/owner-device/cleanup", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ confirm: true }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setOwnerDeviceMessage(payload?.error || "Failed to clean up this device's analytics.");
+        return;
+      }
+
+      setOwnerDeviceMessage(
+        `Cleanup complete. Deleted page views: ${payload?.deletedPageViews ?? 0}, sessions: ${payload?.deletedSessions ?? 0}, visitors: ${payload?.deletedVisitors ?? 0}.`
+      );
+    } catch (error) {
+      setOwnerDeviceMessage(error?.message || "Failed to clean up this device's analytics.");
+    } finally {
+      setOwnerDeviceActioning(false);
+    }
+  }
 
   if (!session?.user) {
     return (
@@ -395,6 +560,28 @@ export default function StatisticsPage() {
         <p className="muted">
           These metrics only include analytics collected after tracking began working.
         </p>
+
+        {ownerAccessLoading ? (
+          <p className="muted">Loading owner device controls...</p>
+        ) : ownerAuthorized ? (
+          <>
+            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginTop: "0.75rem" }}>
+              <button type="button" onClick={handleExcludeDevice} disabled={ownerDeviceActioning || ownerDeviceExcluded}>
+                Exclude this device from analytics
+              </button>
+              <button type="button" onClick={handleIncludeDevice} disabled={ownerDeviceActioning || !ownerDeviceExcluded}>
+                Include this device in analytics again
+              </button>
+              <button type="button" onClick={handleCleanupDeviceAnalytics} disabled={ownerDeviceActioning}>
+                Remove this device's previous analytics
+              </button>
+            </div>
+            <p className="muted" style={{ marginTop: "0.5rem" }}>
+              Device exclusion status: {ownerDeviceExcluded ? "excluded" : "included"}
+            </p>
+            {ownerDeviceMessage ? <p className="muted">{ownerDeviceMessage}</p> : null}
+          </>
+        ) : null}
       </section>
 
       <section className="grid two">

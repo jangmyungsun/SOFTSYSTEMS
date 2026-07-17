@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const SESSION_ID_KEY = "analytics_session_id";
 const SOURCE_KEY = "analytics_source";
+const OWNER_DEVICE_HINT_KEY = "softsystems_owner_device_hint";
 const ACTIVITY_INTERVAL_MS = 2 * 60 * 1000;
 
 function generateVisitorId() {
@@ -119,6 +120,10 @@ function setSessionId(nextSessionId) {
   }
 }
 
+function shouldSkipTrackingForOwnerDevice() {
+  return window.localStorage.getItem(OWNER_DEVICE_HINT_KEY) === "1";
+}
+
 function sendActivityBeacon(payload) {
   if (!navigator.sendBeacon) {
     return false;
@@ -139,6 +144,10 @@ export default function VisitorTracker() {
   const pathname = usePathname() || "/";
 
   useEffect(() => {
+    if (shouldSkipTrackingForOwnerDevice()) {
+      return;
+    }
+
     const dedupeKey = `tracked_page_view:${pathname}`;
 
     if (window.sessionStorage.getItem(dedupeKey)) {
@@ -176,6 +185,10 @@ export default function VisitorTracker() {
         }
 
         if (response.ok) {
+          if (payload?.ignored === "owner_device") {
+            window.localStorage.setItem(OWNER_DEVICE_HINT_KEY, "1");
+          }
+
           setSessionId(payload?.sessionId);
           window.sessionStorage.setItem(dedupeKey, "1");
         }
@@ -200,6 +213,10 @@ export default function VisitorTracker() {
   }, [pathname]);
 
   useEffect(() => {
+    if (shouldSkipTrackingForOwnerDevice()) {
+      return;
+    }
+
     const visitorId = getVisitorId();
     const source = getSessionSource();
 
@@ -236,6 +253,11 @@ export default function VisitorTracker() {
         }
 
         const payload = await response.json().catch(() => null);
+
+        if (payload?.ignored === "owner_device") {
+          window.localStorage.setItem(OWNER_DEVICE_HINT_KEY, "1");
+        }
+
         setSessionId(payload?.sessionId);
       } catch (error) {
         console.error("Visitor activity error:", error);

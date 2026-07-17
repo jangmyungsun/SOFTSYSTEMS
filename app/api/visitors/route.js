@@ -81,6 +81,11 @@ function getVisitorId(request) {
   return null;
 }
 
+function hasOwnerDeviceCookie(request) {
+  const cookieHeader = request.headers.get("cookie") || "";
+  return /(?:^|;\s*)softsystems_owner_device=1(?:;|$)/.test(cookieHeader);
+}
+
 async function getRequestBody(request) {
   try {
     return await request.json();
@@ -183,6 +188,10 @@ function isSessionExpired(lastActivityAt, nowMs) {
 }
 
 export async function POST(request) {
+  if (hasOwnerDeviceCookie(request)) {
+    return NextResponse.json({ ok: true, ignored: "owner_device", deployedCommit });
+  }
+
   const body = await getRequestBody(request);
   const visitorId = body?.visitorId || getVisitorId(request);
   const pagePath = getPagePath(body?.path);
