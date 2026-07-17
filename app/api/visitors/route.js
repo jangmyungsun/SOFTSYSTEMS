@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
+function logVisitorsError(stage, error, context = {}) {
+  console.error("[api/visitors]", stage, {
+    message: error?.message || String(error),
+    ...context,
+  });
+}
+
 function getAuthToken(request) {
   const authHeader = request.headers.get("authorization");
 
@@ -78,6 +85,10 @@ export async function POST(request) {
     .maybeSingle();
 
   if (lookupError) {
+    logVisitorsError("lookup visitor", lookupError, {
+      visitorId,
+      pagePath,
+    });
     return NextResponse.json({ error: lookupError.message }, { status: 500 });
   }
 
@@ -90,6 +101,11 @@ export async function POST(request) {
       .eq("id", existing.id);
 
     if (updateError) {
+      logVisitorsError("update visitor", updateError, {
+        visitorId,
+        pagePath,
+        id: existing.id,
+      });
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
   } else {
@@ -101,6 +117,10 @@ export async function POST(request) {
     });
 
     if (error) {
+      logVisitorsError("insert visitor", error, {
+        visitorId,
+        pagePath,
+      });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -117,6 +137,11 @@ export async function POST(request) {
     .limit(1);
 
   if (recentViewError) {
+    logVisitorsError("lookup recent page views", recentViewError, {
+      visitorId,
+      pagePath,
+      cutoff,
+    });
     return NextResponse.json({ error: recentViewError.message }, { status: 500 });
   }
 
@@ -129,6 +154,10 @@ export async function POST(request) {
     });
 
     if (pageViewError) {
+      logVisitorsError("insert page view", pageViewError, {
+        visitorId,
+        pagePath,
+      });
       return NextResponse.json({ error: pageViewError.message }, { status: 500 });
     }
 
@@ -158,6 +187,7 @@ export async function GET() {
     .select("id", { count: "exact", head: true });
 
   if (error) {
+    logVisitorsError("count visitors", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

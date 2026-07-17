@@ -15,7 +15,17 @@ export default function AboutPage() {
     async function loadCount() {
       try {
         const response = await fetch("/api/visitors");
-        if (!cancelled && response.ok) {
+        if (!response.ok) {
+          const details = await response.text().catch(() => "");
+          console.error("Visitor count request failed", {
+            status: response.status,
+            statusText: response.statusText,
+            details,
+          });
+          return;
+        }
+
+        if (!cancelled) {
           const payload = await response.json().catch(() => ({}));
           setVisitorCount(payload.count ?? null);
         }

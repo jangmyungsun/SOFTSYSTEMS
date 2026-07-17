@@ -37,18 +37,35 @@ export default function VisitorTracker() {
 
     const visitorId = getVisitorId();
 
-    fetch("/api/visitors", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        visitorId,
-        path: pathname,
-      }),
-    }).catch((error) => {
-      console.error("Visitor tracker error:", error);
-    });
+    async function trackVisitor() {
+      try {
+        const response = await fetch("/api/visitors", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            visitorId,
+            path: pathname,
+          }),
+        });
+
+        if (!response.ok) {
+          const details = await response.text().catch(() => "");
+          console.error("Visitor tracker request failed", {
+            status: response.status,
+            statusText: response.statusText,
+            path: pathname,
+            visitorId,
+            details,
+          });
+        }
+      } catch (error) {
+        console.error("Visitor tracker error:", error);
+      }
+    }
+
+    trackVisitor();
   }, [pathname]);
 
   return null;
