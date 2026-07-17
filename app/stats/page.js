@@ -461,7 +461,9 @@ export default function StatisticsPage() {
               ? "..."
               : visitorError
                 ? "—"
-                : formatDuration(analytics.averageSessionDurationSeconds)}
+                : analytics.sessionDurationUnavailable
+                  ? "Not collected yet"
+                  : formatDuration(analytics.averageSessionDurationSeconds)}
           </div>
         </div>
 
@@ -485,13 +487,13 @@ export default function StatisticsPage() {
       <section className="panel" style={{ marginTop: "1.5rem" }}>
         <p className="label">VERIFICATION</p>
         <h2>Raw Supabase counts</h2>
-        <p className="muted">site_visitors rows: {visitorLoading ? "..." : verification.siteVisitorsCount ?? 0}</p>
-        <p className="muted">site_page_views rows: {visitorLoading ? "..." : verification.sitePageViewsCount ?? 0}</p>
-        <p className="muted">distinct visitor_id in site_page_views: {visitorLoading ? "..." : verification.sitePageViewsDistinctVisitorIdCount ?? 0}</p>
-        <p className="muted">site_visitors not represented in page views: {visitorLoading ? "..." : verification.siteVisitorsWithoutPageViews ?? 0}</p>
-        <p className="muted">page-view visitor_ids not represented in site_visitors: {visitorLoading ? "..." : verification.pageViewVisitorsNotInSiteVisitors ?? 0}</p>
-        <p className="muted">today visitors by page views: {visitorLoading ? "..." : verification.todayPageViewVisitorCount ?? 0}</p>
-        <p className="muted">today visitors by last_seen_at: {visitorLoading ? "..." : verification.todayLastSeenVisitorCount ?? 0}</p>
+        <p className="muted">site_visitors rows: {visitorLoading ? "..." : visitorError ? "—" : verification.siteVisitorsCount ?? "—"}</p>
+        <p className="muted">site_page_views rows: {visitorLoading ? "..." : visitorError ? "—" : verification.sitePageViewsCount ?? "—"}</p>
+        <p className="muted">distinct visitor_id in site_page_views: {visitorLoading ? "..." : visitorError ? "—" : verification.sitePageViewsDistinctVisitorIdCount ?? "—"}</p>
+        <p className="muted">site_visitors not represented in page views: {visitorLoading ? "..." : visitorError ? "—" : verification.siteVisitorsWithoutPageViews ?? "—"}</p>
+        <p className="muted">page-view visitor_ids not represented in site_visitors: {visitorLoading ? "..." : visitorError ? "—" : verification.pageViewVisitorsNotInSiteVisitors ?? "—"}</p>
+        <p className="muted">today visitors by page views: {visitorLoading ? "..." : visitorError ? "—" : verification.todayPageViewVisitorCount ?? "—"}</p>
+        <p className="muted">today visitors by last_seen_at: {visitorLoading ? "..." : visitorError ? "—" : verification.todayLastSeenVisitorCount ?? "—"}</p>
         <p className="muted">earliest site_visitors.first_seen_at: {toDisplayDate(verification.earliestVisitorFirstSeenAt)}</p>
         <p className="muted">latest site_visitors.last_seen_at: {toDisplayDate(verification.latestVisitorLastSeenAt)}</p>
         <p className="muted">today boundary: {visitorStats?.verification?.todayBoundaryStart || "pending"} → {visitorStats?.verification?.todayBoundaryEnd || "pending"}</p>

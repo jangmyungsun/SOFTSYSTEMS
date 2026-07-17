@@ -194,6 +194,23 @@ function parseIso(value) {
   return date;
 }
 
+function isMissingTableError(error, tableName) {
+  const code = String(error?.code || "").toUpperCase();
+  const message = String(error?.message || "").toLowerCase();
+  const details = String(error?.details || "").toLowerCase();
+  const needle = String(tableName || "").toLowerCase();
+
+  return code === "PGRST205" && (message.includes(needle) || details.includes(needle));
+}
+
+function isMissingColumnError(error) {
+  const code = String(error?.code || "").toUpperCase();
+  const message = String(error?.message || "").toLowerCase();
+  const details = String(error?.details || "").toLowerCase();
+
+  return code === "42703" || code === "PGRST204" || message.includes("column") || details.includes("column");
+}
+
 async function fetchAllRows(tableName, columns, filters = []) {
   let from = 0;
   const rows = [];
@@ -273,13 +290,25 @@ export async function GET() {
       throw Object.assign(error, { step: "site_page_views rows" });
     });
 
-    const sessions = await fetchAllRows(
-      "site_visitor_sessions",
-      "visitor_id,source_category,country_code,session_started_at,last_activity_at,created_at"
-    ).catch((error) => {
-      logFailure("site_visitor_sessions rows", error);
-      throw Object.assign(error, { step: "site_visitor_sessions rows" });
-    });
+    let sessions = [];
+    let sessionAnalyticsUnavailable = false;
+    let sessionAnalyticsUnavailableReason = null;
+
+    try {
+      sessions = await fetchAllRows(
+        "site_visitor_sessions",
+        "visitor_id,source_category,country_code,session_started_at,last_activity_at,created_at"
+      );
+    } catch (error) {
+      if (isMissingTableError(error, "site_visitor_sessions")) {
+        sessionAnalyticsUnavailable = true;
+        sessionAnalyticsUnavailableReason = "missing_site_visitor_sessions_table";
+      } else {
+        logFailure("site_visitor_sessions rows", error);
+        sessionAnalyticsUnavailable = true;
+        sessionAnalyticsUnavailableReason = "site_visitor_sessions_unavailable";
+      }
+    }
 
     const totalVisitors = await fetchCount("site_visitors").catch((error) => {
       logFailure("site_visitors count", error);
@@ -361,6 +390,37 @@ export async function GET() {
             countryCode,
             markerMs,
           });
+        }
+      }
+    }
+
+    if (!sessions.length) {
+      try {
+        const visitorEnrichmentRows = await fetchAllRows(
+          "site_visitors",
+          "visitor_id,source_category,country_code,last_seen_at"
+        );
+
+        for (const row of visitorEnrichmentRows) {
+          const source = normalizeSource(row?.source_category);
+          sourceBuckets[source] += 1;
+
+          const visitorId = typeof row?.visitor_id === "string" ? row.visitor_id : "";
+          const countryCode = typeof row?.country_code === "string" ? row.country_code.toUpperCase() : "";
+          const marker = parseIso(row?.last_seen_at);
+          const markerMs = marker ? marker.getTime() : 0;
+          const existing = latestCountryByVisitor.get(visitorId);
+
+          if (visitorId && countryCode && (!existing || markerMs > existing.markerMs)) {
+            latestCountryByVisitor.set(visitorId, {
+              countryCode,
+              markerMs,
+            });
+          }
+        }
+      } catch (error) {
+        if (!isMissingColumnError(error)) {
+          logFailure("site_visitors enrichment rows", error);
         }
       }
     }
@@ -451,9 +511,11 @@ export async function GET() {
       ? toOneDecimal((totalPageViews || 0) / totalVisitors)
       : 0;
 
-    const averageSessionDurationSeconds = sessions.length
-      ? Math.round(totalDurationSeconds / sessions.length)
-      : 0;
+    const averageSessionDurationSeconds = sessionAnalyticsUnavailable
+      ? null
+      : sessions.length
+        ? Math.round(totalDurationSeconds / sessions.length)
+        : 0;
 
     const collectingSince = sessions
       .map((session) => parseIso(session?.created_at) || parseIso(session?.session_started_at))
@@ -472,6 +534,8 @@ export async function GET() {
         trafficSources,
         averagePagesPerVisitor,
         averageSessionDurationSeconds,
+        sessionDurationUnavailable: sessionAnalyticsUnavailable,
+        sessionDurationUnavailableReason: sessionAnalyticsUnavailableReason,
         countries,
       },
       verification: {
