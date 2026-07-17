@@ -490,6 +490,8 @@ export default function StatisticsPage() {
         <p className="muted">distinct visitor_id in site_page_views: {visitorLoading ? "..." : verification.sitePageViewsDistinctVisitorIdCount ?? 0}</p>
         <p className="muted">site_visitors not represented in page views: {visitorLoading ? "..." : verification.siteVisitorsWithoutPageViews ?? 0}</p>
         <p className="muted">page-view visitor_ids not represented in site_visitors: {visitorLoading ? "..." : verification.pageViewVisitorsNotInSiteVisitors ?? 0}</p>
+        <p className="muted">today visitors by page views: {visitorLoading ? "..." : verification.todayPageViewVisitorCount ?? 0}</p>
+        <p className="muted">today visitors by last_seen_at: {visitorLoading ? "..." : verification.todayLastSeenVisitorCount ?? 0}</p>
         <p className="muted">earliest site_visitors.first_seen_at: {toDisplayDate(verification.earliestVisitorFirstSeenAt)}</p>
         <p className="muted">latest site_visitors.last_seen_at: {toDisplayDate(verification.latestVisitorLastSeenAt)}</p>
         <p className="muted">today boundary: {visitorStats?.verification?.todayBoundaryStart || "pending"} → {visitorStats?.verification?.todayBoundaryEnd || "pending"}</p>

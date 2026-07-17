@@ -289,6 +289,36 @@
 				"HEAD"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "build-stats-createdat-fix",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe",
+			"args": [
+				"/c",
+				"npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-status-createdat-fix",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"status",
+				"--short"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "rebuild-stats-createdat-fix",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe",
+			"args": [
+				"/c",
+				"npm run build"
+			],
+			"isBackground": false
 		}
 	]
 }

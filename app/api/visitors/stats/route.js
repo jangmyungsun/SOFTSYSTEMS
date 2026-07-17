@@ -13,16 +13,6 @@ const deployedCommit =
   process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
   "unknown";
 
-function getAuthToken(request) {
-  const authHeader = request.headers.get("authorization");
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return null;
-  }
-
-  return authHeader.replace(/^Bearer\s+/i, "");
-}
-
 function toErrorPayload(error) {
   if (!error) {
     return null;
@@ -40,6 +30,7 @@ function logFailure(step, error) {
   console.error("[api/visitors/stats]", {
     step,
     projectHostname: new URL(supabaseAdminEnvInfo.supabaseUrl).hostname,
+    supabaseUrl: supabaseAdminEnvInfo.supabaseUrl,
     serviceKeySource: supabaseAdminEnvInfo.serviceKeySource,
     error: toErrorPayload(error),
   });
@@ -237,7 +228,7 @@ async function fetchAllRows(tableName, columns, filters = []) {
 }
 
 async function fetchCount(tableName, filters = []) {
-  let query = supabaseAdmin.from(tableName).select("*", { count: "exact", head: true });
+  let query = supabaseAdmin.from(tableName).select("visitor_id", { count: "exact", head: true });
 
   for (const applyFilter of filters) {
     query = applyFilter(query);
@@ -264,11 +255,11 @@ function toOneDecimal(value) {
   return Math.round(value * 10) / 10;
 }
 
-export async function GET(request) {
+export async function GET() {
   try {
     const siteVisitorsRows = await fetchAllRows(
       "site_visitors",
-      "visitor_id,first_seen_at,last_seen_at,first_page,created_at"
+      "visitor_id,first_seen_at,last_seen_at,first_page"
     ).catch((error) => {
       logFailure("site_visitors rows", error);
       throw Object.assign(error, { step: "site_visitors rows" });
@@ -304,6 +295,8 @@ export async function GET(request) {
 
     const visitorsTodaySet = new Set();
     const pageCounts = new Map();
+    const todayPageViewVisitors = new Set();
+    const todayLastSeenVisitors = new Set();
 
     for (const view of pageViewsRows) {
       const visitorId = typeof view?.visitor_id === "string" ? view.visitor_id : "";
@@ -311,7 +304,7 @@ export async function GET(request) {
       const createdAt = parseIso(view?.created_at);
 
       if (visitorId && createdAt && createdAt.toISOString() >= bounds.start && createdAt.toISOString() <= bounds.end) {
-        visitorsTodaySet.add(visitorId);
+        todayPageViewVisitors.add(visitorId);
       }
 
       pageCounts.set(pagePath, (pageCounts.get(pagePath) || 0) + 1);
@@ -428,14 +421,31 @@ export async function GET(request) {
     ).length;
 
     const earliestVisitor = siteVisitorsRows
-      .map((row) => parseIso(row?.first_seen_at) || parseIso(row?.created_at))
+      .map((row) => parseIso(row?.first_seen_at))
       .filter(Boolean)
       .sort((a, b) => a.getTime() - b.getTime())[0] || null;
 
     const latestVisitor = siteVisitorsRows
-      .map((row) => parseIso(row?.last_seen_at) || parseIso(row?.created_at))
+      .map((row) => parseIso(row?.last_seen_at))
       .filter(Boolean)
       .sort((a, b) => b.getTime() - a.getTime())[0] || null;
+
+    for (const row of siteVisitorsRows) {
+      const visitorId = typeof row?.visitor_id === "string" ? row.visitor_id : "";
+      const lastSeenAt = parseIso(row?.last_seen_at);
+
+      if (visitorId && lastSeenAt && lastSeenAt.toISOString() >= bounds.start && lastSeenAt.toISOString() <= bounds.end) {
+        todayLastSeenVisitors.add(visitorId);
+      }
+    }
+
+    for (const visitorId of todayPageViewVisitors) {
+      visitorsTodaySet.add(visitorId);
+    }
+
+    for (const visitorId of todayLastSeenVisitors) {
+      visitorsTodaySet.add(visitorId);
+    }
 
     const averagePagesPerVisitor = totalVisitors
       ? toOneDecimal((totalPageViews || 0) / totalVisitors)
@@ -476,6 +486,8 @@ export async function GET(request) {
         todayBoundaryEnd: bounds.end,
         timezone: TIME_ZONE,
         supabaseHostname: new URL(supabaseAdminEnvInfo.supabaseUrl).hostname,
+        todayPageViewVisitorCount: todayPageViewVisitors.size,
+        todayLastSeenVisitorCount: todayLastSeenVisitors.size,
       },
       collectingSince: collectingSince ? collectingSince.toISOString() : null,
       notes: {
