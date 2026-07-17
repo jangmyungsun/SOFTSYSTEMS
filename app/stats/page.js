@@ -125,6 +125,7 @@ export default function StatisticsPage() {
   const [session, setSession] = useState(null);
   const [visitorLoading, setVisitorLoading] = useState(true);
   const [visitorError, setVisitorError] = useState("");
+  const [visitorErrorDetails, setVisitorErrorDetails] = useState(null);
   const [visitorStats, setVisitorStats] = useState(null);
 
   useEffect(() => {
@@ -160,11 +161,13 @@ export default function StatisticsPage() {
       if (!session?.access_token) {
         setVisitorLoading(false);
         setVisitorStats(null);
+        setVisitorErrorDetails(null);
         return;
       }
 
       setVisitorLoading(true);
       setVisitorError("");
+      setVisitorErrorDetails(null);
 
       try {
         const response = await fetch("/api/visitors/stats", {
@@ -180,6 +183,12 @@ export default function StatisticsPage() {
         if (!response.ok) {
           setVisitorStats(null);
           setVisitorError(payload?.error || "Failed to load visitor analytics.");
+          setVisitorErrorDetails({
+            step: payload?.step || null,
+            code: payload?.supabaseError?.code || null,
+            message: payload?.supabaseError?.message || null,
+            hostname: payload?.projectHostname || visitorStats?.verification?.supabaseHostname || null,
+          });
           return;
         }
 
@@ -187,6 +196,12 @@ export default function StatisticsPage() {
       } catch (error) {
         setVisitorStats(null);
         setVisitorError(error?.message || "Failed to load visitor analytics.");
+        setVisitorErrorDetails({
+          step: null,
+          code: null,
+          message: error?.message || null,
+          hostname: null,
+        });
       } finally {
         setVisitorLoading(false);
       }
@@ -387,7 +402,7 @@ export default function StatisticsPage() {
           <p className="label">TODAY</p>
           <h2>Today's visitors</h2>
           <div className="big">
-            {visitorLoading ? "..." : analytics.todayUniqueVisitors ?? 0}
+            {visitorLoading ? "..." : visitorError ? "—" : analytics.todayUniqueVisitors}
           </div>
           <p className="muted">Timezone: {visitorStats?.timezone || "America/New_York"}</p>
         </div>
@@ -396,9 +411,9 @@ export default function StatisticsPage() {
           <p className="label">ALL TIME</p>
           <h2>Total visitors</h2>
           <div className="big">
-            {visitorLoading ? "..." : analytics.totalUniqueVisitors ?? 0}
+            {visitorLoading ? "..." : visitorError ? "—" : analytics.totalUniqueVisitors}
           </div>
-          <p className="muted">Total page views: {visitorLoading ? "..." : analytics.totalPageViews ?? 0}</p>
+          <p className="muted">Total page views: {visitorLoading ? "..." : visitorError ? "—" : analytics.totalPageViews}</p>
         </div>
 
         <div className="panel">
@@ -437,14 +452,16 @@ export default function StatisticsPage() {
           <p className="label">ENGAGEMENT</p>
           <h2>Average pages per visitor</h2>
           <div className="big">
-            {visitorLoading ? "..." : Number(analytics.averagePagesPerVisitor || 0).toFixed(1)}
+            {visitorLoading ? "..." : visitorError ? "—" : Number(analytics.averagePagesPerVisitor).toFixed(1)}
           </div>
 
           <h2 style={{ marginTop: "1.25rem" }}>Average session duration</h2>
           <div className="big">
             {visitorLoading
               ? "..."
-              : formatDuration(analytics.averageSessionDurationSeconds || 0)}
+              : visitorError
+                ? "—"
+                : formatDuration(analytics.averageSessionDurationSeconds)}
           </div>
         </div>
 
@@ -484,6 +501,17 @@ export default function StatisticsPage() {
         <section className="panel" style={{ marginTop: "1.5rem" }}>
           <p className="label">ERROR</p>
           <p>{visitorError}</p>
+          <p className="muted">
+            {visitorErrorDetails?.step ? `Step: ${visitorErrorDetails.step}` : "Step: unknown"}
+          </p>
+          <p className="muted">
+            {visitorErrorDetails?.code || visitorErrorDetails?.message
+              ? `${visitorErrorDetails?.code || ""}${visitorErrorDetails?.code && visitorErrorDetails?.message ? ": " : ""}${visitorErrorDetails?.message || ""}`
+              : "No Supabase error details available."}
+          </p>
+          <p className="muted">
+            Supabase hostname: {visitorErrorDetails?.hostname || verification.supabaseHostname || "unknown"}
+          </p>
         </section>
       ) : null}
 

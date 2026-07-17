@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { supabaseAdmin, supabaseAdminEnvInfo } from "../../../../lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -34,6 +34,15 @@ function toErrorPayload(error) {
     details: error.details || null,
     hint: error.hint || null,
   };
+}
+
+function logFailure(step, error) {
+  console.error("[api/visitors/stats]", {
+    step,
+    projectHostname: new URL(supabaseAdminEnvInfo.supabaseUrl).hostname,
+    serviceKeySource: supabaseAdminEnvInfo.serviceKeySource,
+    error: toErrorPayload(error),
+  });
 }
 
 function formatDateInTimeZone(date, timeZone) {
@@ -228,7 +237,7 @@ async function fetchAllRows(tableName, columns, filters = []) {
 }
 
 async function fetchCount(tableName, filters = []) {
-  let query = supabaseAdmin.from(tableName).select("id", { count: "exact", head: true });
+  let query = supabaseAdmin.from(tableName).select("*", { count: "exact", head: true });
 
   for (const applyFilter of filters) {
     query = applyFilter(query);
@@ -256,38 +265,40 @@ function toOneDecimal(value) {
 }
 
 export async function GET(request) {
-  const token = getAuthToken(request);
-
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabaseAdmin.auth.getUser(token);
-
-  if (userError || !user) {
-    return NextResponse.json(
-      {
-        error: "Unauthorized.",
-        supabaseError: toErrorPayload(userError),
-      },
-      { status: 401 }
-    );
-  }
-
   try {
-    const [siteVisitorsRows, pageViewsRows, sessions, totalVisitors, totalPageViews] = await Promise.all([
-      fetchAllRows("site_visitors", "visitor_id,first_seen_at,last_seen_at,created_at"),
-      fetchAllRows("site_page_views", "visitor_id,page_path,created_at"),
-      fetchAllRows(
-        "site_visitor_sessions",
-        "visitor_id,source_category,country_code,session_started_at,last_activity_at,created_at"
-      ),
-      fetchCount("site_visitors"),
-      fetchCount("site_page_views"),
-    ]);
+    const siteVisitorsRows = await fetchAllRows(
+      "site_visitors",
+      "visitor_id,first_seen_at,last_seen_at,first_page,created_at"
+    ).catch((error) => {
+      logFailure("site_visitors rows", error);
+      throw Object.assign(error, { step: "site_visitors rows" });
+    });
+
+    const pageViewsRows = await fetchAllRows(
+      "site_page_views",
+      "id,visitor_id,page_path,created_at"
+    ).catch((error) => {
+      logFailure("site_page_views rows", error);
+      throw Object.assign(error, { step: "site_page_views rows" });
+    });
+
+    const sessions = await fetchAllRows(
+      "site_visitor_sessions",
+      "visitor_id,source_category,country_code,session_started_at,last_activity_at,created_at"
+    ).catch((error) => {
+      logFailure("site_visitor_sessions rows", error);
+      throw Object.assign(error, { step: "site_visitor_sessions rows" });
+    });
+
+    const totalVisitors = await fetchCount("site_visitors").catch((error) => {
+      logFailure("site_visitors count", error);
+      throw Object.assign(error, { step: "site_visitors count" });
+    });
+
+    const totalPageViews = await fetchCount("site_page_views").catch((error) => {
+      logFailure("site_page_views count", error);
+      throw Object.assign(error, { step: "site_page_views count" });
+    });
 
     const bounds = getNewYorkTodayBounds();
 
@@ -444,8 +455,8 @@ export async function GET(request) {
       deployedCommit,
       metrics: {
         todayUniqueVisitors: visitorsTodaySet.size,
-        totalUniqueVisitors: totalVisitors || 0,
-        totalPageViews: totalPageViews || 0,
+        totalUniqueVisitors: totalVisitors,
+        totalPageViews: totalPageViews,
         distinctPageViewVisitors,
         topPages,
         trafficSources,
@@ -454,8 +465,8 @@ export async function GET(request) {
         countries,
       },
       verification: {
-        siteVisitorsCount: totalVisitors || 0,
-        sitePageViewsCount: totalPageViews || 0,
+        siteVisitorsCount: totalVisitors,
+        sitePageViewsCount: totalPageViews,
         sitePageViewsDistinctVisitorIdCount: distinctPageViewVisitors,
         siteVisitorsWithoutPageViews,
         pageViewVisitorsNotInSiteVisitors,
@@ -464,7 +475,7 @@ export async function GET(request) {
         todayBoundaryStart: bounds.start,
         todayBoundaryEnd: bounds.end,
         timezone: TIME_ZONE,
-        supabaseHostname: new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").hostname || null,
+        supabaseHostname: new URL(supabaseAdminEnvInfo.supabaseUrl).hostname,
       },
       collectingSince: collectingSince ? collectingSince.toISOString() : null,
       notes: {
@@ -472,10 +483,16 @@ export async function GET(request) {
       },
     });
   } catch (error) {
+    logFailure(error?.step || "unknown", error);
     return NextResponse.json(
       {
-        error: "Failed to load analytics stats.",
+        error: error?.step
+          ? `Failed to load analytics stats at ${error.step}.`
+          : "Failed to load analytics stats.",
         supabaseError: toErrorPayload(error),
+        step: error?.step || "unknown",
+        projectHostname: new URL(supabaseAdminEnvInfo.supabaseUrl).hostname,
+        serviceKeySource: supabaseAdminEnvInfo.serviceKeySource,
       },
       { status: 500 }
     );
