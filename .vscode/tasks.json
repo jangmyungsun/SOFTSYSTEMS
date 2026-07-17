@@ -319,6 +319,57 @@
 				"npm run build"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "build-optional-sessions-analytics",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe",
+			"args": [
+				"/c",
+				"npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-status-before-deploy",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"status",
+				"--short"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-commit-deploy-optional-sessions",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"add",
+				"app/api/visitors/stats/route.js",
+				"app/stats/page.js"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-commit-optional-sessions",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"commit",
+				"-m",
+				"Make visitor sessions optional in stats loader"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-push-deploy-optional-sessions",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"push"
+			],
+			"isBackground": false
 		}
 	]
 }
