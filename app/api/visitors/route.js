@@ -208,13 +208,13 @@ export async function POST(request) {
     } = await supabaseAdmin.auth.getUser(accessToken);
 
     if (!userError && user && isConfiguredOwnerEmail(user)) {
-      console.log("[api/visitors] authenticated owner ignored");
+      console.log("[api/visitors] authenticated owner ignored before DB");
       return NextResponse.json({ ok: true, ignored: "owner" });
     }
   }
 
   if (hasOwnerDeviceCookie(request)) {
-    console.log("[api/visitors] owner device ignored");
+    console.log("[api/visitors] owner device ignored before DB");
     return NextResponse.json({ ok: true, ignored: "owner_device" });
   }
 
