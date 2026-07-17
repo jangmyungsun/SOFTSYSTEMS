@@ -478,6 +478,59 @@
 				"push"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "build-owner-auth-exclusion",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe",
+			"args": [
+				"/c",
+				"npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-status-owner-auth-exclusion",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"status",
+				"--short"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-add-owner-auth-exclusion",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"add",
+				"app/api/visitors/route.js",
+				"app/api/visitors/owner-device/status/route.js",
+				"components/VisitorTracker.js",
+				"app/stats/page.js"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-commit-owner-auth-exclusion",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"commit",
+				"-m",
+				"Add strict authenticated-owner exclusion for analytics"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-push-owner-auth-exclusion",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"push"
+			],
+			"isBackground": false
 		}
 	]
 }
