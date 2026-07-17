@@ -234,6 +234,37 @@ create table if not exists public.site_page_views (
   created_at timestamptz default now()
 );
 
+alter table public.site_page_views
+  add column if not exists page_path text;
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'site_page_views'
+      and column_name = 'pathname'
+  ) then
+    execute '
+      update public.site_page_views
+      set page_path = pathname
+      where page_path is null
+        and pathname is not null
+    ';
+  end if;
+end $$;
+
+update public.site_page_views
+set page_path = '/'
+where page_path is null;
+
+alter table public.site_page_views
+  alter column page_path set not null;
+
+alter table public.site_page_views
+  drop column if exists pathname;
+
 create index if not exists site_page_views_visitor_id_idx
   on public.site_page_views (visitor_id);
 
