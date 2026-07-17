@@ -9,6 +9,11 @@ function logVisitorsError(stage, error, context = {}) {
   });
 }
 
+const deployedCommit =
+  process.env.VERCEL_GIT_COMMIT_SHA ||
+  process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+  "unknown";
+
 function getAuthToken(request) {
   const authHeader = request.headers.get("authorization");
 
@@ -80,7 +85,7 @@ export async function POST(request) {
 
   const { data: existing, error: lookupError } = await supabaseAdmin
     .from("site_visitors")
-    .select("id")
+    .select("visitor_id")
     .eq("visitor_id", visitorId)
     .maybeSingle();
 
@@ -88,8 +93,9 @@ export async function POST(request) {
     logVisitorsError("lookup visitor", lookupError, {
       visitorId,
       pagePath,
+      deployedCommit,
     });
-    return NextResponse.json({ error: lookupError.message }, { status: 500 });
+    return NextResponse.json({ error: lookupError.message, deployedCommit }, { status: 500 });
   }
 
   let counted = false;
@@ -98,15 +104,16 @@ export async function POST(request) {
     const { error: updateError } = await supabaseAdmin
       .from("site_visitors")
       .update({ last_seen_at: new Date().toISOString() })
-      .eq("id", existing.id);
+      .eq("visitor_id", existing.visitor_id);
 
     if (updateError) {
       logVisitorsError("update visitor", updateError, {
         visitorId,
         pagePath,
-        id: existing.id,
+        existingVisitorId: existing.visitor_id,
+        deployedCommit,
       });
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return NextResponse.json({ error: updateError.message, deployedCommit }, { status: 500 });
     }
   } else {
     const { error } = await supabaseAdmin.from("site_visitors").insert({
@@ -120,8 +127,9 @@ export async function POST(request) {
       logVisitorsError("insert visitor", error, {
         visitorId,
         pagePath,
+        deployedCommit,
       });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: error.message, deployedCommit }, { status: 500 });
     }
 
     counted = true;
@@ -141,8 +149,9 @@ export async function POST(request) {
       visitorId,
       pagePath,
       cutoff,
+      deployedCommit,
     });
-    return NextResponse.json({ error: recentViewError.message }, { status: 500 });
+    return NextResponse.json({ error: recentViewError.message, deployedCommit }, { status: 500 });
   }
 
   let viewCounted = false;
@@ -157,8 +166,9 @@ export async function POST(request) {
       logVisitorsError("insert page view", pageViewError, {
         visitorId,
         pagePath,
+        deployedCommit,
       });
-      return NextResponse.json({ error: pageViewError.message }, { status: 500 });
+      return NextResponse.json({ error: pageViewError.message, deployedCommit }, { status: 500 });
     }
 
     viewCounted = true;
@@ -168,6 +178,7 @@ export async function POST(request) {
     counted,
     duplicate: !counted,
     viewCounted,
+    deployedCommit,
   });
 
   response.cookies.set("visitor_id", visitorId, {
@@ -184,12 +195,12 @@ export async function POST(request) {
 export async function GET() {
   const { count, error } = await supabaseAdmin
     .from("site_visitors")
-    .select("id", { count: "exact", head: true });
+    .select("visitor_id", { count: "exact", head: true });
 
   if (error) {
-    logVisitorsError("count visitors", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logVisitorsError("count visitors", error, { deployedCommit });
+    return NextResponse.json({ error: error.message, deployedCommit }, { status: 500 });
   }
 
-  return NextResponse.json({ count: count ?? 0 });
+  return NextResponse.json({ count: count ?? 0, deployedCommit });
 }
