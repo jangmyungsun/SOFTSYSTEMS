@@ -531,6 +531,56 @@
 				"push"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "build-owner-exclusion-order-fix",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe",
+			"args": [
+				"/c",
+				"npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-status-owner-order-fix",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"status",
+				"--short"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-add-owner-order-fix",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"add",
+				"app/api/visitors/route.js"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-commit-owner-order-fix",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"commit",
+				"-m",
+				"Update owner exclusion logs before analytics DB access"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-push-owner-order-fix",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"push"
+			],
+			"isBackground": false
 		}
 	]
 }
