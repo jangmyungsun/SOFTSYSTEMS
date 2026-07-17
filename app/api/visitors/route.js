@@ -9,6 +9,14 @@ function logVisitorsError(stage, error, context = {}) {
   });
 }
 
+function hasMissingColumn(error, tableName, columnName) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("column") &&
+    message.includes(`${tableName.toLowerCase()}.${columnName.toLowerCase()}`)
+  );
+}
+
 const deployedCommit =
   process.env.VERCEL_GIT_COMMIT_SHA ||
   process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
@@ -116,12 +124,25 @@ export async function POST(request) {
       return NextResponse.json({ error: updateError.message, deployedCommit }, { status: 500 });
     }
   } else {
-    const { error } = await supabaseAdmin.from("site_visitors").insert({
+    const insertPayload = {
       visitor_id: visitorId,
       first_page: pagePath,
       first_seen_at: new Date().toISOString(),
       last_seen_at: new Date().toISOString(),
-    });
+    };
+
+    let { error } = await supabaseAdmin.from("site_visitors").insert(insertPayload);
+
+    if (error && hasMissingColumn(error, "site_visitors", "first_page")) {
+      const fallbackPayload = {
+        visitor_id: visitorId,
+        first_seen_at: new Date().toISOString(),
+        last_seen_at: new Date().toISOString(),
+      };
+
+      const fallbackResult = await supabaseAdmin.from("site_visitors").insert(fallbackPayload);
+      error = fallbackResult.error;
+    }
 
     if (error) {
       logVisitorsError("insert visitor", error, {
@@ -136,13 +157,26 @@ export async function POST(request) {
   }
 
   const cutoff = new Date(Date.now() - 30 * 1000).toISOString();
-  const { data: recentViews, error: recentViewError } = await supabaseAdmin
+
+  let { data: recentViews, error: recentViewError } = await supabaseAdmin
     .from("site_page_views")
     .select("id")
     .eq("visitor_id", visitorId)
     .eq("page_path", pagePath)
     .gte("created_at", cutoff)
     .limit(1);
+
+  if (recentViewError && hasMissingColumn(recentViewError, "site_page_views", "page_path")) {
+    const fallbackRecentResult = await supabaseAdmin
+      .from("site_page_views")
+      .select("id")
+      .eq("visitor_id", visitorId)
+      .gte("created_at", cutoff)
+      .limit(1);
+
+    recentViews = fallbackRecentResult.data;
+    recentViewError = fallbackRecentResult.error;
+  }
 
   if (recentViewError) {
     logVisitorsError("lookup recent page views", recentViewError, {
@@ -157,10 +191,18 @@ export async function POST(request) {
   let viewCounted = false;
 
   if (!recentViews || recentViews.length === 0) {
-    const { error: pageViewError } = await supabaseAdmin.from("site_page_views").insert({
+    let { error: pageViewError } = await supabaseAdmin.from("site_page_views").insert({
       visitor_id: visitorId,
       page_path: pagePath,
     });
+
+    if (pageViewError && hasMissingColumn(pageViewError, "site_page_views", "page_path")) {
+      const fallbackPageViewResult = await supabaseAdmin.from("site_page_views").insert({
+        visitor_id: visitorId,
+      });
+
+      pageViewError = fallbackPageViewResult.error;
+    }
 
     if (pageViewError) {
       logVisitorsError("insert page view", pageViewError, {
