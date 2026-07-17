@@ -1,0 +1,149 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "build-cmd",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe",
+			"args": [
+				"/c",
+				"npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-status",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe",
+			"args": [
+				"/c",
+				"git status --short"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-add-visitors",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe",
+			"args": [
+				"/c",
+				"git add app/api/visitors/route.js components/VisitorTracker.js"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-commit-visitors",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe",
+			"args": [
+				"/c",
+				"git commit -m \"Fix visitors API keying by visitor_id and remove tracker debug panel\""
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-commit-visitors-safe",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"commit",
+				"-m",
+				"Fix visitors API keying by visitor_id and remove tracker debug panel"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-push-origin",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"push",
+				"origin",
+				"HEAD"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-head",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"rev-parse",
+				"HEAD"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "build-cmd-2",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe",
+			"args": [
+				"/c",
+				"npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-add-route",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"add",
+				"app/api/visitors/route.js"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-commit-fallback",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"commit",
+				"-m",
+				"Add schema-drift fallbacks for visitors endpoint"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-push-fallback",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"push",
+				"origin",
+				"HEAD"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-head-2",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"rev-parse",
+				"HEAD"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-status-final",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"status",
+				"--short"
+			],
+			"isBackground": false
+		}
+	]
+}
