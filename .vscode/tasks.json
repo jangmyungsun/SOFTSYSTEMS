@@ -144,6 +144,68 @@
 				"--short"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "build-cmd-3",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe",
+			"args": [
+				"/c",
+				"npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-status-check2",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"status",
+				"--short"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-add-route-diagnostics",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"add",
+				"app/api/visitors/route.js"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-commit-route-diagnostics",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"commit",
+				"-m",
+				"Add strict per-step Supabase diagnostics for visitors API"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-push-route-diagnostics",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"push",
+				"origin",
+				"HEAD"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-head-now",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"rev-parse",
+				"HEAD"
+			],
+			"isBackground": false
 		}
 	]
 }
