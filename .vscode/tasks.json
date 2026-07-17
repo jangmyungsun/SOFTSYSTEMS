@@ -581,6 +581,57 @@
 				"push"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "build-owner-diagnostics",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe",
+			"args": [
+				"/c",
+				"npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-status-owner-diagnostics",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"status",
+				"--short"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-add-owner-diagnostics",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"add",
+				"app/api/visitors/owner-device/diagnostics/route.js",
+				"app/stats/page.js"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-commit-owner-diagnostics",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"commit",
+				"-m",
+				"Add owner visitor diagnostics and historical delete control"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-push-owner-diagnostics",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"push"
+			],
+			"isBackground": false
 		}
 	]
 }
