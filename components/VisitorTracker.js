@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { supabase } from "../lib/supabaseClient";
 
 const SESSION_ID_KEY = "analytics_session_id";
 const SOURCE_KEY = "analytics_source";
@@ -124,6 +125,26 @@ function shouldSkipTrackingForOwnerDevice() {
   return window.localStorage.getItem(OWNER_DEVICE_HINT_KEY) === "1";
 }
 
+async function getAuthorizationHeader() {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const accessToken = session?.access_token;
+
+    if (!accessToken) {
+      return {};
+    }
+
+    return {
+      authorization: `Bearer ${accessToken}`,
+    };
+  } catch {
+    return {};
+  }
+}
+
 function sendActivityBeacon(payload) {
   if (!navigator.sendBeacon) {
     return false;
@@ -150,14 +171,20 @@ export default function VisitorTracker() {
 
     async function loadExclusionStatus() {
       try {
+        const authHeader = await getAuthorizationHeader();
         const response = await fetch("/api/visitors/owner-device/status", {
           method: "GET",
           credentials: "same-origin",
+          headers: {
+            ...authHeader,
+          },
           cache: "no-store",
         });
 
         const payload = await response.json().catch(() => ({}));
-        const excluded = Boolean(response.ok && payload?.cookieDetectedServerSide);
+        const excluded = Boolean(
+          response.ok && (payload?.authenticatedOwnerDetected || payload?.cookieDetectedServerSide)
+        );
 
         if (!active) {
           return;
@@ -212,11 +239,13 @@ export default function VisitorTracker() {
       const sessionId = getSessionId();
 
       try {
+        const authHeader = await getAuthorizationHeader();
         const response = await fetch("/api/visitors", {
           method: "POST",
           credentials: "same-origin",
           headers: {
             "Content-Type": "application/json",
+            ...authHeader,
           },
           body: JSON.stringify({
             visitorId,
@@ -237,7 +266,7 @@ export default function VisitorTracker() {
         }
 
         if (response.ok) {
-          if (payload?.ignored === "owner_device") {
+          if (payload?.ignored === "owner_device" || payload?.ignored === "owner") {
             window.localStorage.setItem(OWNER_DEVICE_HINT_KEY, "1");
           }
 
@@ -280,11 +309,13 @@ export default function VisitorTracker() {
       const sessionId = getSessionId();
 
       try {
+        const authHeader = await getAuthorizationHeader();
         const response = await fetch("/api/visitors", {
           method: "POST",
           credentials: "same-origin",
           headers: {
             "Content-Type": "application/json",
+            ...authHeader,
           },
           body: JSON.stringify({
             visitorId,
@@ -311,7 +342,7 @@ export default function VisitorTracker() {
 
         const payload = await response.json().catch(() => null);
 
-        if (payload?.ignored === "owner_device") {
+        if (payload?.ignored === "owner_device" || payload?.ignored === "owner") {
           window.localStorage.setItem(OWNER_DEVICE_HINT_KEY, "1");
         }
 

@@ -86,6 +86,17 @@ function hasOwnerDeviceCookie(request) {
   return /(?:^|;\s*)softsystems_owner_device=1(?:;|$)/.test(cookieHeader);
 }
 
+function isConfiguredOwnerEmail(user) {
+  const configuredOwnerEmail = String(process.env.OWNER_EMAIL || "").trim().toLowerCase();
+  const userEmail = String(user?.email || "").trim().toLowerCase();
+
+  if (!configuredOwnerEmail || !userEmail) {
+    return false;
+  }
+
+  return userEmail === configuredOwnerEmail;
+}
+
 async function getRequestBody(request) {
   try {
     return await request.json();
@@ -188,6 +199,20 @@ function isSessionExpired(lastActivityAt, nowMs) {
 }
 
 export async function POST(request) {
+  const accessToken = getAuthToken(request);
+
+  if (accessToken) {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseAdmin.auth.getUser(accessToken);
+
+    if (!userError && user && isConfiguredOwnerEmail(user)) {
+      console.log("[api/visitors] authenticated owner ignored");
+      return NextResponse.json({ ok: true, ignored: "owner" });
+    }
+  }
+
   if (hasOwnerDeviceCookie(request)) {
     console.log("[api/visitors] owner device ignored");
     return NextResponse.json({ ok: true, ignored: "owner_device" });
@@ -241,24 +266,6 @@ export async function POST(request) {
 
   const nowIso = new Date().toISOString();
   const nowMs = Date.parse(nowIso);
-
-  const accessToken = getAuthToken(request);
-
-  if (accessToken) {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseAdmin.auth.getUser(accessToken);
-
-    if (!userError && user) {
-      return NextResponse.json({
-        counted: false,
-        owner: true,
-        deployedCommit,
-        diagnostics,
-      });
-    }
-  }
 
   logDbStep({
     projectHostname,
