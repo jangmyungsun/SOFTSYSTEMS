@@ -236,6 +236,59 @@
 				"--short"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "build-stats-fix",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe",
+			"args": [
+				"/c",
+				"npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-status-before-commit",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"status",
+				"--short"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-add-analytics-fix",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"add",
+				"app/stats/page.js",
+				"app/api/visitors/stats/route.js"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-commit-analytics-fix",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"commit",
+				"-m",
+				"Fix private stats loader and surface analytics errors"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-push-analytics-fix",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"push",
+				"origin",
+				"HEAD"
+			],
+			"isBackground": false
 		}
 	]
 }
