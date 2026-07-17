@@ -139,6 +139,35 @@ export default function StatisticsPage() {
   const [ownerDeviceMessage, setOwnerDeviceMessage] = useState("");
   const [ownerDeviceTestLoading, setOwnerDeviceTestLoading] = useState(false);
   const [ownerDeviceTestResponse, setOwnerDeviceTestResponse] = useState("");
+  const [ownerDiagnosticsLoading, setOwnerDiagnosticsLoading] = useState(false);
+  const [ownerBrowserVisitorId, setOwnerBrowserVisitorId] = useState("");
+  const [ownerVisitorExistsInSiteVisitors, setOwnerVisitorExistsInSiteVisitors] = useState(false);
+  const [ownerVisitorLastSeenAt, setOwnerVisitorLastSeenAt] = useState(null);
+  const [ownerTestIgnoredValue, setOwnerTestIgnoredValue] = useState("");
+  const [ownerLastSeenChangedAfterTest, setOwnerLastSeenChangedAfterTest] = useState(null);
+
+  async function loadOwnerVisitorDiagnostics(accessToken) {
+    if (!accessToken) {
+      return null;
+    }
+
+    const response = await fetch("/api/visitors/owner-device/diagnostics", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload?.error || "Failed to load owner diagnostics.");
+    }
+
+    return payload;
+  }
 
   useEffect(() => {
     supabase
@@ -179,6 +208,11 @@ export default function StatisticsPage() {
         setOwnerDeviceHost("");
         setOwnerExpectedApiResponse(null);
         setOwnerCookieSettings(null);
+        setOwnerBrowserVisitorId("");
+        setOwnerVisitorExistsInSiteVisitors(false);
+        setOwnerVisitorLastSeenAt(null);
+        setOwnerTestIgnoredValue("");
+        setOwnerLastSeenChangedAfterTest(null);
         return;
       }
 
@@ -205,6 +239,11 @@ export default function StatisticsPage() {
           setOwnerDeviceHost("");
           setOwnerExpectedApiResponse(null);
           setOwnerCookieSettings(null);
+          setOwnerBrowserVisitorId("");
+          setOwnerVisitorExistsInSiteVisitors(false);
+          setOwnerVisitorLastSeenAt(null);
+          setOwnerTestIgnoredValue("");
+          setOwnerLastSeenChangedAfterTest(null);
           return;
         }
 
@@ -235,6 +274,11 @@ export default function StatisticsPage() {
 
         const ownerCookiePayload = await ownerCookieResponse.json().catch(() => ({}));
         setOwnerCookieSettings(ownerCookieResponse.ok ? ownerCookiePayload?.cookieSettings || null : null);
+
+        const diagnosticsPayload = await loadOwnerVisitorDiagnostics(session.access_token);
+        setOwnerBrowserVisitorId(String(diagnosticsPayload?.visitorId || ""));
+        setOwnerVisitorExistsInSiteVisitors(Boolean(diagnosticsPayload?.visitorExistsInSiteVisitors));
+        setOwnerVisitorLastSeenAt(diagnosticsPayload?.lastSeenAt || null);
       } catch {
         setOwnerAuthorized(false);
         setOwnerDeviceExcluded(false);
@@ -243,6 +287,9 @@ export default function StatisticsPage() {
         setOwnerDeviceHost("");
         setOwnerExpectedApiResponse(null);
         setOwnerCookieSettings(null);
+        setOwnerBrowserVisitorId("");
+        setOwnerVisitorExistsInSiteVisitors(false);
+        setOwnerVisitorLastSeenAt(null);
       } finally {
         setOwnerAccessLoading(false);
       }
@@ -387,11 +434,16 @@ export default function StatisticsPage() {
       }
 
       setOwnerDeviceExcluded(true);
-        setOwnerCookieDetectedServerSide(true);
-        setOwnerDeviceHost(String(payload?.host || ownerDeviceHost));
-        setOwnerExpectedApiResponse({ ok: true, ignored: "owner" });
+      setOwnerCookieDetectedServerSide(true);
+      setOwnerDeviceHost(String(payload?.host || ownerDeviceHost));
+      setOwnerExpectedApiResponse({ ok: true, ignored: "owner" });
       window.localStorage.setItem("softsystems_owner_device_hint", "1");
       setOwnerDeviceMessage("This device is now excluded from analytics.");
+
+      const diagnosticsPayload = await loadOwnerVisitorDiagnostics(session.access_token);
+      setOwnerBrowserVisitorId(String(diagnosticsPayload?.visitorId || ""));
+      setOwnerVisitorExistsInSiteVisitors(Boolean(diagnosticsPayload?.visitorExistsInSiteVisitors));
+      setOwnerVisitorLastSeenAt(diagnosticsPayload?.lastSeenAt || null);
     } catch (error) {
       setOwnerDeviceMessage(error?.message || "Failed to exclude this device.");
     } finally {
@@ -424,11 +476,16 @@ export default function StatisticsPage() {
       }
 
       setOwnerDeviceExcluded(false);
-        setOwnerCookieDetectedServerSide(false);
-        setOwnerDeviceHost(String(payload?.host || ownerDeviceHost));
-        setOwnerExpectedApiResponse(ownerAuthenticatedDetected ? { ok: true, ignored: "owner" } : { ok: true, ignored: "none" });
+      setOwnerCookieDetectedServerSide(false);
+      setOwnerDeviceHost(String(payload?.host || ownerDeviceHost));
+      setOwnerExpectedApiResponse(ownerAuthenticatedDetected ? { ok: true, ignored: "owner" } : { ok: true, ignored: "none" });
       window.localStorage.removeItem("softsystems_owner_device_hint");
       setOwnerDeviceMessage("This device will be included in analytics again.");
+
+      const diagnosticsPayload = await loadOwnerVisitorDiagnostics(session.access_token);
+      setOwnerBrowserVisitorId(String(diagnosticsPayload?.visitorId || ""));
+      setOwnerVisitorExistsInSiteVisitors(Boolean(diagnosticsPayload?.visitorExistsInSiteVisitors));
+      setOwnerVisitorLastSeenAt(diagnosticsPayload?.lastSeenAt || null);
     } catch (error) {
       setOwnerDeviceMessage(error?.message || "Failed to include this device again.");
     } finally {
@@ -473,6 +530,11 @@ export default function StatisticsPage() {
       setOwnerDeviceMessage(
         `Cleanup complete. Deleted page views: ${payload?.deletedPageViews ?? 0}, sessions: ${payload?.deletedSessions ?? 0}, visitors: ${payload?.deletedVisitors ?? 0}.`
       );
+
+      const diagnosticsPayload = await loadOwnerVisitorDiagnostics(session.access_token);
+      setOwnerBrowserVisitorId(String(diagnosticsPayload?.visitorId || ""));
+      setOwnerVisitorExistsInSiteVisitors(Boolean(diagnosticsPayload?.visitorExistsInSiteVisitors));
+      setOwnerVisitorLastSeenAt(diagnosticsPayload?.lastSeenAt || null);
     } catch (error) {
       setOwnerDeviceMessage(error?.message || "Failed to clean up this device's analytics.");
     } finally {
@@ -486,9 +548,15 @@ export default function StatisticsPage() {
     }
 
     setOwnerDeviceTestLoading(true);
+    setOwnerDiagnosticsLoading(true);
     setOwnerDeviceTestResponse("");
+    setOwnerTestIgnoredValue("");
+    setOwnerLastSeenChangedAfterTest(null);
 
     try {
+      const beforeDiagnostics = await loadOwnerVisitorDiagnostics(session.access_token);
+      const beforeLastSeenAt = beforeDiagnostics?.lastSeenAt || null;
+
       const visitorId = window.localStorage.getItem("visitor_id") || "owner-device-test";
 
       const response = await fetch("/api/visitors", {
@@ -509,9 +577,27 @@ export default function StatisticsPage() {
 
       const text = await response.text().catch(() => "");
       setOwnerDeviceTestResponse(text || "{}");
+
+      let parsed = null;
+      try {
+        parsed = text ? JSON.parse(text) : null;
+      } catch {
+        parsed = null;
+      }
+
+      setOwnerTestIgnoredValue(String(parsed?.ignored || ""));
+
+      const afterDiagnostics = await loadOwnerVisitorDiagnostics(session.access_token);
+      const afterLastSeenAt = afterDiagnostics?.lastSeenAt || null;
+
+      setOwnerBrowserVisitorId(String(afterDiagnostics?.visitorId || beforeDiagnostics?.visitorId || ""));
+      setOwnerVisitorExistsInSiteVisitors(Boolean(afterDiagnostics?.visitorExistsInSiteVisitors));
+      setOwnerVisitorLastSeenAt(afterLastSeenAt);
+      setOwnerLastSeenChangedAfterTest(beforeLastSeenAt !== afterLastSeenAt);
     } catch (error) {
       setOwnerDeviceTestResponse(JSON.stringify({ error: error?.message || "Failed to run test." }));
     } finally {
+      setOwnerDiagnosticsLoading(false);
       setOwnerDeviceTestLoading(false);
     }
   }
@@ -657,7 +743,7 @@ export default function StatisticsPage() {
                 Include this device in analytics again
               </button>
               <button type="button" onClick={handleCleanupDeviceAnalytics} disabled={ownerDeviceActioning}>
-                Remove this device's previous analytics
+                Delete this device's historical analytics
               </button>
               <button type="button" onClick={handleTestOwnerExclusion} disabled={ownerDeviceActioning || ownerDeviceTestLoading}>
                 Test owner exclusion
@@ -671,6 +757,12 @@ export default function StatisticsPage() {
             <p className="muted">Cookie detected server-side: {ownerCookieDetectedServerSide ? "true" : "false"}</p>
             <p className="muted">Expected analytics API response: {ownerExpectedApiResponse ? JSON.stringify(ownerExpectedApiResponse) : "pending"}</p>
             <p className="muted">Owner-device API host: {ownerDeviceHost || "unknown"}</p>
+            <p className="muted">Current browser visitor_id: {ownerBrowserVisitorId || "missing visitor_id cookie"}</p>
+            <p className="muted">visitor_id exists in site_visitors: {ownerVisitorExistsInSiteVisitors ? "true" : "false"}</p>
+            <p className="muted">Current last_seen_at: {ownerVisitorLastSeenAt ? new Date(ownerVisitorLastSeenAt).toLocaleString() : "null"}</p>
+            <p className="muted">POST /api/visitors ignored value: {ownerTestIgnoredValue || "pending test"}</p>
+            <p className="muted">last_seen_at changed after test: {ownerLastSeenChangedAfterTest === null ? "pending test" : ownerLastSeenChangedAfterTest ? "true" : "false"}</p>
+            {ownerDiagnosticsLoading ? <p className="muted">Refreshing diagnostics...</p> : null}
             {ownerCookieSettings ? (
               <p className="muted">
                 Cookie settings: {ownerCookieSettings.name}={ownerCookieSettings.value}; Path={ownerCookieSettings.path}; HttpOnly={String(ownerCookieSettings.httpOnly)}; SameSite={ownerCookieSettings.sameSite}; Secure in production={String(ownerCookieSettings.secureInProduction)}; Max-Age={ownerCookieSettings.maxAge}
