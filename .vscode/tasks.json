@@ -216,6 +216,26 @@
 				"--short"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "git-status-clean-final",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"status",
+				"--short"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-status-final-clean2",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"status",
+				"--short"
+			],
+			"isBackground": false
 		}
 	]
 }

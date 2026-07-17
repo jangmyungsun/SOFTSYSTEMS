@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const TIME_ZONE = "America/New_York";
 const PAGE_SIZE = 1000;
 
@@ -42,6 +45,61 @@ function formatDateInTimeZone(date, timeZone) {
   });
 
   return formatter.format(date);
+}
+
+function getOffsetMinutes(date, timeZone) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const timeZoneName = formatter.formatToParts(date).find((part) => part.type === "timeZoneName")?.value || "GMT";
+  const match = timeZoneName.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/);
+
+  if (!match) {
+    return 0;
+  }
+
+  const sign = match[1] === "+" ? 1 : -1;
+  const hours = Number(match[2] || 0);
+  const minutes = Number(match[3] || 0);
+  return sign * (hours * 60 + minutes);
+}
+
+function getNewYorkTodayBounds() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const parts = formatter.formatToParts(now).reduce((acc, part) => {
+    if (part.type !== "literal") {
+      acc[part.type] = part.value;
+    }
+
+    return acc;
+  }, {});
+
+  const year = Number(parts.year);
+  const month = Number(parts.month);
+  const day = Number(parts.day);
+  const middayThisDay = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0));
+  const middayNextDay = new Date(Date.UTC(year, month - 1, day + 1, 12, 0, 0, 0));
+  const startOffsetMinutes = getOffsetMinutes(middayThisDay, TIME_ZONE);
+  const endOffsetMinutes = getOffsetMinutes(middayNextDay, TIME_ZONE);
+  const start = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0) - startOffsetMinutes * 60 * 1000);
+  const end = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0) - endOffsetMinutes * 60 * 1000 - 1);
+
+  return {
+    todayKey: formatDateInTimeZone(now, TIME_ZONE),
+    start: start.toISOString(),
+    end: end.toISOString(),
+  };
 }
 
 function normalizePagePath(path) {
@@ -169,6 +227,22 @@ async function fetchAllRows(tableName, columns, filters = []) {
   return rows;
 }
 
+async function fetchCount(tableName, filters = []) {
+  let query = supabaseAdmin.from(tableName).select("id", { count: "exact", head: true });
+
+  for (const applyFilter of filters) {
+    query = applyFilter(query);
+  }
+
+  const { count, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  return count || 0;
+}
+
 function toPercent(numerator, denominator) {
   if (!denominator) {
     return 0;
@@ -204,49 +278,28 @@ export async function GET(request) {
   }
 
   try {
-    const [{ count: totalVisitors, error: visitorsCountError }, { count: totalPageViews, error: pageViewsCountError }] = await Promise.all([
-      supabaseAdmin.from("site_visitors").select("visitor_id", { count: "exact", head: true }),
-      supabaseAdmin.from("site_page_views").select("id", { count: "exact", head: true }),
-    ]);
-
-    if (visitorsCountError) {
-      return NextResponse.json(
-        {
-          error: "Failed to count total visitors.",
-          supabaseError: toErrorPayload(visitorsCountError),
-        },
-        { status: 500 }
-      );
-    }
-
-    if (pageViewsCountError) {
-      return NextResponse.json(
-        {
-          error: "Failed to count page views.",
-          supabaseError: toErrorPayload(pageViewsCountError),
-        },
-        { status: 500 }
-      );
-    }
-
-    const [pageViews, sessions] = await Promise.all([
+    const [siteVisitorsRows, pageViewsRows, sessions, totalVisitors, totalPageViews] = await Promise.all([
+      fetchAllRows("site_visitors", "visitor_id,first_seen_at,last_seen_at,created_at"),
       fetchAllRows("site_page_views", "visitor_id,page_path,created_at"),
       fetchAllRows(
         "site_visitor_sessions",
         "visitor_id,source_category,country_code,session_started_at,last_activity_at,created_at"
       ),
+      fetchCount("site_visitors"),
+      fetchCount("site_page_views"),
     ]);
 
-    const todayKey = formatDateInTimeZone(new Date(), TIME_ZONE);
+    const bounds = getNewYorkTodayBounds();
+
     const visitorsTodaySet = new Set();
     const pageCounts = new Map();
 
-    for (const view of pageViews) {
+    for (const view of pageViewsRows) {
       const visitorId = typeof view?.visitor_id === "string" ? view.visitor_id : "";
       const pagePath = normalizePagePath(view?.page_path);
       const createdAt = parseIso(view?.created_at);
 
-      if (visitorId && createdAt && formatDateInTimeZone(createdAt, TIME_ZONE) === todayKey) {
+      if (visitorId && createdAt && createdAt.toISOString() >= bounds.start && createdAt.toISOString() <= bounds.end) {
         visitorsTodaySet.add(visitorId);
       }
 
@@ -337,6 +390,42 @@ export async function GET(request) {
         percent: toPercent(visitors, totalCountryVisitors),
       }));
 
+    const distinctPageViewVisitors = new Set(
+      pageViewsRows
+        .map((row) => (typeof row?.visitor_id === "string" ? row.visitor_id : ""))
+        .filter(Boolean)
+    ).size;
+
+    const siteVisitorIds = new Set(
+      siteVisitorsRows
+        .map((row) => (typeof row?.visitor_id === "string" ? row.visitor_id : ""))
+        .filter(Boolean)
+    );
+
+    const pageViewVisitorIds = new Set(
+      pageViewsRows
+        .map((row) => (typeof row?.visitor_id === "string" ? row.visitor_id : ""))
+        .filter(Boolean)
+    );
+
+    const siteVisitorsWithoutPageViews = Array.from(siteVisitorIds).filter(
+      (visitorId) => !pageViewVisitorIds.has(visitorId)
+    ).length;
+
+    const pageViewVisitorsNotInSiteVisitors = Array.from(pageViewVisitorIds).filter(
+      (visitorId) => !siteVisitorIds.has(visitorId)
+    ).length;
+
+    const earliestVisitor = siteVisitorsRows
+      .map((row) => parseIso(row?.first_seen_at) || parseIso(row?.created_at))
+      .filter(Boolean)
+      .sort((a, b) => a.getTime() - b.getTime())[0] || null;
+
+    const latestVisitor = siteVisitorsRows
+      .map((row) => parseIso(row?.last_seen_at) || parseIso(row?.created_at))
+      .filter(Boolean)
+      .sort((a, b) => b.getTime() - a.getTime())[0] || null;
+
     const averagePagesPerVisitor = totalVisitors
       ? toOneDecimal((totalPageViews || 0) / totalVisitors)
       : 0;
@@ -356,11 +445,26 @@ export async function GET(request) {
       metrics: {
         todayUniqueVisitors: visitorsTodaySet.size,
         totalUniqueVisitors: totalVisitors || 0,
+        totalPageViews: totalPageViews || 0,
+        distinctPageViewVisitors,
         topPages,
         trafficSources,
         averagePagesPerVisitor,
         averageSessionDurationSeconds,
         countries,
+      },
+      verification: {
+        siteVisitorsCount: totalVisitors || 0,
+        sitePageViewsCount: totalPageViews || 0,
+        sitePageViewsDistinctVisitorIdCount: distinctPageViewVisitors,
+        siteVisitorsWithoutPageViews,
+        pageViewVisitorsNotInSiteVisitors,
+        earliestVisitorFirstSeenAt: earliestVisitor ? earliestVisitor.toISOString() : null,
+        latestVisitorLastSeenAt: latestVisitor ? latestVisitor.toISOString() : null,
+        todayBoundaryStart: bounds.start,
+        todayBoundaryEnd: bounds.end,
+        timezone: TIME_ZONE,
+        supabaseHostname: new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").hostname || null,
       },
       collectingSince: collectingSince ? collectingSince.toISOString() : null,
       notes: {
