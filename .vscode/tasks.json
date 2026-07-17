@@ -424,6 +424,60 @@
 				"push"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "build-owner-device-debug",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe",
+			"args": [
+				"/c",
+				"npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-status-owner-exclusion-debug",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"status",
+				"--short"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-add-owner-exclusion-debug",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"add",
+				"app/api/visitors/route.js",
+				"app/api/visitors/owner-device/route.js",
+				"app/api/visitors/owner-device/status/route.js",
+				"components/VisitorTracker.js",
+				"app/stats/page.js"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-commit-owner-exclusion-debug",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"commit",
+				"-m",
+				"Harden owner-device exclusion and add debug status controls"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "git-push-owner-exclusion-debug",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"push"
+			],
+			"isBackground": false
 		}
 	]
 }
