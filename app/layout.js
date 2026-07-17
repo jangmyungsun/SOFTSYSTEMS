@@ -2,6 +2,7 @@ import './globals.css';
 import Navigation from '../components/Navigation';
 import SiteHero from '../components/SiteHero';
 import { LanguageProvider } from '../components/LanguageProvider';
+import VisitorTracker from '../components/VisitorTracker';
 
 export const metadata = {
   title: 'SOFTSYSTEMS',
@@ -13,6 +14,8 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <LanguageProvider>
+          <VisitorTracker />
+
           <main className="app">
             <Navigation />
 

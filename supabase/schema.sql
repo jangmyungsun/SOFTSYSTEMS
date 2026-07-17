@@ -217,3 +217,28 @@ create policy "authenticated deletes daily collection files" on storage.objects 
   bucket_id = 'daily-collection'
   and split_part(name, '/', 1) = auth.uid()::text
 );
+
+create table if not exists public.site_visitors (
+  id bigint generated always as identity primary key,
+  visitor_id text not null unique,
+  first_page text default '/',
+  first_seen_at timestamptz default now(),
+  last_seen_at timestamptz default now(),
+  created_at timestamptz default now()
+);
+
+create table if not exists public.site_page_views (
+  id bigint generated always as identity primary key,
+  visitor_id text not null,
+  page_path text not null,
+  created_at timestamptz default now()
+);
+
+create index if not exists site_page_views_visitor_id_idx
+  on public.site_page_views (visitor_id);
+
+create index if not exists site_page_views_page_path_idx
+  on public.site_page_views (page_path);
+
+create index if not exists site_page_views_created_at_idx
+  on public.site_page_views (created_at);

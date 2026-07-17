@@ -4,14 +4,6 @@ import { useEffect, useState } from "react";
 
 import { useLanguage } from "../../components/LanguageProvider";
 
-function generateVisitorId() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
 export default function AboutPage() {
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
@@ -19,40 +11,6 @@ export default function AboutPage() {
 
   useEffect(() => {
     let cancelled = false;
-
-    async function registerVisit() {
-      const storedVisitorId = window.localStorage.getItem("visitor_id");
-      const visitorId = storedVisitorId || generateVisitorId();
-
-      if (!storedVisitorId) {
-        window.localStorage.setItem("visitor_id", visitorId);
-      }
-
-      try {
-        const response = await fetch("/api/visitors", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            cookie: `visitor_id=${visitorId}`,
-          },
-          body: JSON.stringify({ visitorId }),
-        });
-
-        if (!cancelled && response.ok) {
-          const payload = await response.json().catch(() => ({}));
-
-          if (payload.counted || payload.owner) {
-            const countResponse = await fetch("/api/visitors");
-            if (!cancelled && countResponse.ok) {
-              const countPayload = await countResponse.json().catch(() => ({}));
-              setVisitorCount(countPayload.count ?? null);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Visitor count error:", error);
-      }
-    }
 
     async function loadCount() {
       try {
@@ -67,7 +25,6 @@ export default function AboutPage() {
     }
 
     loadCount();
-    registerVisit();
 
     return () => {
       cancelled = true;
