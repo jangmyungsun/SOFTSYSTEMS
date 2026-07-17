@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { supabaseAdmin } from "../../../lib/supabaseAdmin";
+import {
+  supabaseAdmin,
+  supabaseAdminEnvInfo,
+} from "../../../lib/supabaseAdmin";
 
 function logVisitorsError(stage, error, context = {}) {
   console.error("[api/visitors]", stage, {
@@ -9,12 +12,47 @@ function logVisitorsError(stage, error, context = {}) {
   });
 }
 
-function hasMissingColumn(error, tableName, columnName) {
-  const message = String(error?.message || "").toLowerCase();
-  return (
-    message.includes("column") &&
-    message.includes(`${tableName.toLowerCase()}.${columnName.toLowerCase()}`)
-  );
+function getProjectHostname(value) {
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return "invalid-url";
+  }
+}
+
+function serializeSupabaseError(error) {
+  if (!error) {
+    return null;
+  }
+
+  return {
+    code: error.code ?? null,
+    message: error.message ?? String(error),
+    details: error.details ?? null,
+    hint: error.hint ?? null,
+  };
+}
+
+function logStep({ projectHostname, pathname, operation, error }) {
+  const serializedError = serializeSupabaseError(error);
+  console.log("[api/visitors]", {
+    projectHostname,
+    pathname,
+    operation,
+    code: serializedError?.code ?? null,
+    message: serializedError?.message ?? "ok",
+  });
+}
+
+function logDbStep({ projectHostname, pathname, operation, phase, data, error }) {
+  console.log("[api/visitors][db]", {
+    projectHostname,
+    pathname,
+    operation,
+    phase,
+    data: data ?? null,
+    error: serializeSupabaseError(error),
+  });
 }
 
 const deployedCommit =
@@ -73,6 +111,38 @@ export async function POST(request) {
   const body = await getRequestBody(request);
   const visitorId = body?.visitorId || getVisitorId(request);
   const pagePath = getPagePath(body?.path);
+  const projectHostname = getProjectHostname(supabaseAdminEnvInfo.supabaseUrl);
+  const diagnostics = {
+    deployedCommit,
+    projectHostname,
+    pathname: pagePath,
+    serviceKeySource: supabaseAdminEnvInfo.serviceKeySource,
+    steps: [],
+  };
+
+  function pushStep(operation, result, phase = "after") {
+    diagnostics.steps.push({
+      operation,
+      phase,
+      data: result?.data ?? null,
+      error: serializeSupabaseError(result?.error),
+    });
+  }
+
+  function failWithDiagnostics(operation, result, status = 500) {
+    const serializedError = serializeSupabaseError(result?.error);
+    diagnostics.stoppedAt = operation;
+
+    return NextResponse.json(
+      {
+        error: serializedError?.message || "Unknown Supabase error",
+        supabaseError: serializedError,
+        deployedCommit,
+        diagnostics,
+      },
+      { status }
+    );
+  }
 
   if (!isValidVisitorId(visitorId)) {
     return NextResponse.json({ error: "Invalid visitor id." }, { status: 400 });
@@ -87,15 +157,50 @@ export async function POST(request) {
     } = await supabaseAdmin.auth.getUser(accessToken);
 
     if (!userError && user) {
-      return NextResponse.json({ counted: false, owner: true });
+      return NextResponse.json({
+        counted: false,
+        owner: true,
+        deployedCommit,
+        diagnostics,
+      });
     }
   }
 
-  const { data: existing, error: lookupError } = await supabaseAdmin
+  logDbStep({
+    projectHostname,
+    pathname: pagePath,
+    operation: "visitor_lookup",
+    phase: "before",
+    data: { visitorId },
+    error: null,
+  });
+
+  const visitorLookupResult = await supabaseAdmin
     .from("site_visitors")
     .select("visitor_id")
     .eq("visitor_id", visitorId)
     .maybeSingle();
+
+  pushStep("visitor_lookup", visitorLookupResult, "after");
+
+  logDbStep({
+    projectHostname,
+    pathname: pagePath,
+    operation: "visitor_lookup",
+    phase: "after",
+    data: visitorLookupResult.data,
+    error: visitorLookupResult.error,
+  });
+
+  logStep({
+    projectHostname,
+    pathname: pagePath,
+    operation: "visitor_lookup",
+    error: visitorLookupResult.error,
+  });
+
+  const existing = visitorLookupResult.data;
+  const lookupError = visitorLookupResult.error;
 
   if (lookupError) {
     logVisitorsError("lookup visitor", lookupError, {
@@ -103,16 +208,46 @@ export async function POST(request) {
       pagePath,
       deployedCommit,
     });
-    return NextResponse.json({ error: lookupError.message, deployedCommit }, { status: 500 });
+    return failWithDiagnostics("visitor_lookup", visitorLookupResult);
   }
 
   let counted = false;
 
   if (existing) {
-    const { error: updateError } = await supabaseAdmin
+    logDbStep({
+      projectHostname,
+      pathname: pagePath,
+      operation: "visitor_update",
+      phase: "before",
+      data: { visitorId: existing.visitor_id },
+      error: null,
+    });
+
+    const visitorUpdateResult = await supabaseAdmin
       .from("site_visitors")
       .update({ last_seen_at: new Date().toISOString() })
-      .eq("visitor_id", existing.visitor_id);
+      .eq("visitor_id", existing.visitor_id)
+      .select("visitor_id,last_seen_at");
+
+    pushStep("visitor_update", visitorUpdateResult, "after");
+
+    logDbStep({
+      projectHostname,
+      pathname: pagePath,
+      operation: "visitor_update",
+      phase: "after",
+      data: visitorUpdateResult.data,
+      error: visitorUpdateResult.error,
+    });
+
+    logStep({
+      projectHostname,
+      pathname: pagePath,
+      operation: "visitor_update",
+      error: visitorUpdateResult.error,
+    });
+
+    const updateError = visitorUpdateResult.error;
 
     if (updateError) {
       logVisitorsError("update visitor", updateError, {
@@ -121,28 +256,47 @@ export async function POST(request) {
         existingVisitorId: existing.visitor_id,
         deployedCommit,
       });
-      return NextResponse.json({ error: updateError.message, deployedCommit }, { status: 500 });
+      return failWithDiagnostics("visitor_update", visitorUpdateResult);
     }
   } else {
-    const insertPayload = {
+    logDbStep({
+      projectHostname,
+      pathname: pagePath,
+      operation: "visitor_insert",
+      phase: "before",
+      data: {
+        visitor_id: visitorId,
+        first_page: pagePath,
+      },
+      error: null,
+    });
+
+    const visitorInsertResult = await supabaseAdmin.from("site_visitors").insert({
       visitor_id: visitorId,
       first_page: pagePath,
       first_seen_at: new Date().toISOString(),
       last_seen_at: new Date().toISOString(),
-    };
+    }).select("visitor_id,first_page,first_seen_at,last_seen_at");
 
-    let { error } = await supabaseAdmin.from("site_visitors").insert(insertPayload);
+    pushStep("visitor_insert", visitorInsertResult, "after");
 
-    if (error && hasMissingColumn(error, "site_visitors", "first_page")) {
-      const fallbackPayload = {
-        visitor_id: visitorId,
-        first_seen_at: new Date().toISOString(),
-        last_seen_at: new Date().toISOString(),
-      };
+    logDbStep({
+      projectHostname,
+      pathname: pagePath,
+      operation: "visitor_insert",
+      phase: "after",
+      data: visitorInsertResult.data,
+      error: visitorInsertResult.error,
+    });
 
-      const fallbackResult = await supabaseAdmin.from("site_visitors").insert(fallbackPayload);
-      error = fallbackResult.error;
-    }
+    logStep({
+      projectHostname,
+      pathname: pagePath,
+      operation: "visitor_insert",
+      error: visitorInsertResult.error,
+    });
+
+    const error = visitorInsertResult.error;
 
     if (error) {
       logVisitorsError("insert visitor", error, {
@@ -150,7 +304,7 @@ export async function POST(request) {
         pagePath,
         deployedCommit,
       });
-      return NextResponse.json({ error: error.message, deployedCommit }, { status: 500 });
+      return failWithDiagnostics("visitor_insert", visitorInsertResult);
     }
 
     counted = true;
@@ -158,7 +312,16 @@ export async function POST(request) {
 
   const cutoff = new Date(Date.now() - 30 * 1000).toISOString();
 
-  let { data: recentViews, error: recentViewError } = await supabaseAdmin
+  logDbStep({
+    projectHostname,
+    pathname: pagePath,
+    operation: "page_view_lookup",
+    phase: "before",
+    data: { visitorId, pagePath, cutoff },
+    error: null,
+  });
+
+  const pageViewLookupResult = await supabaseAdmin
     .from("site_page_views")
     .select("id")
     .eq("visitor_id", visitorId)
@@ -166,17 +329,26 @@ export async function POST(request) {
     .gte("created_at", cutoff)
     .limit(1);
 
-  if (recentViewError && hasMissingColumn(recentViewError, "site_page_views", "page_path")) {
-    const fallbackRecentResult = await supabaseAdmin
-      .from("site_page_views")
-      .select("id")
-      .eq("visitor_id", visitorId)
-      .gte("created_at", cutoff)
-      .limit(1);
+  pushStep("page_view_lookup", pageViewLookupResult, "after");
 
-    recentViews = fallbackRecentResult.data;
-    recentViewError = fallbackRecentResult.error;
-  }
+  logDbStep({
+    projectHostname,
+    pathname: pagePath,
+    operation: "page_view_lookup",
+    phase: "after",
+    data: pageViewLookupResult.data,
+    error: pageViewLookupResult.error,
+  });
+
+  logStep({
+    projectHostname,
+    pathname: pagePath,
+    operation: "page_view_lookup",
+    error: pageViewLookupResult.error,
+  });
+
+  const recentViews = pageViewLookupResult.data;
+  const recentViewError = pageViewLookupResult.error;
 
   if (recentViewError) {
     logVisitorsError("lookup recent page views", recentViewError, {
@@ -185,24 +357,48 @@ export async function POST(request) {
       cutoff,
       deployedCommit,
     });
-    return NextResponse.json({ error: recentViewError.message, deployedCommit }, { status: 500 });
+    return failWithDiagnostics("page_view_lookup", pageViewLookupResult);
   }
 
   let viewCounted = false;
 
   if (!recentViews || recentViews.length === 0) {
-    let { error: pageViewError } = await supabaseAdmin.from("site_page_views").insert({
-      visitor_id: visitorId,
-      page_path: pagePath,
+    logDbStep({
+      projectHostname,
+      pathname: pagePath,
+      operation: "page_view_insert",
+      phase: "before",
+      data: {
+        visitor_id: visitorId,
+        page_path: pagePath,
+      },
+      error: null,
     });
 
-    if (pageViewError && hasMissingColumn(pageViewError, "site_page_views", "page_path")) {
-      const fallbackPageViewResult = await supabaseAdmin.from("site_page_views").insert({
-        visitor_id: visitorId,
-      });
+    const pageViewInsertResult = await supabaseAdmin.from("site_page_views").insert({
+      visitor_id: visitorId,
+      page_path: pagePath,
+    }).select("id,visitor_id,page_path,created_at");
 
-      pageViewError = fallbackPageViewResult.error;
-    }
+    pushStep("page_view_insert", pageViewInsertResult, "after");
+
+    logDbStep({
+      projectHostname,
+      pathname: pagePath,
+      operation: "page_view_insert",
+      phase: "after",
+      data: pageViewInsertResult.data,
+      error: pageViewInsertResult.error,
+    });
+
+    logStep({
+      projectHostname,
+      pathname: pagePath,
+      operation: "page_view_insert",
+      error: pageViewInsertResult.error,
+    });
+
+    const pageViewError = pageViewInsertResult.error;
 
     if (pageViewError) {
       logVisitorsError("insert page view", pageViewError, {
@@ -210,7 +406,7 @@ export async function POST(request) {
         pagePath,
         deployedCommit,
       });
-      return NextResponse.json({ error: pageViewError.message, deployedCommit }, { status: 500 });
+      return failWithDiagnostics("page_view_insert", pageViewInsertResult);
     }
 
     viewCounted = true;
@@ -221,6 +417,7 @@ export async function POST(request) {
     duplicate: !counted,
     viewCounted,
     deployedCommit,
+    diagnostics,
   });
 
   response.cookies.set("visitor_id", visitorId, {
