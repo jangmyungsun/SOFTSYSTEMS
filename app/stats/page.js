@@ -1,263 +1,214 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
-import {
-  getHomeState,
-  parseWorkHours,
-  getLearningHours,
-} from '../../lib/utils';
-import {
-  buildWeeklyRhythmSummary,
-  formatDisplayHours,
-} from '../../lib/weeklyRhythms';
-import { useLanguage } from '../../components/LanguageProvider';
+import { useEffect, useMemo, useState } from "react";
 
-function toValueKey(value) {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
+import { supabase } from "../../lib/supabaseClient";
+
+function formatDuration(seconds) {
+  const safe = Number.isFinite(seconds) ? Math.max(0, Math.round(seconds)) : 0;
+  const minutes = Math.floor(safe / 60);
+  const rest = safe % 60;
+  return `${minutes}m ${String(rest).padStart(2, "0")}s`;
 }
 
-function parseMovementHours(value) {
-  if (!value) return 0;
+function formatPercent(value) {
+  const safe = Number.isFinite(value) ? value : 0;
+  return `${safe.toFixed(1)}%`;
+}
 
-  const text = String(value).toLowerCase();
-
-  let total = 0;
-
-  const h = text.match(/(\d+(?:\.\d+)?)\s*h/);
-  const m = text.match(/(\d+(?:\.\d+)?)\s*m/);
-
-  if (h) total += Number(h[1]);
-  if (m) total += Number(m[1]) / 60;
-
-  if (!h && !m) {
-    const n = Number(text);
-    if (!Number.isNaN(n)) total = n;
+function getCountryName(countryCode) {
+  if (!countryCode) {
+    return "Other";
   }
 
-  return total;
-}
-
-function translateValue(t, value) {
-  const key = `values.${toValueKey(value)}`;
-  const translated = t(key);
-
-  return translated === key ? value : translated;
-}
-
-function formatWeeklyComparison(summary, locale, t) {
-  const delta = Math.abs(summary.differenceHours);
-  const deltaText = formatDisplayHours(delta, locale);
-
-  if (summary.trend === 'same') {
-    return t('stats.sameAsLastWeek');
+  try {
+    const display = new Intl.DisplayNames(["en"], { type: "region" });
+    return display.of(countryCode) || countryCode;
+  } catch {
+    return countryCode;
   }
-
-  if (locale === 'ko') {
-    return summary.trend === 'increased'
-      ? `지난주보다 ${deltaText} ${t('stats.increased')}`
-      : `지난주보다 ${deltaText} ${t('stats.decreased')}`;
-  }
-
-  return summary.trend === 'increased'
-    ? `↑ ${deltaText} ${t('stats.comparedWithLastWeek')}`
-    : `↓ ${deltaText} ${t('stats.comparedWithLastWeek')}`;
 }
 
-function formatWeeklyModeSummary(summary, t) {
-  if (!summary?.value) {
-    return t('stats.noRecordsThisWeek');
-  }
-
-  const countLabel = summary.count === 1 ? t('stats.record') : t('stats.records');
-
-  return `${t('stats.thisWeek')}: ${translateValue(t, summary.value)} · ${summary.count} ${countLabel}`;
-}
-
-export default function StatisticsPage() {
-  const language = useLanguage();
-  const t = language?.t ?? ((key) => key);
-  const locale = language?.locale ?? 'en';
-  const [logs, setLogs] = useState([]);
+export default function StatsPage() {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    supabase
-      .from('field_logs')
-      .select('*')
-      .eq('is_public', true)
-      .then(({ data }) => setLogs(data || []));
+    async function init() {
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
+
+      setSession(currentSession || null);
+    }
+
+    init();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession || null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const h = getHomeState(logs);
+  useEffect(() => {
+    async function loadStats() {
+      if (!session?.access_token) {
+        setLoading(false);
+        setStats(null);
+        return;
+      }
 
-  const weekly = useMemo(() => buildWeeklyRhythmSummary(logs), [logs]);
+      setLoading(true);
+      setError("");
 
-  const making = logs.reduce(
-    (sum, log) =>
-      sum +
-      parseWorkHours(log.work?.time),
-    0
-  );
+      try {
+        const response = await fetch("/api/visitors/stats", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          cache: "no-store",
+        });
 
-  const learning = logs.reduce(
-    (sum, log) =>
-      sum +
-      getLearningHours(log),
-    0
-  );
+        const payload = await response.json().catch(() => ({}));
 
-  const moving = logs.reduce(
-    (sum, log) =>
-      sum +
-      parseMovementHours(
-        log.movement?.time
-      ),
-    0
-  );
+        if (!response.ok) {
+          setError(payload?.error || "Failed to load analytics dashboard.");
+          setStats(null);
+          return;
+        }
 
-  const moods = logs
-    .map((l) =>
-      Number(l.state?.mood)
-    )
-    .filter((n) => !Number.isNaN(n));
+        setStats(payload);
+      } catch (nextError) {
+        setError(nextError?.message || "Failed to load analytics dashboard.");
+        setStats(null);
+      } finally {
+        setLoading(false);
+      }
+    }
 
-  const averageMood =
-    moods.length
-      ? moods.reduce(
-          (a, b) => a + b,
-          0
-        ) / moods.length
-      : 0;
+    loadStats();
+  }, [session?.access_token]);
 
-  let mindWeather = 'Unknown';
+  const trafficSources = useMemo(() => stats?.metrics?.trafficSources || [], [stats]);
+  const topPages = useMemo(() => stats?.metrics?.topPages || [], [stats]);
+  const countries = useMemo(() => stats?.metrics?.countries || [], [stats]);
 
-  if (averageMood >= 8)
-    mindWeather = 'Clear';
-
-  else if (averageMood >= 6)
-    mindWeather = 'Stable';
-
-  else if (averageMood >= 4)
-    mindWeather = 'Cloudy';
-
-  else if (averageMood > 0)
-    mindWeather = 'Heavy';
+  if (!session?.user) {
+    return (
+      <section className="panel">
+        <p className="label">Private Analytics</p>
+        <h2>Sign in required</h2>
+        <p className="muted">This dashboard is private and only visible to the authenticated owner.</p>
+      </section>
+    );
+  }
 
   return (
-    <section className="grid four">
-
+    <section className="grid two">
       <div className="panel">
-        <p className="label">
-          {t('process.making')}
-        </p>
-
+        <p className="label">TODAY</p>
+        <h2>Today's visitors</h2>
         <div className="big">
-          {formatDisplayHours(making, locale)}
+          {loading ? "..." : stats?.metrics?.todayUniqueVisitors ?? 0}
         </div>
-
-        <p className="muted">
-          {t('stats.hoursThisWeek', { hours: formatDisplayHours(weekly.making.currentHours, locale) })}
-        </p>
-
-        <p className="muted">
-          {formatWeeklyComparison(weekly.making, locale, t)}
-        </p>
-
-        <p className="muted">
-          {t('stats.totalPublic')}
-        </p>
+        <p className="muted">Timezone: America/New_York</p>
       </div>
 
       <div className="panel">
-        <p className="label">
-          {t('process.learning')}
-        </p>
-
+        <p className="label">ALL TIME</p>
+        <h2>Total visitors</h2>
         <div className="big">
-          {formatDisplayHours(learning, locale)}
+          {loading ? "..." : stats?.metrics?.totalUniqueVisitors ?? 0}
         </div>
-
-        <p className="muted">
-          {t('stats.hoursThisWeek', { hours: formatDisplayHours(weekly.learning.currentHours, locale) })}
-        </p>
-
-        <p className="muted">
-          {formatWeeklyComparison(weekly.learning, locale, t)}
-        </p>
-
-        <p className="muted">
-          {t('stats.totalPublic')}
-        </p>
       </div>
 
       <div className="panel">
-        <p className="label">
-          {t('process.moving')}
-        </p>
-
-        <div className="big">
-          {formatDisplayHours(moving, locale)}
-        </div>
-
-        <p className="muted">
-          {t('stats.hoursThisWeek', { hours: formatDisplayHours(weekly.moving.currentHours, locale) })}
-        </p>
-
-        <p className="muted">
-          {formatWeeklyComparison(weekly.moving, locale, t)}
-        </p>
-
-        <p className="muted">
-          {t('stats.totalPublic')}
-        </p>
+        <p className="label">TOP PAGES</p>
+        <h2>Most viewed pages</h2>
+        {topPages.length ? (
+          <ol>
+            {topPages.map((entry, index) => (
+              <li key={`${entry.pagePath}-${index}`}>
+                {entry.label} · {entry.views}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="muted">No page-view data yet.</p>
+        )}
       </div>
 
       <div className="panel">
-        <p className="label">
-          {t('process.bodyWeather')}
-        </p>
-
-        <div className="big">
-          {translateValue(t, h.bodyWeather)}
-        </div>
-
-        <p className="muted">
-          {formatWeeklyModeSummary(weekly.bodyWeather, t)}
-        </p>
+        <p className="label">TRAFFIC SOURCES</p>
+        <h2>Source split</h2>
+        {trafficSources.length ? (
+          <ul>
+            {trafficSources.map((entry) => (
+              <li key={entry.key}>
+                {entry.label} {formatPercent(entry.percent)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">No source data yet.</p>
+        )}
       </div>
 
       <div className="panel">
-        <p className="label">
-          {t('process.mindWeather')}
-        </p>
-
+        <p className="label">ENGAGEMENT</p>
+        <h2>Average pages per visitor</h2>
         <div className="big">
-          {translateValue(t, mindWeather)}
+          {loading ? "..." : Number(stats?.metrics?.averagePagesPerVisitor || 0).toFixed(1)}
         </div>
 
-        <p className="muted">
-          {formatWeeklyModeSummary(weekly.mindWeather, t)}
-        </p>
+        <h2 style={{ marginTop: "1.25rem" }}>Average session duration</h2>
+        <div className="big">
+          {loading
+            ? "..."
+            : formatDuration(stats?.metrics?.averageSessionDurationSeconds || 0)}
+        </div>
       </div>
 
       <div className="panel">
-        <p className="label">
-          {t('process.energyTone')}
-        </p>
-
-        <div className="big">
-          {translateValue(t, h.energyTone)}
-        </div>
-
-        <p className="muted">
-          {formatWeeklyModeSummary(weekly.energyTone, t)}
-        </p>
+        <p className="label">COUNTRIES</p>
+        <h2>Visitor countries</h2>
+        {countries.length ? (
+          <ul>
+            {countries.map((entry) => (
+              <li key={entry.countryCode}>
+                {getCountryName(entry.countryCode)} {formatPercent(entry.percent)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">No country data yet.</p>
+        )}
       </div>
 
+      <div className="panel">
+        <p className="label">NOTES</p>
+        <h2>Collection notes</h2>
+        <p className="muted">
+          Metrics marked with session/source/country data begin collecting after this deployment.
+        </p>
+        <p className="muted">
+          Started: {stats?.collectingSince ? new Date(stats.collectingSince).toLocaleString() : "pending first session"}
+        </p>
+        <p className="muted">Commit: {stats?.deployedCommit || "unknown"}</p>
+      </div>
+
+      {error ? (
+        <div className="panel">
+          <p className="label">ERROR</p>
+          <p>{error}</p>
+        </div>
+      ) : null}
     </section>
   );
 }

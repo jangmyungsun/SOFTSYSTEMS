@@ -85,7 +85,12 @@ async function getRequestBody(request) {
   try {
     return await request.json();
   } catch {
-    return {};
+    try {
+      const text = await request.text();
+      return text ? JSON.parse(text) : {};
+    } catch {
+      return {};
+    }
   }
 }
 
@@ -107,15 +112,91 @@ function isValidVisitorId(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function createSessionId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function parseSessionId(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
+}
+
+function normalizeSource(value) {
+  const raw = String(value || "").trim().toLowerCase();
+
+  if (!raw) {
+    return "direct";
+  }
+
+  if (raw.includes("instagram") || raw === "ig") {
+    return "instagram";
+  }
+
+  if (raw.includes("threads")) {
+    return "threads";
+  }
+
+  if (raw.includes("google")) {
+    return "google";
+  }
+
+  if (raw.includes("kakao")) {
+    return "kakaotalk";
+  }
+
+  if (raw === "direct") {
+    return "direct";
+  }
+
+  return "other";
+}
+
+function getCountryCode(request) {
+  const raw = String(request.headers.get("x-vercel-ip-country") || "").trim().toUpperCase();
+
+  if (/^[A-Z]{2}$/.test(raw)) {
+    return raw;
+  }
+
+  return null;
+}
+
+function parseEventType(value) {
+  return value === "activity" ? "activity" : "page_view";
+}
+
+function isSessionExpired(lastActivityAt, nowMs) {
+  const last = Date.parse(String(lastActivityAt || ""));
+
+  if (!Number.isFinite(last)) {
+    return true;
+  }
+
+  return nowMs - last > 30 * 60 * 1000;
+}
+
 export async function POST(request) {
   const body = await getRequestBody(request);
   const visitorId = body?.visitorId || getVisitorId(request);
   const pagePath = getPagePath(body?.path);
+  const eventType = parseEventType(body?.eventType);
+  const sourceCategory = normalizeSource(body?.source);
+  const countryCode = getCountryCode(request);
   const projectHostname = getProjectHostname(supabaseAdminEnvInfo.supabaseUrl);
   const diagnostics = {
     deployedCommit,
     projectHostname,
     pathname: pagePath,
+    eventType,
+    sourceCategory,
+    countryCode,
     serviceKeySource: supabaseAdminEnvInfo.serviceKeySource,
     steps: [],
   };
@@ -147,6 +228,9 @@ export async function POST(request) {
   if (!isValidVisitorId(visitorId)) {
     return NextResponse.json({ error: "Invalid visitor id." }, { status: 400 });
   }
+
+  const nowIso = new Date().toISOString();
+  const nowMs = Date.parse(nowIso);
 
   const accessToken = getAuthToken(request);
 
@@ -225,7 +309,7 @@ export async function POST(request) {
 
     const visitorUpdateResult = await supabaseAdmin
       .from("site_visitors")
-      .update({ last_seen_at: new Date().toISOString() })
+      .update({ last_seen_at: nowIso })
       .eq("visitor_id", existing.visitor_id)
       .select("visitor_id,last_seen_at");
 
@@ -274,8 +358,8 @@ export async function POST(request) {
     const visitorInsertResult = await supabaseAdmin.from("site_visitors").insert({
       visitor_id: visitorId,
       first_page: pagePath,
-      first_seen_at: new Date().toISOString(),
-      last_seen_at: new Date().toISOString(),
+      first_seen_at: nowIso,
+      last_seen_at: nowIso,
     }).select("visitor_id,first_page,first_seen_at,last_seen_at");
 
     pushStep("visitor_insert", visitorInsertResult, "after");
@@ -308,6 +392,149 @@ export async function POST(request) {
     }
 
     counted = true;
+  }
+
+  let sessionId = parseSessionId(body?.sessionId) || createSessionId();
+
+  logDbStep({
+    projectHostname,
+    pathname: pagePath,
+    operation: "session_lookup",
+    phase: "before",
+    data: { visitorId, sessionId },
+    error: null,
+  });
+
+  const sessionLookupResult = await supabaseAdmin
+    .from("site_visitor_sessions")
+    .select("session_id,session_started_at,last_activity_at,source_category,country_code")
+    .eq("visitor_id", visitorId)
+    .eq("session_id", sessionId)
+    .maybeSingle();
+
+  pushStep("session_lookup", sessionLookupResult, "after");
+
+  logDbStep({
+    projectHostname,
+    pathname: pagePath,
+    operation: "session_lookup",
+    phase: "after",
+    data: sessionLookupResult.data,
+    error: sessionLookupResult.error,
+  });
+
+  if (sessionLookupResult.error) {
+    logVisitorsError("lookup session", sessionLookupResult.error, {
+      visitorId,
+      sessionId,
+      pagePath,
+      deployedCommit,
+    });
+    return failWithDiagnostics("session_lookup", sessionLookupResult);
+  }
+
+  const existingSession = sessionLookupResult.data;
+  const sessionExpired = existingSession
+    ? isSessionExpired(existingSession.last_activity_at, nowMs)
+    : false;
+
+  if (sessionExpired) {
+    sessionId = createSessionId();
+  }
+
+  if (existingSession && !sessionExpired) {
+    const sessionUpdatePayload = {
+      last_activity_at: nowIso,
+    };
+
+    if (!existingSession.source_category) {
+      sessionUpdatePayload.source_category = sourceCategory;
+    }
+
+    if (!existingSession.country_code && countryCode) {
+      sessionUpdatePayload.country_code = countryCode;
+    }
+
+    logDbStep({
+      projectHostname,
+      pathname: pagePath,
+      operation: "session_update",
+      phase: "before",
+      data: { visitorId, sessionId, sessionUpdatePayload },
+      error: null,
+    });
+
+    const sessionUpdateResult = await supabaseAdmin
+      .from("site_visitor_sessions")
+      .update(sessionUpdatePayload)
+      .eq("visitor_id", visitorId)
+      .eq("session_id", sessionId)
+      .select("session_id,source_category,country_code,session_started_at,last_activity_at");
+
+    pushStep("session_update", sessionUpdateResult, "after");
+
+    logDbStep({
+      projectHostname,
+      pathname: pagePath,
+      operation: "session_update",
+      phase: "after",
+      data: sessionUpdateResult.data,
+      error: sessionUpdateResult.error,
+    });
+
+    if (sessionUpdateResult.error) {
+      logVisitorsError("update session", sessionUpdateResult.error, {
+        visitorId,
+        sessionId,
+        pagePath,
+        deployedCommit,
+      });
+      return failWithDiagnostics("session_update", sessionUpdateResult);
+    }
+  } else {
+    const sessionInsertPayload = {
+      visitor_id: visitorId,
+      session_id: sessionId,
+      source_category: sourceCategory,
+      country_code: countryCode,
+      session_started_at: nowIso,
+      last_activity_at: nowIso,
+    };
+
+    logDbStep({
+      projectHostname,
+      pathname: pagePath,
+      operation: "session_insert",
+      phase: "before",
+      data: sessionInsertPayload,
+      error: null,
+    });
+
+    const sessionInsertResult = await supabaseAdmin
+      .from("site_visitor_sessions")
+      .insert(sessionInsertPayload)
+      .select("session_id,source_category,country_code,session_started_at,last_activity_at");
+
+    pushStep("session_insert", sessionInsertResult, "after");
+
+    logDbStep({
+      projectHostname,
+      pathname: pagePath,
+      operation: "session_insert",
+      phase: "after",
+      data: sessionInsertResult.data,
+      error: sessionInsertResult.error,
+    });
+
+    if (sessionInsertResult.error) {
+      logVisitorsError("insert session", sessionInsertResult.error, {
+        visitorId,
+        sessionId,
+        pagePath,
+        deployedCommit,
+      });
+      return failWithDiagnostics("session_insert", sessionInsertResult);
+    }
   }
 
   const cutoff = new Date(Date.now() - 30 * 1000).toISOString();
@@ -362,7 +589,7 @@ export async function POST(request) {
 
   let viewCounted = false;
 
-  if (!recentViews || recentViews.length === 0) {
+  if (eventType === "page_view" && (!recentViews || recentViews.length === 0)) {
     logDbStep({
       projectHostname,
       pathname: pagePath,
@@ -416,6 +643,9 @@ export async function POST(request) {
     counted,
     duplicate: !counted,
     viewCounted,
+    sessionId,
+    sourceCategory,
+    countryCode,
     deployedCommit,
     diagnostics,
   });

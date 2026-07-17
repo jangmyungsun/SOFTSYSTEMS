@@ -206,6 +206,16 @@
 				"HEAD"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "git-status-after-checkout",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"status",
+				"--short"
+			],
+			"isBackground": false
 		}
 	]
 }
