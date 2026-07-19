@@ -141,6 +141,10 @@ function getYoutubeEmbedUrl(url) {
 export default function ArchiveCard({
   entry,
   admin = false,
+  canDelete = false,
+  deleting = false,
+  deleteLabel = "",
+  disableActions = false,
   onEdit,
   onDelete,
   onToggle,
@@ -304,6 +308,9 @@ export default function ArchiveCard({
           <div className="archive-card-actions">
             <button
               type="button"
+              disabled={
+                disableActions
+              }
               onClick={() =>
                 onEdit?.(entry)
               }
@@ -313,6 +320,9 @@ export default function ArchiveCard({
 
             <button
               type="button"
+              disabled={
+                disableActions
+              }
               onClick={() =>
                 onToggle?.(entry)
               }
@@ -322,13 +332,39 @@ export default function ArchiveCard({
                 : t("common.public")}
             </button>
 
-            <button
+            {canDelete && (
+              <button
+                type="button"
+                disabled={
+                  disableActions
+                }
+                onClick={() =>
+                  onDelete?.(entry)
+                }
+              >
+                {deleting
+                  ? deleteLabel || t("common.delete")
+                  : t("common.delete")}
+              </button>
+            )}
+          </div>
+        )}
+
+        {!admin &&
+          canDelete && (
+            <div className="archive-card-actions">
+              <button
               type="button"
+              disabled={
+                disableActions
+              }
               onClick={() =>
                 onDelete?.(entry)
               }
             >
-              {t("common.delete")}
+              {deleting
+                ? deleteLabel || t("common.delete")
+                : t("common.delete")}
             </button>
           </div>
         )}

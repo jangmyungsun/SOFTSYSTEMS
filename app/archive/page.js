@@ -7,6 +7,8 @@ import {
   useState,
 } from "react";
 
+import { useRouter } from "next/navigation";
+
 import {
   supabase,
 } from "../../lib/supabaseClient";
@@ -129,6 +131,7 @@ function compareArchiveEntries(
 }
 
 export default function ArchivePage() {
+  const router = useRouter();
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
 
@@ -195,6 +198,16 @@ export default function ArchivePage() {
   const [
     searchText,
     setSearchText,
+  ] = useState("");
+
+  const [
+    configuredOwner,
+    setConfiguredOwner,
+  ] = useState(false);
+
+  const [
+    deletingEntryId,
+    setDeletingEntryId,
   ] = useState("");
 
   /*
@@ -551,6 +564,80 @@ export default function ArchivePage() {
       return accessToken;
     };
 
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadOwnerStatus() {
+      if (!user) {
+        setConfiguredOwner(false);
+        return;
+      }
+
+      try {
+        const accessToken =
+          await getAccessToken();
+
+        const response =
+          await fetch(
+            "/api/system/generate",
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${accessToken}`,
+              },
+            }
+          );
+
+        const payload =
+          await response
+            .json()
+            .catch(() => ({}));
+
+        if (!mounted) {
+          return;
+        }
+
+        setConfiguredOwner(
+          Boolean(
+            response.ok &&
+              payload?.owner
+          )
+        );
+      } catch {
+        if (!mounted) {
+          return;
+        }
+
+        setConfiguredOwner(false);
+      }
+    }
+
+    if (authLoading) {
+      return () => {
+        mounted = false;
+      };
+    }
+
+    loadOwnerStatus();
+
+    return () => {
+      mounted = false;
+    };
+  }, [
+    authLoading,
+    user,
+  ]);
+
+  const deleteConfirmMessage =
+    language?.locale === "ko"
+      ? "이 아카이브를 영구적으로 삭제할까요?"
+      : "Delete this Archive permanently?";
+
+  const deletingLabel =
+    language?.locale === "ko"
+      ? "삭제 중..."
+      : "Deleting...";
+
   /*
    * Archive 한 개 embedding 생성
    */
@@ -881,13 +968,26 @@ export default function ArchivePage() {
    */
   const deleteEntry =
     async (entry) => {
-      if (!user) {
+      if (
+        !user ||
+        deletingEntryId
+      ) {
+        return;
+      }
+
+      const ownsEntry =
+        entry?.user_id === user.id;
+
+      if (
+        !ownsEntry &&
+        !configuredOwner
+      ) {
         return;
       }
 
       const confirmed =
         window.confirm(
-          `Delete “${entry.title}”?`
+          deleteConfirmMessage
         );
 
       if (!confirmed) {
@@ -896,44 +996,74 @@ export default function ArchivePage() {
 
       setErrorMessage("");
       setEmbeddingStatus("");
+      setDeletingEntryId(
+        entry.id
+      );
 
-      const {
-        error,
-      } = await supabase
-        .from(
-          "archive_items"
-        )
-        .delete()
-        .eq(
-          "id",
+      try {
+        const accessToken =
+          await getAccessToken();
+
+        const response =
+          await fetch(
+            `/api/archive/${encodeURIComponent(entry.id)}`,
+            {
+              method:
+                "DELETE",
+              headers: {
+                Authorization:
+                  `Bearer ${accessToken}`,
+              },
+            }
+          );
+
+        const payload =
+          await response
+            .json()
+            .catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(
+            payload?.error ||
+              "The Archive entry could not be deleted."
+          );
+        }
+
+        const warnings =
+          Array.isArray(
+            payload?.warnings
+          )
+            ? payload.warnings
+            : [];
+
+        if (warnings.length) {
+          setEmbeddingStatus(
+            warnings.join(" ")
+          );
+        }
+
+        if (
+          editingEntry?.id ===
           entry.id
-        )
-        .eq(
-          "user_id",
-          user.id
-        );
+        ) {
+          closeForm();
+        }
 
-      if (error) {
+        await loadArchive();
+        router.refresh();
+      } catch (error) {
         console.error(
           "Archive delete error:",
           error
         );
 
         setErrorMessage(
-          error.message
+          error?.message ||
+            "The Archive entry could not be deleted."
         );
-
-        return;
+      } finally {
+        setDeletingEntryId("");
       }
-
-      if (
-        editingEntry?.id ===
-        entry.id
-      ) {
-        closeForm();
-      }
-
-      await loadArchive();
     };
 
   /*
@@ -1195,6 +1325,29 @@ export default function ArchivePage() {
                     entry={
                       entry
                     }
+                      canDelete={
+                        !authLoading &&
+                        Boolean(
+                          user &&
+                            (
+                              ownsEntry ||
+                              configuredOwner
+                            )
+                        )
+                      }
+                      deleting={
+                        deletingEntryId ===
+                        entry.id
+                      }
+                      deleteLabel={
+                        deletingLabel
+                      }
+                      disableActions={
+                        submitting ||
+                        embedding ||
+                        deletingEntryId ===
+                          entry.id
+                      }
                     admin={
                       ownsEntry &&
                       entry._sourceTable !==

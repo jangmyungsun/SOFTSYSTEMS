@@ -176,6 +176,11 @@ function normalizeArchiveEntry(entry) {
   return {
     ...entry,
 
+    entry_date:
+      entry?.entry_date ||
+      entry?.date ||
+      "",
+
     tags:
       normalizeTags(
         entry?.tags
@@ -185,6 +190,48 @@ function normalizeArchiveEntry(entry) {
       entry?.is_public !==
       false,
   };
+}
+
+function compareArchiveEntries(left, right) {
+  const leftDate =
+    String(
+      left?.entry_date ||
+        ""
+    );
+
+  const rightDate =
+    String(
+      right?.entry_date ||
+        ""
+    );
+
+  if (leftDate !== rightDate) {
+    return rightDate.localeCompare(leftDate);
+  }
+
+  const leftCreated =
+    String(
+      left?.created_at ||
+        ""
+    );
+
+  const rightCreated =
+    String(
+      right?.created_at ||
+        ""
+    );
+
+  if (leftCreated !== rightCreated) {
+    return rightCreated.localeCompare(leftCreated);
+  }
+
+  return String(
+    right?.id || ""
+  ).localeCompare(
+    String(
+      left?.id || ""
+    )
+  );
 }
 
 export default function Home() {
@@ -212,19 +259,153 @@ export default function Home() {
   ] = useState(true);
 
   const [
+    user,
+    setUser,
+  ] = useState(null);
+
+  const [
+    authLoading,
+    setAuthLoading,
+  ] = useState(true);
+
+  const [
     errorMessage,
     setErrorMessage,
   ] = useState("");
 
   useEffect(() => {
+    let mounted = true;
+
+    async function loadUser() {
+      const {
+        data,
+        error,
+      } = await supabase.auth.getUser();
+
+      if (!mounted) {
+        return;
+      }
+
+      if (error) {
+        console.error(
+          "Home auth error:",
+          error
+        );
+      }
+
+      setUser(
+        data?.user ||
+          null
+      );
+
+      setAuthLoading(false);
+    }
+
+    loadUser();
+
+    const {
+      data:
+        authListener,
+    } =
+      supabase.auth.onAuthStateChange(
+        (
+          _event,
+          session
+        ) => {
+          if (!mounted) {
+            return;
+          }
+
+          setUser(
+            session?.user ||
+              null
+          );
+
+          setAuthLoading(false);
+        }
+      );
+
+    return () => {
+      mounted = false;
+
+      authListener
+        ?.subscription
+        ?.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
     async function loadHome() {
       setLoading(true);
       setErrorMessage("");
 
       try {
+        let archiveItemsQuery =
+          supabase
+            .from(
+              "archive_items"
+            )
+            .select("*")
+            .order(
+              "date",
+              {
+                ascending:
+                  false,
+              }
+            )
+            .order(
+              "created_at",
+              {
+                ascending:
+                  false,
+              }
+            )
+            .limit(12);
+
+        let archiveEntriesQuery =
+          supabase
+            .from(
+              "archive_entries"
+            )
+            .select("*")
+            .order(
+              "entry_date",
+              {
+                ascending:
+                  false,
+              }
+            )
+            .order(
+              "created_at",
+              {
+                ascending:
+                  false,
+              }
+            )
+            .limit(12);
+
+        if (!user) {
+          archiveItemsQuery =
+            archiveItemsQuery.eq(
+              "is_public",
+              true
+            );
+
+          archiveEntriesQuery =
+            archiveEntriesQuery.eq(
+              "is_public",
+              true
+            );
+        }
+
         const [
           logsResult,
-          archiveResult,
+          archiveItemsResult,
+          archiveEntriesResult,
           guidanceResult,
         ] =
           await Promise.all([
@@ -245,30 +426,9 @@ export default function Home() {
                 }
               ),
 
-            supabase
-              .from(
-                "archive_entries"
-              )
-              .select("*")
-              .eq(
-                "is_public",
-                true
-              )
-              .order(
-                "entry_date",
-                {
-                  ascending:
-                    false,
-                }
-              )
-              .order(
-                "created_at",
-                {
-                  ascending:
-                    false,
-                }
-              )
-              .limit(3),
+            archiveItemsQuery,
+
+            archiveEntriesQuery,
 
             supabase
               .from(
@@ -301,8 +461,11 @@ export default function Home() {
           throw logsResult.error;
         }
 
-        if (archiveResult.error) {
-          throw archiveResult.error;
+        if (
+          archiveItemsResult.error &&
+          archiveEntriesResult.error
+        ) {
+          throw archiveItemsResult.error;
         }
 
         if (guidanceResult.error) {
@@ -313,13 +476,26 @@ export default function Home() {
           logsResult.data || []
         );
 
-        setArchiveEntries(
-          (
-            archiveResult.data ||
+        const mergedArchives = [
+          ...(
+            archiveItemsResult.data ||
             []
-          ).map(
+          ),
+          ...(
+            archiveEntriesResult.data ||
+            []
+          ),
+        ]
+          .map(
             normalizeArchiveEntry
           )
+          .sort(
+            compareArchiveEntries
+          )
+          .slice(0, 3);
+
+        setArchiveEntries(
+          mergedArchives
         );
 
         const guidanceRow =
@@ -355,7 +531,10 @@ export default function Home() {
     }
 
     loadHome();
-  }, []);
+  }, [
+    authLoading,
+    user,
+  ]);
 
   const homeState =
     getHomeState(logs);
