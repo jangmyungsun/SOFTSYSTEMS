@@ -7,6 +7,7 @@ import {
 
 function logVisitorsError(stage, error, context = {}) {
   console.error("[api/visitors]", stage, {
+    code: error?.code ?? null,
     message: error?.message || String(error),
     ...context,
   });
@@ -31,6 +32,83 @@ function serializeSupabaseError(error) {
     details: error.details ?? null,
     hint: error.hint ?? null,
   };
+}
+
+function sanitizeIp(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  // Handle IPv4 wrapped in IPv6 format.
+  const unwrapped = trimmed.startsWith("::ffff:")
+    ? trimmed.slice(7)
+    : trimmed;
+
+  // Remove optional port from IPv4 like 1.2.3.4:5678.
+  const ipv4WithPort = unwrapped.match(/^(\d+\.\d+\.\d+\.\d+):(\d+)$/);
+
+  if (ipv4WithPort) {
+    return ipv4WithPort[1];
+  }
+
+  return unwrapped;
+}
+
+function getClientIp(request) {
+  const xForwardedFor = String(request.headers.get("x-forwarded-for") || "");
+
+  if (xForwardedFor) {
+    const first = xForwardedFor.split(",")[0];
+    const normalized = sanitizeIp(first);
+
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  const xRealIp = sanitizeIp(String(request.headers.get("x-real-ip") || ""));
+
+  if (xRealIp) {
+    return xRealIp;
+  }
+
+  return "";
+}
+
+function getConfiguredOwnerIps() {
+  const raw = [
+    process.env.OWNER_IP,
+    process.env.OWNER_IPS,
+    process.env.ADMIN_IP,
+  ]
+    .filter(Boolean)
+    .join(",");
+
+  if (!raw) {
+    return [];
+  }
+
+  return raw
+    .split(",")
+    .map((value) => sanitizeIp(value))
+    .filter(Boolean);
+}
+
+function isConfiguredOwnerIp(clientIp) {
+  const normalizedIp = sanitizeIp(clientIp);
+
+  if (!normalizedIp) {
+    return false;
+  }
+
+  const configuredOwnerIps = getConfiguredOwnerIps();
+  return configuredOwnerIps.includes(normalizedIp);
 }
 
 function logStep({ projectHostname, pathname, operation, error }) {
@@ -199,42 +277,58 @@ function isSessionExpired(lastActivityAt, nowMs) {
 }
 
 export async function POST(request) {
-  const accessToken = getAuthToken(request);
-
-  if (accessToken) {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseAdmin.auth.getUser(accessToken);
-
-    if (!userError && user && isConfiguredOwnerEmail(user)) {
-      console.log("[api/visitors] authenticated owner ignored before DB");
-      return NextResponse.json({ ok: true, ignored: "owner" });
+  try {
+    if (supabaseAdminEnvInfo.serviceKeySource === "placeholder-secret") {
+      return NextResponse.json(
+        { ok: false, error: "Visitor counter unavailable" },
+        { status: 503 }
+      );
     }
-  }
 
-  if (hasOwnerDeviceCookie(request)) {
-    console.log("[api/visitors] owner device ignored before DB");
-    return NextResponse.json({ ok: true, ignored: "owner_device" });
-  }
+    const accessToken = getAuthToken(request);
 
-  const body = await getRequestBody(request);
-  const visitorId = body?.visitorId || getVisitorId(request);
-  const pagePath = getPagePath(body?.path);
-  const eventType = parseEventType(body?.eventType);
-  const sourceCategory = normalizeSource(body?.source);
-  const countryCode = getCountryCode(request);
-  const projectHostname = getProjectHostname(supabaseAdminEnvInfo.supabaseUrl);
-  const diagnostics = {
-    deployedCommit,
-    projectHostname,
-    pathname: pagePath,
-    eventType,
-    sourceCategory,
-    countryCode,
-    serviceKeySource: supabaseAdminEnvInfo.serviceKeySource,
-    steps: [],
-  };
+    if (accessToken) {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabaseAdmin.auth.getUser(accessToken);
+
+      if (!userError && user && isConfiguredOwnerEmail(user)) {
+        console.log("[api/visitors] authenticated owner ignored before DB");
+        return NextResponse.json({ ok: true, ignored: "owner" });
+      }
+    }
+
+    const clientIp = getClientIp(request);
+
+    if (isConfiguredOwnerIp(clientIp)) {
+      console.log("[api/visitors] owner IP ignored before DB");
+      return NextResponse.json({ ok: true, ignored: "owner_ip" });
+    }
+
+    if (hasOwnerDeviceCookie(request)) {
+      console.log("[api/visitors] owner device ignored before DB");
+      return NextResponse.json({ ok: true, ignored: "owner_device" });
+    }
+
+    const body = await getRequestBody(request);
+    const visitorId = body?.visitorId || getVisitorId(request);
+    const pagePath = getPagePath(body?.path);
+    const eventType = parseEventType(body?.eventType);
+    const sourceCategory = normalizeSource(body?.source);
+    const countryCode = getCountryCode(request);
+    const projectHostname = getProjectHostname(supabaseAdminEnvInfo.supabaseUrl);
+    const diagnostics = {
+      deployedCommit,
+      projectHostname,
+      pathname: pagePath,
+      eventType,
+      sourceCategory,
+      countryCode,
+      clientIp: clientIp || null,
+      serviceKeySource: supabaseAdminEnvInfo.serviceKeySource,
+      steps: [],
+    };
 
   function pushStep(operation, result, phase = "after") {
     diagnostics.steps.push({
@@ -245,29 +339,34 @@ export async function POST(request) {
     });
   }
 
-  function failWithDiagnostics(operation, result, status = 500) {
-    const serializedError = serializeSupabaseError(result?.error);
-    diagnostics.stoppedAt = operation;
+    function failWithDiagnostics(operation, result, status = 500) {
+      diagnostics.stoppedAt = operation;
 
-    return NextResponse.json(
-      {
-        error: serializedError?.message || "Unknown Supabase error",
-        supabaseError: serializedError,
+      const stageError = result?.error;
+
+      logVisitorsError(operation, stageError, {
         deployedCommit,
-        diagnostics,
-      },
-      { status }
-    );
-  }
+        pagePath,
+      });
 
-  if (!isValidVisitorId(visitorId)) {
-    return NextResponse.json({ error: "Invalid visitor id." }, { status: 400 });
-  }
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Visitor counter unavailable",
+          deployedCommit,
+        },
+        { status }
+      );
+    }
 
-  const nowIso = new Date().toISOString();
-  const nowMs = Date.parse(nowIso);
+    if (!isValidVisitorId(visitorId)) {
+      return NextResponse.json({ ok: false, error: "Invalid visitor id." }, { status: 400 });
+    }
 
-  logDbStep({
+    const nowIso = new Date().toISOString();
+    const nowMs = Date.parse(nowIso);
+
+    logDbStep({
     projectHostname,
     pathname: pagePath,
     operation: "visitor_lookup",
@@ -276,15 +375,15 @@ export async function POST(request) {
     error: null,
   });
 
-  const visitorLookupResult = await supabaseAdmin
+    const visitorLookupResult = await supabaseAdmin
     .from("site_visitors")
     .select("visitor_id")
     .eq("visitor_id", visitorId)
     .maybeSingle();
 
-  pushStep("visitor_lookup", visitorLookupResult, "after");
+    pushStep("visitor_lookup", visitorLookupResult, "after");
 
-  logDbStep({
+    logDbStep({
     projectHostname,
     pathname: pagePath,
     operation: "visitor_lookup",
@@ -293,28 +392,23 @@ export async function POST(request) {
     error: visitorLookupResult.error,
   });
 
-  logStep({
+    logStep({
     projectHostname,
     pathname: pagePath,
     operation: "visitor_lookup",
     error: visitorLookupResult.error,
   });
 
-  const existing = visitorLookupResult.data;
-  const lookupError = visitorLookupResult.error;
+    const existing = visitorLookupResult.data;
+    const lookupError = visitorLookupResult.error;
 
-  if (lookupError) {
-    logVisitorsError("lookup visitor", lookupError, {
-      visitorId,
-      pagePath,
-      deployedCommit,
-    });
-    return failWithDiagnostics("visitor_lookup", visitorLookupResult);
-  }
+    if (lookupError) {
+      return failWithDiagnostics("visitor_lookup", visitorLookupResult, 503);
+    }
 
-  let counted = false;
+    let counted = false;
 
-  if (existing) {
+    if (existing) {
     logDbStep({
       projectHostname,
       pathname: pagePath,
@@ -348,18 +442,12 @@ export async function POST(request) {
       error: visitorUpdateResult.error,
     });
 
-    const updateError = visitorUpdateResult.error;
+      const updateError = visitorUpdateResult.error;
 
-    if (updateError) {
-      logVisitorsError("update visitor", updateError, {
-        visitorId,
-        pagePath,
-        existingVisitorId: existing.visitor_id,
-        deployedCommit,
-      });
-      return failWithDiagnostics("visitor_update", visitorUpdateResult);
-    }
-  } else {
+      if (updateError) {
+        return failWithDiagnostics("visitor_update", visitorUpdateResult, 503);
+      }
+    } else {
     logDbStep({
       projectHostname,
       pathname: pagePath,
@@ -397,23 +485,23 @@ export async function POST(request) {
       error: visitorInsertResult.error,
     });
 
-    const error = visitorInsertResult.error;
+      const error = visitorInsertResult.error;
 
-    if (error) {
-      logVisitorsError("insert visitor", error, {
-        visitorId,
-        pagePath,
-        deployedCommit,
-      });
-      return failWithDiagnostics("visitor_insert", visitorInsertResult);
+      if (error) {
+        if (error.code === "23505") {
+          counted = false;
+        } else {
+          return failWithDiagnostics("visitor_insert", visitorInsertResult, 503);
+        }
+      } else {
+        counted = true;
+      }
+
     }
 
-    counted = true;
-  }
+    let sessionId = parseSessionId(body?.sessionId) || createSessionId();
 
-  let sessionId = parseSessionId(body?.sessionId) || createSessionId();
-
-  logDbStep({
+    logDbStep({
     projectHostname,
     pathname: pagePath,
     operation: "session_lookup",
@@ -422,16 +510,16 @@ export async function POST(request) {
     error: null,
   });
 
-  const sessionLookupResult = await supabaseAdmin
+    const sessionLookupResult = await supabaseAdmin
     .from("site_visitor_sessions")
     .select("session_id,session_started_at,last_activity_at,source_category,country_code")
     .eq("visitor_id", visitorId)
     .eq("session_id", sessionId)
     .maybeSingle();
 
-  pushStep("session_lookup", sessionLookupResult, "after");
+    pushStep("session_lookup", sessionLookupResult, "after");
 
-  logDbStep({
+    logDbStep({
     projectHostname,
     pathname: pagePath,
     operation: "session_lookup",
@@ -440,26 +528,20 @@ export async function POST(request) {
     error: sessionLookupResult.error,
   });
 
-  if (sessionLookupResult.error) {
-    logVisitorsError("lookup session", sessionLookupResult.error, {
-      visitorId,
-      sessionId,
-      pagePath,
-      deployedCommit,
-    });
-    return failWithDiagnostics("session_lookup", sessionLookupResult);
-  }
+    if (sessionLookupResult.error) {
+      return failWithDiagnostics("session_lookup", sessionLookupResult, 503);
+    }
 
-  const existingSession = sessionLookupResult.data;
-  const sessionExpired = existingSession
-    ? isSessionExpired(existingSession.last_activity_at, nowMs)
-    : false;
+    const existingSession = sessionLookupResult.data;
+    const sessionExpired = existingSession
+      ? isSessionExpired(existingSession.last_activity_at, nowMs)
+      : false;
 
-  if (sessionExpired) {
-    sessionId = createSessionId();
-  }
+    if (sessionExpired) {
+      sessionId = createSessionId();
+    }
 
-  if (existingSession && !sessionExpired) {
+    if (existingSession && !sessionExpired) {
     const sessionUpdatePayload = {
       last_activity_at: nowIso,
     };
@@ -499,16 +581,10 @@ export async function POST(request) {
       error: sessionUpdateResult.error,
     });
 
-    if (sessionUpdateResult.error) {
-      logVisitorsError("update session", sessionUpdateResult.error, {
-        visitorId,
-        sessionId,
-        pagePath,
-        deployedCommit,
-      });
-      return failWithDiagnostics("session_update", sessionUpdateResult);
-    }
-  } else {
+      if (sessionUpdateResult.error) {
+        return failWithDiagnostics("session_update", sessionUpdateResult, 503);
+      }
+    } else {
     const sessionInsertPayload = {
       visitor_id: visitorId,
       session_id: sessionId,
@@ -543,20 +619,14 @@ export async function POST(request) {
       error: sessionInsertResult.error,
     });
 
-    if (sessionInsertResult.error) {
-      logVisitorsError("insert session", sessionInsertResult.error, {
-        visitorId,
-        sessionId,
-        pagePath,
-        deployedCommit,
-      });
-      return failWithDiagnostics("session_insert", sessionInsertResult);
+      if (sessionInsertResult.error) {
+        return failWithDiagnostics("session_insert", sessionInsertResult, 503);
+      }
     }
-  }
 
-  const cutoff = new Date(Date.now() - 30 * 1000).toISOString();
+    const cutoff = new Date(Date.now() - 30 * 1000).toISOString();
 
-  logDbStep({
+    logDbStep({
     projectHostname,
     pathname: pagePath,
     operation: "page_view_lookup",
@@ -565,7 +635,7 @@ export async function POST(request) {
     error: null,
   });
 
-  const pageViewLookupResult = await supabaseAdmin
+    const pageViewLookupResult = await supabaseAdmin
     .from("site_page_views")
     .select("id")
     .eq("visitor_id", visitorId)
@@ -573,9 +643,9 @@ export async function POST(request) {
     .gte("created_at", cutoff)
     .limit(1);
 
-  pushStep("page_view_lookup", pageViewLookupResult, "after");
+    pushStep("page_view_lookup", pageViewLookupResult, "after");
 
-  logDbStep({
+    logDbStep({
     projectHostname,
     pathname: pagePath,
     operation: "page_view_lookup",
@@ -584,29 +654,23 @@ export async function POST(request) {
     error: pageViewLookupResult.error,
   });
 
-  logStep({
+    logStep({
     projectHostname,
     pathname: pagePath,
     operation: "page_view_lookup",
     error: pageViewLookupResult.error,
   });
 
-  const recentViews = pageViewLookupResult.data;
-  const recentViewError = pageViewLookupResult.error;
+    const recentViews = pageViewLookupResult.data;
+    const recentViewError = pageViewLookupResult.error;
 
-  if (recentViewError) {
-    logVisitorsError("lookup recent page views", recentViewError, {
-      visitorId,
-      pagePath,
-      cutoff,
-      deployedCommit,
-    });
-    return failWithDiagnostics("page_view_lookup", pageViewLookupResult);
-  }
+    if (recentViewError) {
+      return failWithDiagnostics("page_view_lookup", pageViewLookupResult, 503);
+    }
 
-  let viewCounted = false;
+    let viewCounted = false;
 
-  if (eventType === "page_view" && (!recentViews || recentViews.length === 0)) {
+    if (eventType === "page_view" && (!recentViews || recentViews.length === 0)) {
     logDbStep({
       projectHostname,
       pathname: pagePath,
@@ -642,51 +706,71 @@ export async function POST(request) {
       error: pageViewInsertResult.error,
     });
 
-    const pageViewError = pageViewInsertResult.error;
+      const pageViewError = pageViewInsertResult.error;
 
-    if (pageViewError) {
-      logVisitorsError("insert page view", pageViewError, {
-        visitorId,
-        pagePath,
-        deployedCommit,
-      });
-      return failWithDiagnostics("page_view_insert", pageViewInsertResult);
+      if (pageViewError) {
+        return failWithDiagnostics("page_view_insert", pageViewInsertResult, 503);
+      }
+
+      viewCounted = true;
     }
 
-    viewCounted = true;
+    const response = NextResponse.json({
+      ok: true,
+      counted,
+      duplicate: !counted,
+      viewCounted,
+      sessionId,
+      sourceCategory,
+      countryCode,
+      deployedCommit,
+    });
+
+    response.cookies.set("visitor_id", visitorId, {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+    });
+
+    return response;
+  } catch (error) {
+    logVisitorsError("post_unhandled", error, { deployedCommit });
+    return NextResponse.json(
+      { ok: false, error: "Visitor counter unavailable", deployedCommit },
+      { status: 500 }
+    );
   }
-
-  const response = NextResponse.json({
-    counted,
-    duplicate: !counted,
-    viewCounted,
-    sessionId,
-    sourceCategory,
-    countryCode,
-    deployedCommit,
-    diagnostics,
-  });
-
-  response.cookies.set("visitor_id", visitorId, {
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-    sameSite: "lax",
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-  });
-
-  return response;
 }
 
 export async function GET() {
-  const { count, error } = await supabaseAdmin
-    .from("site_visitors")
-    .select("visitor_id", { count: "exact", head: true });
+  try {
+    if (supabaseAdminEnvInfo.serviceKeySource === "placeholder-secret") {
+      return NextResponse.json(
+        { ok: false, error: "Visitor counter unavailable", count: null, deployedCommit },
+        { status: 503 }
+      );
+    }
 
-  if (error) {
-    logVisitorsError("count visitors", error, { deployedCommit });
-    return NextResponse.json({ error: error.message, deployedCommit }, { status: 500 });
+    const { count, error } = await supabaseAdmin
+      .from("site_visitors")
+      .select("visitor_id", { count: "exact", head: true });
+
+    if (error) {
+      logVisitorsError("count visitors", error, { deployedCommit });
+      return NextResponse.json(
+        { ok: false, error: "Visitor counter unavailable", count: null, deployedCommit },
+        { status: 503 }
+      );
+    }
+
+    return NextResponse.json({ ok: true, count: count ?? 0, deployedCommit });
+  } catch (error) {
+    logVisitorsError("get_unhandled", error, { deployedCommit });
+    return NextResponse.json(
+      { ok: false, error: "Visitor counter unavailable", count: null, deployedCommit },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ count: count ?? 0, deployedCommit });
 }
