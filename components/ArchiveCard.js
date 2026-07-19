@@ -144,6 +144,7 @@ export default function ArchiveCard({
   canDelete = false,
   deleting = false,
   deleteLabel = "",
+  toggleLabel = "",
   disableActions = false,
   onEdit,
   onDelete,
@@ -327,9 +328,10 @@ export default function ArchiveCard({
                 onToggle?.(entry)
               }
             >
-              {entry.is_public
-                ? t("common.private")
-                : t("common.public")}
+              {toggleLabel ||
+                (entry.is_public
+                  ? t("common.private")
+                  : t("common.public"))}
             </button>
 
             {canDelete && (

@@ -181,6 +181,17 @@ function normalizeArchiveEntry(entry) {
       entry?.date ||
       "",
 
+    body:
+      entry?.body ||
+      entry?.notes ||
+      "",
+
+    url:
+      entry?.url ||
+      entry?.link ||
+      entry?.file_url ||
+      "",
+
     tags:
       normalizeTags(
         entry?.tags

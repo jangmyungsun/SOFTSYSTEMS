@@ -44,6 +44,22 @@ function normalizeArchiveEntry(entry) {
   return {
     ...entry,
 
+    entry_date:
+      entry?.entry_date ||
+      entry?.date ||
+      "",
+
+    body:
+      entry?.body ||
+      entry?.notes ||
+      "",
+
+    url:
+      entry?.url ||
+      entry?.link ||
+      entry?.file_url ||
+      "",
+
     tags:
       normalizeTags(
         entry.tags
@@ -53,6 +69,76 @@ function normalizeArchiveEntry(entry) {
       entry.is_public !==
       false,
   };
+}
+
+function compareArchiveEntries(left, right) {
+  const leftUpdated =
+    String(
+      left?.updated_at ||
+        ""
+    );
+
+  const rightUpdated =
+    String(
+      right?.updated_at ||
+        ""
+    );
+
+  if (
+    leftUpdated !==
+    rightUpdated
+  ) {
+    return rightUpdated.localeCompare(
+      leftUpdated
+    );
+  }
+
+  const leftCreated =
+    String(
+      left?.created_at ||
+        ""
+    );
+
+  const rightCreated =
+    String(
+      right?.created_at ||
+        ""
+    );
+
+  if (
+    leftCreated !==
+    rightCreated
+  ) {
+    return rightCreated.localeCompare(
+      leftCreated
+    );
+  }
+
+  const leftDate =
+    String(
+      left?.entry_date ||
+        ""
+    );
+
+  const rightDate =
+    String(
+      right?.entry_date ||
+        ""
+    );
+
+  if (leftDate !== rightDate) {
+    return rightDate.localeCompare(
+      leftDate
+    );
+  }
+
+  return String(
+    right?.id || ""
+  ).localeCompare(
+    String(
+      left?.id || ""
+    )
+  );
 }
 
 export default function InputPage() {
@@ -79,41 +165,154 @@ export default function InputPage() {
     setErrorMessage,
   ] = useState("");
 
+  const [
+    user,
+    setUser,
+  ] = useState(null);
+
+  const [
+    authLoading,
+    setAuthLoading,
+  ] = useState(true);
+
   useEffect(() => {
+    let mounted = true;
+
+    async function loadUser() {
+      const {
+        data,
+        error,
+      } = await supabase.auth.getUser();
+
+      if (!mounted) {
+        return;
+      }
+
+      if (error) {
+        console.error(
+          "Input auth error:",
+          error
+        );
+      }
+
+      setUser(
+        data?.user ||
+          null
+      );
+
+      setAuthLoading(false);
+    }
+
+    loadUser();
+
+    const {
+      data:
+        authListener,
+    } =
+      supabase.auth.onAuthStateChange(
+        (
+          _event,
+          session
+        ) => {
+          if (!mounted) {
+            return;
+          }
+
+          setUser(
+            session?.user ||
+              null
+          );
+
+          setAuthLoading(false);
+        }
+      );
+
+    return () => {
+      mounted = false;
+
+      authListener
+        ?.subscription
+        ?.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
     async function loadInputPreview() {
       setLoading(true);
       setErrorMessage("");
 
       try {
+        let archiveItemsQuery =
+          supabase
+            .from(
+              "archive_items"
+            )
+            .select("*")
+            .order(
+              "updated_at",
+              {
+                ascending:
+                  false,
+              }
+            )
+            .order(
+              "created_at",
+              {
+                ascending:
+                  false,
+              }
+            )
+            .limit(12);
+
+        let archiveEntriesQuery =
+          supabase
+            .from(
+              "archive_entries"
+            )
+            .select("*")
+            .order(
+              "updated_at",
+              {
+                ascending:
+                  false,
+              }
+            )
+            .order(
+              "created_at",
+              {
+                ascending:
+                  false,
+              }
+            )
+            .limit(12);
+
+        if (!user) {
+          archiveItemsQuery =
+            archiveItemsQuery.eq(
+              "is_public",
+              true
+            );
+
+          archiveEntriesQuery =
+            archiveEntriesQuery.eq(
+              "is_public",
+              true
+            );
+        }
+
         const [
-          archiveResult,
+          archiveItemsResult,
+          archiveEntriesResult,
           dailyResult,
         ] =
           await Promise.all([
-            supabase
-              .from(
-                "archive_entries"
-              )
-              .select("*")
-              .eq(
-                "is_public",
-                true
-              )
-              .order(
-                "entry_date",
-                {
-                  ascending:
-                    false,
-                }
-              )
-              .order(
-                "created_at",
-                {
-                  ascending:
-                    false,
-                }
-              )
-              .limit(3),
+            archiveItemsQuery,
+
+            archiveEntriesQuery,
 
             supabase
               .from(
@@ -136,9 +335,10 @@ export default function InputPage() {
           ]);
 
         if (
-          archiveResult.error
+          archiveItemsResult.error &&
+          archiveEntriesResult.error
         ) {
-          throw archiveResult.error;
+          throw archiveItemsResult.error;
         }
 
         if (
@@ -148,14 +348,24 @@ export default function InputPage() {
         }
 
         setLatestArchives(
-          (
-            archiveResult.data ||
-            []
-          )
+          [
+            ...(
+              archiveItemsResult.data ||
+              []
+            ),
+            ...(
+              archiveEntriesResult.data ||
+              []
+            ),
+          ]
             .map(
               normalizeArchiveEntry
             )
             .filter(Boolean)
+            .sort(
+              compareArchiveEntries
+            )
+            .slice(0, 3)
         );
 
         setLatestDaily(
@@ -186,7 +396,10 @@ export default function InputPage() {
     }
 
     loadInputPreview();
-  }, []);
+  }, [
+    authLoading,
+    user,
+  ]);
 
   return (
     <>

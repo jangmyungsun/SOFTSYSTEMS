@@ -210,6 +210,11 @@ export default function ArchivePage() {
     setDeletingEntryId,
   ] = useState("");
 
+  const [
+    visibilityUpdatingId,
+    setVisibilityUpdatingId,
+  ] = useState("");
+
   /*
    * 로그인 상태 확인
    */
@@ -638,6 +643,35 @@ export default function ArchivePage() {
       ? "삭제 중..."
       : "Deleting...";
 
+  const visibilityUpdatingLabel =
+    language?.locale === "ko"
+      ? "변경 중…"
+      : "Updating…";
+
+  const getVisibilityLabel =
+    (entry) => {
+      if (
+        visibilityUpdatingId ===
+        entry.id
+      ) {
+        return visibilityUpdatingLabel;
+      }
+
+      if (
+        entry.is_public
+      ) {
+        return language?.locale ===
+          "ko"
+          ? "공개 · 비공개로 전환"
+          : "Public · Make Private";
+      }
+
+      return language?.locale ===
+        "ko"
+        ? "비공개 · 공개로 전환"
+        : "Private · Make Public";
+    };
+
   /*
    * Archive 한 개 embedding 생성
    */
@@ -799,41 +833,63 @@ export default function ArchivePage() {
         let savedEntryId = "";
 
         if (editingEntry) {
+          const sourceTable =
+            editingEntry?._sourceTable ===
+            "archive_entries"
+              ? "archive_entries"
+              : "archive_items";
+
+          const updatePayload =
+            sourceTable ===
+            "archive_entries"
+              ? {
+                  type:
+                    values.type,
+                  title:
+                    values.title,
+                  entry_date:
+                    values.entry_date,
+                  body:
+                    values.body,
+                  url:
+                    values.url,
+                  tags:
+                    values.tags,
+                  is_public:
+                    values.is_public,
+                }
+              : {
+                  type:
+                    values.type,
+                  title:
+                    values.title,
+                  date:
+                    values.entry_date,
+                  notes:
+                    values.body,
+                  link:
+                    values.url,
+                  file_url:
+                    values.url,
+                  creator:
+                    editingEntry?.creator ||
+                    "",
+                  tags:
+                    values.tags,
+                  is_public:
+                    values.is_public,
+                };
+
           const {
             data: savedArchive,
             error,
           } = await supabase
             .from(
-              "archive_items"
+              sourceTable
             )
-            .update({
-              type:
-                values.type,
-
-              title:
-                values.title,
-
-              date:
-                values.entry_date,
-
-              notes:
-                values.body,
-
-              link:
-                values.url,
-
-              file_url:
-                values.url,
-
-              creator:
-                editingEntry?.creator || "",
-
-              tags:
-                values.tags,
-
-              is_public:
-                values.is_public,
-            })
+            .update(
+              updatePayload
+            )
             .eq(
               "id",
               editingEntry.id
@@ -948,6 +1004,7 @@ export default function ArchivePage() {
         closeForm();
 
         await loadArchive();
+        router.refresh();
       } catch (error) {
         console.error(
           "Archive save error:",
@@ -1075,42 +1132,65 @@ export default function ArchivePage() {
         return;
       }
 
-      setErrorMessage("");
-      setEmbeddingStatus("");
-
-      const {
-        error,
-      } = await supabase
-        .from(
-          "archive_items"
-        )
-        .update({
-          is_public:
-            !entry.is_public,
-        })
-        .eq(
-          "id",
-          entry.id
-        )
-        .eq(
-          "user_id",
-          user.id
-        );
-
-      if (error) {
-        console.error(
-          "Archive visibility error:",
-          error
-        );
-
-        setErrorMessage(
-          error.message
-        );
-
+      if (
+        visibilityUpdatingId ||
+        deletingEntryId
+      ) {
         return;
       }
 
-      await loadArchive();
+      const sourceTable =
+        entry?._sourceTable ===
+        "archive_entries"
+          ? "archive_entries"
+          : "archive_items";
+
+      setErrorMessage("");
+      setEmbeddingStatus("");
+      setVisibilityUpdatingId(
+        entry.id
+      );
+
+      try {
+        const {
+          error,
+        } = await supabase
+          .from(
+            sourceTable
+          )
+          .update({
+            is_public:
+              !entry.is_public,
+          })
+          .eq(
+            "id",
+            entry.id
+          )
+          .eq(
+            "user_id",
+            user.id
+          );
+
+        if (error) {
+          console.error(
+            "Archive visibility error:",
+            error
+          );
+
+          setErrorMessage(
+            error.message
+          );
+
+          return;
+        }
+
+        await loadArchive();
+        router.refresh();
+      } finally {
+        setVisibilityUpdatingId(
+          ""
+        );
+      }
     };
 
   return (
@@ -1317,6 +1397,24 @@ export default function ArchivePage() {
                         user.id
                   );
 
+                const canManage =
+                  !authLoading &&
+                  Boolean(
+                    user &&
+                      (
+                        ownsEntry ||
+                        configuredOwner
+                      )
+                  );
+
+                const actionDisabled =
+                  submitting ||
+                  embedding ||
+                  deletingEntryId ===
+                    entry.id ||
+                  visibilityUpdatingId ===
+                    entry.id;
+
                 return (
                   <ArchiveCard
                     key={
@@ -1325,33 +1423,26 @@ export default function ArchivePage() {
                     entry={
                       entry
                     }
-                      canDelete={
-                        !authLoading &&
-                        Boolean(
-                          user &&
-                            (
-                              ownsEntry ||
-                              configuredOwner
-                            )
-                        )
-                      }
-                      deleting={
-                        deletingEntryId ===
-                        entry.id
-                      }
-                      deleteLabel={
-                        deletingLabel
-                      }
-                      disableActions={
-                        submitting ||
-                        embedding ||
-                        deletingEntryId ===
-                          entry.id
-                      }
                     admin={
-                      ownsEntry &&
-                      entry._sourceTable !==
-                        "archive_entries"
+                      canManage
+                    }
+                    canDelete={
+                      canManage
+                    }
+                    deleting={
+                      deletingEntryId ===
+                      entry.id
+                    }
+                    deleteLabel={
+                      deletingLabel
+                    }
+                    toggleLabel={
+                      getVisibilityLabel(
+                        entry
+                      )
+                    }
+                    disableActions={
+                      actionDisabled
                     }
                     onEdit={
                       startEditing
