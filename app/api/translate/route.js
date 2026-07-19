@@ -9,6 +9,28 @@ const MAX_TEXT_LENGTH = 20000;
 const MAX_CHUNK_LENGTH = 3200;
 const CHUNK_CONCURRENCY = 2;
 const TABLE_NAME = "translation_cache";
+let translationCacheTableMissing = false;
+
+function serializeSupabaseError(error) {
+  if (!error) {
+    return null;
+  }
+
+  return {
+    code: error.code ?? null,
+    message: error.message ?? String(error),
+    details: error.details ?? null,
+    hint: error.hint ?? null,
+  };
+}
+
+function isMissingTableError(error) {
+  const code = String(error?.code || "");
+  const message = String(error?.message || "").toLowerCase();
+  const details = String(error?.details || "").toLowerCase();
+
+  return code === "PGRST205" || message.includes(TABLE_NAME) || details.includes(TABLE_NAME);
+}
 
 function normalizeLanguage(value) {
   const text = String(value || "").toLowerCase();
@@ -120,6 +142,10 @@ async function mapWithConcurrency(items, concurrency, mapper) {
 }
 
 async function readServerCache({ contentKey, textHash, sourceLanguage, targetLanguage }) {
+  if (translationCacheTableMissing) {
+    return "";
+  }
+
   const { data, error } = await supabaseAdmin
     .from(TABLE_NAME)
     .select("translated_text")
@@ -130,10 +156,15 @@ async function readServerCache({ contentKey, textHash, sourceLanguage, targetLan
     .maybeSingle();
 
   if (error) {
+    if (isMissingTableError(error)) {
+      translationCacheTableMissing = true;
+    }
+
     console.warn("translate cache read miss", {
       contentKey,
       targetLanguage,
-      message: error.message,
+      tableName: TABLE_NAME,
+      error: serializeSupabaseError(error),
     });
     return "";
   }
@@ -142,6 +173,10 @@ async function readServerCache({ contentKey, textHash, sourceLanguage, targetLan
 }
 
 async function writeServerCache({ contentKey, textHash, sourceLanguage, targetLanguage, translatedText }) {
+  if (translationCacheTableMissing) {
+    return;
+  }
+
   const { error } = await supabaseAdmin.from(TABLE_NAME).upsert(
     {
       content_key: contentKey,
@@ -157,10 +192,15 @@ async function writeServerCache({ contentKey, textHash, sourceLanguage, targetLa
   );
 
   if (error) {
+    if (isMissingTableError(error)) {
+      translationCacheTableMissing = true;
+    }
+
     console.warn("translate cache write failed", {
       contentKey,
       targetLanguage,
-      message: error.message,
+      tableName: TABLE_NAME,
+      error: serializeSupabaseError(error),
     });
   }
 }

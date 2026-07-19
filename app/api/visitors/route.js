@@ -9,6 +9,8 @@ function logVisitorsError(stage, error, context = {}) {
   console.error("[api/visitors]", stage, {
     code: error?.code ?? null,
     message: error?.message || String(error),
+    details: error?.details ?? null,
+    hint: error?.hint ?? null,
     ...context,
   });
 }
