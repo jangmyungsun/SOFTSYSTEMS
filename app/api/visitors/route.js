@@ -276,6 +276,10 @@ function isSessionExpired(lastActivityAt, nowMs) {
   return nowMs - last > 30 * 60 * 1000;
 }
 
+function isSchemaCacheTableMissing(error) {
+  return error?.code === "PGRST205";
+}
+
 export async function POST(request) {
   try {
     if (supabaseAdminEnvInfo.serviceKeySource === "placeholder-secret") {
@@ -357,6 +361,38 @@ export async function POST(request) {
         },
         { status }
       );
+    }
+
+    function succeedWithDegradedTracking(operation, result, payload = {}) {
+      const stageError = result?.error;
+
+      logVisitorsError(`${operation}_degraded`, stageError, {
+        deployedCommit,
+        pagePath,
+      });
+
+      const response = NextResponse.json({
+        ok: true,
+        counted: Boolean(payload.counted),
+        duplicate: !Boolean(payload.counted),
+        viewCounted: Boolean(payload.viewCounted),
+        sessionId: payload.sessionId || "",
+        sourceCategory,
+        countryCode,
+        degraded: true,
+        degradedAt: operation,
+        deployedCommit,
+      });
+
+      response.cookies.set("visitor_id", visitorId, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+        sameSite: "lax",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+      });
+
+      return response;
     }
 
     if (!isValidVisitorId(visitorId)) {
@@ -529,6 +565,14 @@ export async function POST(request) {
   });
 
     if (sessionLookupResult.error) {
+      if (isSchemaCacheTableMissing(sessionLookupResult.error)) {
+        return succeedWithDegradedTracking("session_lookup", sessionLookupResult, {
+          counted,
+          viewCounted: false,
+          sessionId,
+        });
+      }
+
       return failWithDiagnostics("session_lookup", sessionLookupResult, 503);
     }
 
@@ -582,6 +626,14 @@ export async function POST(request) {
     });
 
       if (sessionUpdateResult.error) {
+        if (isSchemaCacheTableMissing(sessionUpdateResult.error)) {
+          return succeedWithDegradedTracking("session_update", sessionUpdateResult, {
+            counted,
+            viewCounted: false,
+            sessionId,
+          });
+        }
+
         return failWithDiagnostics("session_update", sessionUpdateResult, 503);
       }
     } else {
@@ -620,6 +672,14 @@ export async function POST(request) {
     });
 
       if (sessionInsertResult.error) {
+        if (isSchemaCacheTableMissing(sessionInsertResult.error)) {
+          return succeedWithDegradedTracking("session_insert", sessionInsertResult, {
+            counted,
+            viewCounted: false,
+            sessionId,
+          });
+        }
+
         return failWithDiagnostics("session_insert", sessionInsertResult, 503);
       }
     }
@@ -665,6 +725,14 @@ export async function POST(request) {
     const recentViewError = pageViewLookupResult.error;
 
     if (recentViewError) {
+      if (isSchemaCacheTableMissing(recentViewError)) {
+        return succeedWithDegradedTracking("page_view_lookup", pageViewLookupResult, {
+          counted,
+          viewCounted: false,
+          sessionId,
+        });
+      }
+
       return failWithDiagnostics("page_view_lookup", pageViewLookupResult, 503);
     }
 
@@ -709,6 +777,14 @@ export async function POST(request) {
       const pageViewError = pageViewInsertResult.error;
 
       if (pageViewError) {
+        if (isSchemaCacheTableMissing(pageViewError)) {
+          return succeedWithDegradedTracking("page_view_insert", pageViewInsertResult, {
+            counted,
+            viewCounted: false,
+            sessionId,
+          });
+        }
+
         return failWithDiagnostics("page_view_insert", pageViewInsertResult, 503);
       }
 
