@@ -5,8 +5,6 @@ import {
   supabaseAdminEnvInfo,
 } from "../../../lib/supabaseAdmin";
 
-const OWNER_VISITOR_ID = String(process.env.OWNER_VISITOR_ID || "").trim();
-
 function logVisitorsError(stage, error) {
   console.error("[api/visitors]", stage, {
     code: error?.code ?? null,
@@ -205,6 +203,11 @@ export async function POST(request) {
 
     const body = await getRequestBody(request);
     const visitorId = normalizeVisitorId(body?.visitorId || getVisitorIdFromCookie(request));
+    const ownerVisitorId = process.env.OWNER_VISITOR_ID?.trim();
+    const incomingVisitorId = String(visitorId || "").trim();
+    const isOwner =
+      Boolean(ownerVisitorId) &&
+      incomingVisitorId === ownerVisitorId;
 
     if (!isValidVisitorId(visitorId)) {
       return NextResponse.json(
@@ -218,9 +221,8 @@ export async function POST(request) {
       );
     }
 
-    const ownerIdExcluded = Boolean(OWNER_VISITOR_ID && visitorId === OWNER_VISITOR_ID);
     const ownerIpExcluded = isConfiguredOwnerIp(request);
-    const excluded = ownerIdExcluded || ownerIpExcluded;
+    const excluded = isOwner || ownerIpExcluded;
 
     if (!excluded) {
       await upsertVisitor(visitorId, new Date().toISOString());
@@ -228,8 +230,8 @@ export async function POST(request) {
 
     const excludedVisitorIds = new Set();
 
-    if (OWNER_VISITOR_ID) {
-      excludedVisitorIds.add(OWNER_VISITOR_ID);
+    if (ownerVisitorId) {
+      excludedVisitorIds.add(ownerVisitorId);
     }
 
     if (ownerIpExcluded) {
@@ -280,7 +282,8 @@ export async function GET() {
       );
     }
 
-    const excludedVisitorIds = OWNER_VISITOR_ID ? [OWNER_VISITOR_ID] : [];
+    const ownerVisitorId = process.env.OWNER_VISITOR_ID?.trim();
+    const excludedVisitorIds = ownerVisitorId ? [ownerVisitorId] : [];
     const count = await getPublicVisitorCount(excludedVisitorIds);
 
     return NextResponse.json({

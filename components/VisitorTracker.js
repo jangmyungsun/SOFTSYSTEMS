@@ -3,33 +3,24 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-const VISITOR_ID_KEY = "visitor_id";
-
-function generateVisitorId() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function isValidVisitorId(value) {
-  return /^[A-Za-z0-9-]{8,128}$/.test(String(value || "").trim());
-}
+const VISITOR_STORAGE_KEY = "softsystems_visitor_id";
 
 function getOrCreateVisitorId() {
-  try {
-    const storedVisitorId = window.localStorage.getItem(VISITOR_ID_KEY);
+  if (typeof window === "undefined") {
+    return null;
+  }
 
-    if (isValidVisitorId(storedVisitorId)) {
-      return storedVisitorId;
+  try {
+    let visitorId = window.localStorage.getItem(VISITOR_STORAGE_KEY);
+
+    if (!visitorId) {
+      visitorId = window.crypto.randomUUID();
+      window.localStorage.setItem(VISITOR_STORAGE_KEY, visitorId);
     }
 
-    const nextVisitorId = generateVisitorId();
-    window.localStorage.setItem(VISITOR_ID_KEY, nextVisitorId);
-    return nextVisitorId;
+    return visitorId;
   } catch {
-    return "";
+    return null;
   }
 }
 
