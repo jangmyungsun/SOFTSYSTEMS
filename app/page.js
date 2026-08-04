@@ -123,6 +123,15 @@ function isCurrentMonth(dateValue) {
 }
 
 function getMovementAverage(logs) {
+  const today =
+    new Date();
+
+  const elapsedDays =
+    Math.max(
+      1,
+      today.getDate()
+    );
+
   const monthLogs =
     logs.filter(
       (log) =>
@@ -130,10 +139,6 @@ function getMovementAverage(logs) {
           log.date
         )
     );
-
-  if (!monthLogs.length) {
-    return 0;
-  }
 
   const totalHours =
     monthLogs.reduce(
@@ -147,7 +152,7 @@ function getMovementAverage(logs) {
 
   return (
     totalHours /
-    monthLogs.length
+    elapsedDays
   );
 }
 
