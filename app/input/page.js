@@ -141,6 +141,80 @@ function compareArchiveEntries(left, right) {
   );
 }
 
+async function loadAttachmentMap(
+  archiveIds = []
+) {
+  const filteredIds = Array.from(
+    new Set(
+      archiveIds
+        .map((value) =>
+          String(value || "").trim()
+        )
+        .filter(Boolean)
+    )
+  );
+
+  if (!filteredIds.length) {
+    return new Map();
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from(
+      "archive_attachments"
+    )
+    .select(
+      "id, archive_id, original_filename, mime_type, size_bytes, attachment_type, created_at"
+    )
+    .in(
+      "archive_id",
+      filteredIds
+    );
+
+  if (error) {
+    if (error.code === "PGRST205") {
+      return new Map();
+    }
+
+    throw error;
+  }
+
+  const attachmentMap =
+    new Map();
+
+  (data || []).forEach(
+    (attachment) => {
+      const archiveId = String(
+        attachment.archive_id ||
+          ""
+      ).trim();
+
+      if (!archiveId) {
+        return;
+      }
+
+      if (
+        !attachmentMap.has(
+          archiveId
+        )
+      ) {
+        attachmentMap.set(
+          archiveId,
+          []
+        );
+      }
+
+      attachmentMap
+        .get(archiveId)
+        .push(attachment);
+    }
+  );
+
+  return attachmentMap;
+}
+
 export default function InputPage() {
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
@@ -174,6 +248,19 @@ export default function InputPage() {
     authLoading,
     setAuthLoading,
   ] = useState(true);
+
+  const getAccessToken =
+    async () => {
+      const {
+        data,
+      } = await supabase.auth.getSession();
+
+      return (
+        data?.session
+          ?.access_token ||
+        ""
+      );
+    };
 
   useEffect(() => {
     let mounted = true;
@@ -348,7 +435,8 @@ export default function InputPage() {
         }
 
         setLatestArchives(
-          [
+          await (async () => {
+            const merged = [
             ...(
               archiveItemsResult.data ||
               []
@@ -365,7 +453,42 @@ export default function InputPage() {
             .sort(
               compareArchiveEntries
             )
-            .slice(0, 3)
+            .slice(0, 3);
+
+            try {
+              const attachmentMap =
+                await loadAttachmentMap(
+                  merged
+                    .map(
+                      (entry) =>
+                        entry.id
+                    )
+                    .filter(Boolean)
+                );
+
+              return merged.map(
+                (entry) => ({
+                  ...entry,
+                  attachments:
+                    attachmentMap.get(
+                      String(
+                        entry.id ||
+                          ""
+                      )
+                    ) || [],
+                })
+              );
+            } catch (
+              attachmentError
+            ) {
+              console.warn(
+                "Input attachment load warning:",
+                attachmentError
+              );
+
+              return merged;
+            }
+          })()
         );
 
         setLatestDaily(
@@ -465,6 +588,9 @@ export default function InputPage() {
                         }
                         entry={
                           entry
+                        }
+                        requestAccessToken={
+                          getAccessToken
                         }
                       />
                     )

@@ -220,6 +220,129 @@ async function cleanupStorageMedia(row) {
   };
 }
 
+async function loadArchiveAttachmentRows(archiveId) {
+  const {
+    data,
+    error,
+  } = await supabaseAdmin
+    .from(
+      "archive_attachments"
+    )
+    .select(
+      "id, archive_id, storage_bucket, storage_path"
+    )
+    .eq(
+      "archive_id",
+      archiveId
+    );
+
+  if (error) {
+    if (error.code === "PGRST205") {
+      return [];
+    }
+
+    throw error;
+  }
+
+  return data || [];
+}
+
+async function cleanupArchiveAttachmentStorageRows(
+  attachmentRows
+) {
+  const warningMessages = [];
+  const bucketPathMap =
+    new Map();
+
+  attachmentRows.forEach(
+    (attachment) => {
+      const bucket = String(
+        attachment.storage_bucket ||
+          ""
+      ).trim();
+      const path = String(
+        attachment.storage_path ||
+          ""
+      )
+        .trim()
+        .replace(/^\/+/, "");
+
+      if (!bucket || !path) {
+        return;
+      }
+
+      if (
+        !bucketPathMap.has(
+          bucket
+        )
+      ) {
+        bucketPathMap.set(
+          bucket,
+          new Set()
+        );
+      }
+
+      bucketPathMap
+        .get(bucket)
+        .add(path);
+    }
+  );
+
+  for (const [bucket, pathSet] of bucketPathMap.entries()) {
+    const paths = Array.from(pathSet);
+
+    if (!paths.length) {
+      continue;
+    }
+
+    const { error } = await supabaseAdmin.storage
+      .from(bucket)
+      .remove(paths);
+
+    if (error) {
+      warningMessages.push(
+        `Storage cleanup failed for attachment bucket ${bucket}: ${error.message}`
+      );
+    }
+  }
+
+  return {
+    warningMessages,
+    removedCount:
+      Array.from(
+        bucketPathMap.values()
+      ).reduce(
+        (count, setValue) =>
+          count + setValue.size,
+        0
+      ),
+  };
+}
+
+async function cleanupArchiveAttachmentMetadata(
+  archiveId
+) {
+  const {
+    error,
+  } = await supabaseAdmin
+    .from(
+      "archive_attachments"
+    )
+    .delete()
+    .eq(
+      "archive_id",
+      archiveId
+    );
+
+  if (error) {
+    if (error.code === "PGRST205") {
+      return;
+    }
+
+    throw error;
+  }
+}
+
 export async function DELETE(request, context) {
   try {
     const params = await context?.params;
@@ -257,6 +380,23 @@ export async function DELETE(request, context) {
       return NextResponse.json({ error: "Owner access is required." }, { status: 403 });
     }
 
+    const attachmentRows =
+      located.table ===
+      "archive_items"
+        ? await loadArchiveAttachmentRows(
+            archiveId
+          )
+        : [];
+
+    const attachmentCleanupResult =
+      await cleanupArchiveAttachmentStorageRows(
+        attachmentRows
+      );
+
+    await cleanupArchiveAttachmentMetadata(
+      archiveId
+    );
+
     const cleanupResult = await cleanupStorageMedia(located.row);
 
     const deleteResult = await supabaseAdmin
@@ -271,7 +411,10 @@ export async function DELETE(request, context) {
       return NextResponse.json(
         {
           error: "The Archive entry could not be deleted.",
-          warnings: cleanupResult.warnings,
+          warnings: [
+            ...attachmentCleanupResult.warningMessages,
+            ...cleanupResult.warnings,
+          ],
         },
         { status: 500 }
       );
@@ -285,11 +428,14 @@ export async function DELETE(request, context) {
       ok: true,
       table: located.table,
       storageDeleted:
-        Array.from(cleanupResult.mediaRefs.values()).reduce(
+        (Array.from(cleanupResult.mediaRefs.values()).reduce(
           (count, pathSet) => count + pathSet.size,
           0
-        ) || 0,
-      warnings: cleanupResult.warnings,
+        ) || 0) + attachmentCleanupResult.removedCount,
+      warnings: [
+        ...attachmentCleanupResult.warningMessages,
+        ...cleanupResult.warnings,
+      ],
     });
   } catch (error) {
     console.error("Archive delete route error:", error);

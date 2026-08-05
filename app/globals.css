@@ -884,6 +884,13 @@ th {
   margin-top: 18px;
 }
 
+.archive-attachment-hint {
+  margin-top: 12px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .archive-card-actions {
   display: grid;
   grid-template-columns:
@@ -1021,6 +1028,134 @@ th {
   margin-top: 24px;
 }
 
+.archive-modal-attachments {
+  margin-top: 24px;
+}
+
+.archive-attachment-item {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid rgba(33, 31, 27, 0.1);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.archive-attachment-image,
+.archive-attachment-file-badge,
+.archive-attachment-preview-load {
+  width: 88px;
+  height: 66px;
+  border: 1px solid rgba(33, 31, 27, 0.14);
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.archive-attachment-image {
+  object-fit: cover;
+}
+
+.archive-attachment-file-badge,
+.archive-attachment-preview-load {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.archive-attachment-meta {
+  min-width: 0;
+}
+
+.archive-attachment-name {
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.archive-attachment-detail {
+  margin-top: 2px;
+  font-size: 11px;
+}
+
+.archive-attachment-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.attachment-subtitle {
+  margin-bottom: 6px;
+}
+
+.attachment-help {
+  margin-bottom: 12px;
+  font-size: 11px;
+}
+
+.attachment-picker input[type="file"] {
+  padding: 8px;
+}
+
+.attachment-list-wrap {
+  margin-top: 12px;
+}
+
+.attachment-list-title {
+  margin-bottom: 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.attachment-item {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.attachment-thumbnail {
+  width: 74px;
+  height: 56px;
+  border: 1px solid rgba(33, 31, 27, 0.14);
+  object-fit: cover;
+}
+
+.attachment-thumbnail-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.attachment-meta {
+  min-width: 0;
+}
+
+.attachment-name {
+  margin: 0;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachment-detail {
+  margin-top: 2px;
+  font-size: 11px;
+}
+
 @media (
   max-width: 580px
 ) {
@@ -1037,6 +1172,19 @@ th {
   .archive-modal-head {
     flex-direction:
       column;
+  }
+
+  .archive-attachment-item,
+  .attachment-item {
+    grid-template-columns: 1fr;
+  }
+
+  .archive-attachment-image,
+  .archive-attachment-file-badge,
+  .archive-attachment-preview-load,
+  .attachment-thumbnail {
+    width: 100%;
+    height: 120px;
   }
 }
 

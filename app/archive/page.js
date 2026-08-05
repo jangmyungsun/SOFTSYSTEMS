@@ -12,6 +12,12 @@ import { useRouter } from "next/navigation";
 import {
   supabase,
 } from "../../lib/supabaseClient";
+import {
+  ARCHIVE_ATTACHMENT_BUCKET,
+  createArchiveStoragePath,
+  getAttachmentType,
+  validateArchiveAttachmentFile,
+} from "../../lib/archiveAttachments";
 
 import ArchiveForm from "../../components/ArchiveForm";
 import ArchiveCard from "../../components/ArchiveCard";
@@ -98,9 +104,98 @@ function normalizeEntry(
       entry?.is_public !==
       false,
 
+    attachments:
+      Array.isArray(
+        entry?.attachments
+      )
+        ? entry.attachments
+        : [],
+
     _sourceTable:
       sourceTable,
   };
+}
+
+async function loadAttachmentMap(
+  archiveIds = []
+) {
+  const uniqueIds = Array.from(
+    new Set(
+      archiveIds
+        .map((value) =>
+          String(value || "").trim()
+        )
+        .filter(Boolean)
+    )
+  );
+
+  if (!uniqueIds.length) {
+    return new Map();
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from(
+      "archive_attachments"
+    )
+    .select(
+      `
+        id,
+        archive_id,
+        original_filename,
+        mime_type,
+        size_bytes,
+        attachment_type,
+        storage_bucket,
+        storage_path,
+        created_at
+      `
+    )
+    .in(
+      "archive_id",
+      uniqueIds
+    )
+    .order("created_at", {
+      ascending: true,
+    });
+
+  if (error) {
+    if (error.code === "PGRST205") {
+      return new Map();
+    }
+
+    throw error;
+  }
+
+  const map = new Map();
+
+  (data || []).forEach(
+    (attachment) => {
+      const archiveId = String(
+        attachment.archive_id ||
+          ""
+      ).trim();
+
+      if (!archiveId) {
+        return;
+      }
+
+      if (!map.has(archiveId)) {
+        map.set(
+          archiveId,
+          []
+        );
+      }
+
+      map
+        .get(archiveId)
+        .push(attachment);
+    }
+  );
+
+  return map;
 }
 
 function compareArchiveEntries(
@@ -351,6 +446,29 @@ export default function ArchivePage() {
               ),
           ]);
 
+        let attachmentMap =
+          new Map();
+
+        try {
+          attachmentMap =
+            await loadAttachmentMap(
+              [
+                ...(
+                  entriesResult.data ||
+                  []
+                ).map(
+                  (entry) =>
+                    entry.id
+                ),
+              ]
+            );
+        } catch (attachmentError) {
+          console.warn(
+            "Archive attachments could not be loaded:",
+            attachmentError
+          );
+        }
+
         if (
           entriesResult.error &&
           legacyEntriesResult.error
@@ -389,7 +507,16 @@ export default function ArchivePage() {
                 []
               ).map((entry) =>
                 normalizeEntry(
-                  entry,
+                  {
+                    ...entry,
+                    attachments:
+                      attachmentMap.get(
+                        String(
+                          entry.id ||
+                            ""
+                        )
+                      ) || [],
+                  },
                   "archive_items"
                 )
               ),
@@ -567,6 +694,181 @@ export default function ArchivePage() {
       }
 
       return accessToken;
+    };
+
+  const getAuthorizedHeaders =
+    async () => {
+      const accessToken =
+        await getAccessToken();
+
+      return {
+        Authorization:
+          `Bearer ${accessToken}`,
+      };
+    };
+
+  const removeExistingAttachmentById =
+    async (attachmentId) => {
+      const headers =
+        await getAuthorizedHeaders();
+
+      const response =
+        await fetch(
+          `/api/archive/attachments/${encodeURIComponent(attachmentId)}`,
+          {
+            method:
+              "DELETE",
+            headers,
+          }
+        );
+
+      if (!response.ok) {
+        const payload =
+          await response
+            .json()
+            .catch(() => ({}));
+
+        throw new Error(
+          payload?.error ||
+            t(
+              "archiveForm.attachmentUploadFailed"
+            )
+        );
+      }
+    };
+
+  const uploadArchiveAttachments =
+    async ({
+      archiveId,
+      selectedFiles,
+      archiveOwnerId,
+    }) => {
+      const files =
+        Array.isArray(
+          selectedFiles
+        )
+          ? selectedFiles
+          : [];
+
+      if (!files.length) {
+        return {
+          failed: false,
+          errors: [],
+        };
+      }
+
+      const errors = [];
+
+      for (
+        let index = 0;
+        index < files.length;
+        index += 1
+      ) {
+        const file = files[index];
+        const validation =
+          validateArchiveAttachmentFile(
+            file
+          );
+
+        if (!validation.ok) {
+          errors.push(
+            t(
+              validation.errorKey
+            )
+          );
+
+          continue;
+        }
+
+        const storagePath =
+          createArchiveStoragePath(
+            {
+              userId:
+                archiveOwnerId,
+              archiveId,
+              filename:
+                file.name,
+            }
+          );
+
+        const {
+          error: uploadError,
+        } = await supabase.storage
+          .from(
+            ARCHIVE_ATTACHMENT_BUCKET
+          )
+          .upload(
+            storagePath,
+            file,
+            {
+              upsert: false,
+              contentType:
+                file.type ||
+                undefined,
+            }
+          );
+
+        if (uploadError) {
+          errors.push(
+            `${file.name}: ${uploadError.message}`
+          );
+
+          continue;
+        }
+
+        const {
+          error: metadataError,
+        } = await supabase
+          .from(
+            "archive_attachments"
+          )
+          .insert({
+            archive_id:
+              archiveId,
+            user_id:
+              archiveOwnerId,
+            storage_bucket:
+              ARCHIVE_ATTACHMENT_BUCKET,
+            storage_path:
+              storagePath,
+            original_filename:
+              file.name,
+            mime_type:
+              file.type ||
+              "",
+            size_bytes:
+              file.size || 0,
+            attachment_type:
+              getAttachmentType(
+                {
+                  filename:
+                    file.name,
+                  mimeType:
+                    file.type,
+                }
+              ),
+          });
+
+        if (metadataError) {
+          await supabase.storage
+            .from(
+              ARCHIVE_ATTACHMENT_BUCKET
+            )
+            .remove([
+              storagePath,
+            ]);
+
+          errors.push(
+            `${file.name}: ${metadataError.message}`
+          );
+        }
+      }
+
+      return {
+        failed:
+          errors.length > 0,
+        errors,
+      };
     };
 
   useEffect(() => {
@@ -831,9 +1133,13 @@ export default function ArchivePage() {
 
       try {
         let savedEntryId = "";
+        let savedOwnerId =
+          String(user.id || "");
+        let sourceTable =
+          "archive_items";
 
         if (editingEntry) {
-          const sourceTable =
+          sourceTable =
             editingEntry?._sourceTable ===
             "archive_entries"
               ? "archive_entries"
@@ -914,6 +1220,13 @@ export default function ArchivePage() {
           savedEntryId =
             savedArchive.id ||
             editingEntry.id;
+
+          savedOwnerId = String(
+            savedArchive.user_id ||
+              editingEntry.user_id ||
+              user.id ||
+              ""
+          );
         } else {
           const {
             data: savedArchive,
@@ -968,6 +1281,80 @@ export default function ArchivePage() {
 
           savedEntryId =
             savedArchive.id;
+
+          savedOwnerId = String(
+            savedArchive.user_id ||
+              user.id ||
+              ""
+          );
+        }
+
+        const files =
+          Array.isArray(
+            values.selectedFiles
+          )
+            ? values.selectedFiles
+            : [];
+
+        const removeAttachmentIds =
+          Array.isArray(
+            values.removeAttachmentIds
+          )
+            ? values.removeAttachmentIds.filter(Boolean)
+            : [];
+
+        let attachmentFailures = [];
+
+        if (
+          sourceTable ===
+          "archive_items"
+        ) {
+          if (files.length) {
+            setEmbeddingStatus(
+              t(
+                "archiveForm.uploading"
+              )
+            );
+
+            const uploadResult =
+              await uploadArchiveAttachments(
+                {
+                  archiveId:
+                    savedEntryId,
+                  archiveOwnerId:
+                    savedOwnerId,
+                  selectedFiles:
+                    files,
+                }
+              );
+
+            if (
+              uploadResult.failed
+            ) {
+              attachmentFailures =
+                uploadResult.errors;
+            }
+          }
+
+          for (
+            let index = 0;
+            index <
+            removeAttachmentIds.length;
+            index += 1
+          ) {
+            const attachmentId =
+              removeAttachmentIds[index];
+
+            try {
+              await removeExistingAttachmentById(
+                attachmentId
+              );
+            } catch (removeError) {
+              attachmentFailures.push(
+                `${attachmentId}: ${removeError.message}`
+              );
+            }
+          }
         }
 
         setEmbeddingStatus(
@@ -998,6 +1385,20 @@ export default function ArchivePage() {
             `Archive was saved, but semantic memory failed: ${
               embeddingError.message
             }`
+          );
+        }
+
+        if (
+          attachmentFailures.length
+        ) {
+          setEmbeddingStatus(
+            t(
+              "archiveForm.partialUploadSaved"
+            )
+          );
+
+          window.alert(
+            `${t("archiveForm.partialUploadSaved")}\n\n${attachmentFailures.join("\n")}`
           );
         }
 
@@ -1284,6 +1685,10 @@ export default function ArchivePage() {
               initial={
                 editingEntry
               }
+              initialAttachments={
+                editingEntry?.attachments ||
+                []
+              }
               onSubmit={
                 saveEntry
               }
@@ -1292,6 +1697,11 @@ export default function ArchivePage() {
               }
               submitting={
                 submitting
+              }
+              allowAttachments={
+                !editingEntry ||
+                editingEntry?._sourceTable ===
+                  "archive_items"
               }
             />
           </section>
@@ -1452,6 +1862,9 @@ export default function ArchivePage() {
                     }
                     onToggle={
                       toggleVisibility
+                    }
+                    requestAccessToken={
+                      getAccessToken
                     }
                   />
                 );

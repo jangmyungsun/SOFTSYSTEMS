@@ -6,6 +6,13 @@ import {
 } from "react";
 
 import { useLanguage } from "./LanguageProvider";
+import {
+  ARCHIVE_ATTACHMENT_MAX_FILES,
+  formatAttachmentSize,
+  getAttachmentTypeLabelKey,
+  isImageAttachment,
+  validateArchiveAttachmentFile,
+} from "../lib/archiveAttachments";
 
 const ARCHIVE_TYPES = [
   {
@@ -107,9 +114,11 @@ function prepareInitialForm(
 
 export default function ArchiveForm({
   initial,
+  initialAttachments = [],
   onSubmit,
   onCancel,
   submitting = false,
+  allowAttachments = true,
 }) {
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
@@ -122,6 +131,21 @@ export default function ArchiveForm({
     )
   );
 
+  const [
+    selectedFiles,
+    setSelectedFiles,
+  ] = useState([]);
+
+  const [
+    existingAttachments,
+    setExistingAttachments,
+  ] = useState([]);
+
+  const [
+    removedAttachmentIds,
+    setRemovedAttachmentIds,
+  ] = useState([]);
+
   useEffect(() => {
     setForm(
       prepareInitialForm(
@@ -129,6 +153,43 @@ export default function ArchiveForm({
       )
     );
   }, [initial]);
+
+  useEffect(() => {
+    setExistingAttachments(
+      Array.isArray(initialAttachments)
+        ? initialAttachments
+        : []
+    );
+
+    setRemovedAttachmentIds([]);
+
+    setSelectedFiles((previous) => {
+      previous.forEach((item) => {
+        if (item.previewUrl) {
+          URL.revokeObjectURL(
+            item.previewUrl
+          );
+        }
+      });
+
+      return [];
+    });
+  }, [initialAttachments]);
+
+  useEffect(
+    () => () => {
+      selectedFiles.forEach(
+        (item) => {
+          if (item.previewUrl) {
+            URL.revokeObjectURL(
+              item.previewUrl
+            );
+          }
+        }
+      );
+    },
+    [selectedFiles]
+  );
 
   const updateField = (
     key,
@@ -149,6 +210,172 @@ export default function ArchiveForm({
       "type",
       type
     );
+  };
+
+  const removeSelectedFile = (
+    removeId
+  ) => {
+    setSelectedFiles(
+      (previous) => {
+        const target =
+          previous.find(
+            (item) =>
+              item.id ===
+              removeId
+          );
+
+        if (target?.previewUrl) {
+          URL.revokeObjectURL(
+            target.previewUrl
+          );
+        }
+
+        return previous.filter(
+          (item) =>
+            item.id !==
+            removeId
+        );
+      }
+    );
+  };
+
+  const removeExistingAttachment = (
+    attachmentId
+  ) => {
+    if (!attachmentId) {
+      return;
+    }
+
+    setRemovedAttachmentIds(
+      (previous) =>
+        previous.includes(
+          attachmentId
+        )
+          ? previous
+          : [
+              ...previous,
+              attachmentId,
+            ]
+    );
+
+    setExistingAttachments(
+      (previous) =>
+        previous.filter(
+          (item) =>
+            item.id !==
+            attachmentId
+        )
+    );
+  };
+
+  const handleFileSelection = (
+    event
+  ) => {
+    if (!allowAttachments) {
+      return;
+    }
+
+    const incomingFiles =
+      Array.from(
+        event?.target
+          ?.files || []
+      );
+
+    if (!incomingFiles.length) {
+      return;
+    }
+
+    const nextItems = [];
+    const activeExistingCount =
+      existingAttachments.length;
+    const currentCount =
+      activeExistingCount +
+      selectedFiles.length;
+    const availableSlots =
+      Math.max(
+        0,
+        ARCHIVE_ATTACHMENT_MAX_FILES -
+          currentCount
+      );
+
+    if (availableSlots <= 0) {
+      window.alert(
+        t(
+          "archiveForm.maximumFilesReached"
+        )
+      );
+
+      event.target.value =
+        "";
+
+      return;
+    }
+
+    for (
+      let index = 0;
+      index < incomingFiles.length;
+      index += 1
+    ) {
+      const file =
+        incomingFiles[index];
+      const validation =
+        validateArchiveAttachmentFile(
+          file
+        );
+
+      if (!validation.ok) {
+        window.alert(
+          t(
+            validation.errorKey
+          )
+        );
+
+        continue;
+      }
+
+      if (
+        nextItems.length >=
+        availableSlots
+      ) {
+        window.alert(
+          t(
+            "archiveForm.maximumFilesReached"
+          )
+        );
+
+        break;
+      }
+
+      const previewUrl =
+        validation.attachmentType ===
+        "image"
+          ? URL.createObjectURL(
+              file
+            )
+          : "";
+
+      nextItems.push({
+        id:
+          globalThis.crypto?.randomUUID?.() ||
+          `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        file,
+        previewUrl,
+        attachmentType:
+          validation.attachmentType,
+      });
+    }
+
+    if (nextItems.length) {
+      setSelectedFiles(
+        (previous) => [
+          ...previous,
+          ...nextItems,
+        ]
+      );
+    }
+
+    event.target.value =
+      "";
   };
 
   const handleSubmit = (
@@ -222,6 +449,15 @@ export default function ArchiveForm({
         Boolean(
           form.is_public
         ),
+
+      selectedFiles:
+        selectedFiles.map(
+          (item) =>
+            item.file
+        ),
+
+      removeAttachmentIds:
+        removedAttachmentIds,
     });
   };
 
@@ -408,6 +644,195 @@ export default function ArchiveForm({
           />
         </label>
       </section>
+
+      {allowAttachments && (
+        <section className="form-section">
+          <h3>{t("common.attachments")}</h3>
+
+          <p className="muted attachment-subtitle">
+            {t(
+              "archiveForm.addImagesOrBookFiles"
+            )}
+          </p>
+
+          <p className="muted attachment-help">
+            {t(
+              "archiveForm.acceptedFileTypes"
+            )}
+          </p>
+
+          <label className="attachment-picker">
+            <input
+              type="file"
+              multiple
+              accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.epub,.txt,.doc,.docx,image/jpeg,image/png,image/webp,image/gif,application/pdf,application/epub+zip,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={
+                handleFileSelection
+              }
+              disabled={
+                submitting
+              }
+            />
+          </label>
+
+          <div className="attachment-list-wrap">
+            <p className="muted attachment-list-title">
+              {t(
+                "archiveForm.selectedFiles"
+              )}
+            </p>
+
+            {existingAttachments.length ===
+              0 &&
+              selectedFiles.length ===
+                0 && (
+                <p className="muted">
+                  {t(
+                    "common.noAttachments"
+                  )}
+                </p>
+              )}
+
+            {existingAttachments.length >
+              0 &&
+              existingAttachments.map(
+                (
+                  attachment
+                ) => (
+                  <div
+                    className="attachment-item"
+                    key={
+                      attachment.id
+                    }
+                  >
+                    {isImageAttachment(
+                      attachment
+                    ) ? (
+                      <div className="attachment-thumbnail attachment-thumbnail-placeholder">
+                        {t(
+                          "common.image"
+                        )}
+                      </div>
+                    ) : (
+                      <div className="attachment-thumbnail attachment-thumbnail-placeholder">
+                        {t(
+                          getAttachmentTypeLabelKey(
+                            attachment.attachment_type
+                          )
+                        )}
+                      </div>
+                    )}
+
+                    <div className="attachment-meta">
+                      <p className="attachment-name">
+                        {
+                          attachment.original_filename
+                        }
+                      </p>
+
+                      <p className="muted attachment-detail">
+                        {t(
+                          getAttachmentTypeLabelKey(
+                            attachment.attachment_type
+                          )
+                        )}
+                        {" · "}
+                        {formatAttachmentSize(
+                          attachment.size_bytes
+                        )}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeExistingAttachment(
+                          attachment.id
+                        )
+                      }
+                      disabled={
+                        submitting
+                      }
+                    >
+                      {t(
+                        "common.remove"
+                      )}
+                    </button>
+                  </div>
+                )
+              )}
+
+            {selectedFiles.map(
+              (item) => (
+                <div
+                  className="attachment-item"
+                  key={
+                    item.id
+                  }
+                >
+                  {item.previewUrl ? (
+                    <img
+                      className="attachment-thumbnail"
+                      src={
+                        item.previewUrl
+                      }
+                      alt={
+                        item.file.name
+                      }
+                    />
+                  ) : (
+                    <div className="attachment-thumbnail attachment-thumbnail-placeholder">
+                      {t(
+                        getAttachmentTypeLabelKey(
+                          item.attachmentType
+                        )
+                      )}
+                    </div>
+                  )}
+
+                  <div className="attachment-meta">
+                    <p className="attachment-name">
+                      {
+                        item.file
+                          .name
+                      }
+                    </p>
+
+                    <p className="muted attachment-detail">
+                      {t(
+                        getAttachmentTypeLabelKey(
+                          item.attachmentType
+                        )
+                      )}
+                      {" · "}
+                      {formatAttachmentSize(
+                        item.file
+                          .size
+                      )}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      removeSelectedFile(
+                        item.id
+                      )
+                    }
+                    disabled={
+                      submitting
+                    }
+                  >
+                    {t(
+                      "common.remove"
+                    )}
+                  </button>
+                </div>
+              )
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="form-section">
         <label>

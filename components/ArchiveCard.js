@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useMemo,
+  useState,
+} from "react";
 
 import TranslateButton from "./TranslateButton";
 import { useLanguage } from "./LanguageProvider";
+import {
+  formatAttachmentSize,
+  getAttachmentTypeLabelKey,
+  isImageAttachment,
+} from "../lib/archiveAttachments";
 
 function toValueKey(value) {
   return String(value || "")
@@ -149,6 +157,7 @@ export default function ArchiveCard({
   onEdit,
   onDelete,
   onToggle,
+  requestAccessToken,
 }) {
   const language = useLanguage();
   const t = language?.t ?? ((key) => key);
@@ -157,10 +166,62 @@ export default function ArchiveCard({
     setIsOpen,
   ] = useState(false);
 
+  const [
+    attachmentUrls,
+    setAttachmentUrls,
+  ] = useState({});
+
+  const [
+    loadingAttachmentId,
+    setLoadingAttachmentId,
+  ] = useState("");
+
   const tags =
     getSafeArray(
       entry.tags
     );
+
+  const attachments =
+    getSafeArray(
+      entry.attachments
+    );
+
+  const attachmentSummary =
+    useMemo(() => {
+      const initialValue = {
+        total:
+          attachments.length,
+        imageCount: 0,
+        bookCount: 0,
+        documentCount: 0,
+      };
+
+      return attachments.reduce(
+        (summary, attachment) => {
+          const type = String(
+            attachment?.attachment_type ||
+              ""
+          ).toLowerCase();
+
+          if (type === "image") {
+            summary.imageCount += 1;
+          } else if (
+            type === "book"
+          ) {
+            summary.bookCount += 1;
+          } else if (
+            type ===
+            "document"
+          ) {
+            summary.documentCount +=
+              1;
+          }
+
+          return summary;
+        },
+        initialValue
+      );
+    }, [attachments]);
 
   const isVideo =
     entry.type === "video";
@@ -182,6 +243,158 @@ export default function ArchiveCard({
   const closeModal = () => {
     setIsOpen(false);
   };
+
+  const fetchAttachmentUrl =
+    async (
+      attachmentId,
+      {
+        download = false,
+      } = {}
+    ) => {
+      const query =
+        download
+          ? "?download=1"
+          : "";
+      const headers = {};
+
+      if (requestAccessToken) {
+        try {
+          const token =
+            await requestAccessToken();
+
+          if (token) {
+            headers.Authorization =
+              `Bearer ${token}`;
+          }
+        } catch {
+          /* public archive access can continue without auth */
+        }
+      }
+
+      const response =
+        await fetch(
+          `/api/archive/attachments/${encodeURIComponent(attachmentId)}${query}`,
+          {
+            headers,
+          }
+        );
+
+      const payload =
+        await response
+          .json()
+          .catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          payload?.error ||
+            t(
+              "archiveForm.attachmentUploadFailed"
+            )
+        );
+      }
+
+      if (!payload?.signed_url) {
+        throw new Error(
+          t(
+            "archiveForm.attachmentUploadFailed"
+          )
+        );
+      }
+
+      return payload.signed_url;
+    };
+
+  const openAttachment =
+    async (
+      attachment,
+      {
+        download = false,
+      } = {}
+    ) => {
+      const attachmentId =
+        String(
+          attachment?.id || ""
+        ).trim();
+
+      if (!attachmentId) {
+        return;
+      }
+
+      setLoadingAttachmentId(
+        attachmentId
+      );
+
+      try {
+        const signedUrl =
+          await fetchAttachmentUrl(
+            attachmentId,
+            {
+              download,
+            }
+          );
+
+        setAttachmentUrls(
+          (previous) => ({
+            ...previous,
+            [attachmentId]:
+              signedUrl,
+          })
+        );
+
+        window.open(
+          signedUrl,
+          "_blank",
+          "noopener,noreferrer"
+        );
+      } catch (error) {
+        window.alert(
+          error?.message ||
+            t(
+              "archiveForm.attachmentUploadFailed"
+            )
+        );
+      } finally {
+        setLoadingAttachmentId(
+          ""
+        );
+      }
+    };
+
+  const loadImagePreview =
+    async (
+      attachment
+    ) => {
+      const attachmentId =
+        String(
+          attachment?.id || ""
+        ).trim();
+
+      if (
+        !attachmentId ||
+        attachmentUrls[
+          attachmentId
+        ]
+      ) {
+        return;
+      }
+
+      try {
+        const signedUrl =
+          await fetchAttachmentUrl(
+            attachmentId
+          );
+
+        setAttachmentUrls(
+          (previous) => ({
+            ...previous,
+            [attachmentId]:
+              signedUrl,
+          })
+        );
+      } catch {
+        /* keep placeholder when preview cannot be loaded */
+      }
+    };
 
   return (
     <>
@@ -288,6 +501,20 @@ export default function ArchiveCard({
                       )
                     )}
                 </div>
+              )}
+
+              {attachmentSummary.total >
+                0 && (
+                <p className="muted archive-attachment-hint">
+                  {attachmentSummary.imageCount >
+                  0
+                    ? `${t("common.image")} · `
+                    : attachmentSummary.bookCount >
+                      0
+                    ? `${t("common.bookFile")} · `
+                    : `${t("common.document")} · `}
+                  {attachmentSummary.total} {t("common.attachments")}
+                </p>
               )}
             </div>
           )}
@@ -487,6 +714,144 @@ export default function ArchiveCard({
                   </a>
                 </div>
               )}
+
+            <section className="archive-modal-attachments">
+              <h3>
+                {t(
+                  "common.attachments"
+                )}
+              </h3>
+
+              {!attachments.length && (
+                <p className="muted">
+                  {t(
+                    "common.noAttachments"
+                  )}
+                </p>
+              )}
+
+              {attachments.map(
+                (attachment) => {
+                  const attachmentId =
+                    String(
+                      attachment.id ||
+                        ""
+                    );
+                  const isImage =
+                    isImageAttachment(
+                      attachment
+                    );
+
+                  return (
+                    <article
+                      className="archive-attachment-item"
+                      key={
+                        attachment.id
+                      }
+                    >
+                      {isImage ? (
+                        attachmentUrls[
+                          attachmentId
+                        ] ? (
+                          <img
+                            src={
+                              attachmentUrls[
+                                attachmentId
+                              ]
+                            }
+                            alt={
+                              attachment.original_filename
+                            }
+                            className="archive-attachment-image"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="archive-attachment-preview-load"
+                            onClick={() =>
+                              loadImagePreview(
+                                attachment
+                              )
+                            }
+                          >
+                            {t(
+                              "common.image"
+                            )}
+                          </button>
+                        )
+                      ) : (
+                        <div className="archive-attachment-file-badge">
+                          {t(
+                            getAttachmentTypeLabelKey(
+                              attachment.attachment_type
+                            )
+                          )}
+                        </div>
+                      )}
+
+                      <div className="archive-attachment-meta">
+                        <p className="archive-attachment-name">
+                          {
+                            attachment.original_filename
+                          }
+                        </p>
+
+                        <p className="muted archive-attachment-detail">
+                          {t(
+                            getAttachmentTypeLabelKey(
+                              attachment.attachment_type
+                            )
+                          )}
+                          {" · "}
+                          {formatAttachmentSize(
+                            attachment.size_bytes
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="archive-attachment-actions">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openAttachment(
+                              attachment
+                            )
+                          }
+                          disabled={
+                            loadingAttachmentId ===
+                            attachmentId
+                          }
+                        >
+                          {t(
+                            "common.open"
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openAttachment(
+                              attachment,
+                              {
+                                download: true,
+                              }
+                            )
+                          }
+                          disabled={
+                            loadingAttachmentId ===
+                            attachmentId
+                          }
+                        >
+                          {t(
+                            "common.download"
+                          )}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                }
+              )}
+            </section>
 
             {tags.length > 0 && (
               <div className="tag-list archive-modal-tags">
