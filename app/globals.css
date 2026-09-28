@@ -783,8 +783,55 @@ th {
 }
 
 .archive-video-card:hover
-  .archive-preview-image {
+  .archive-preview-image,
+.archive-text-card:hover
+  .archive-attachment-cover-image {
   transform: scale(1.025);
+}
+
+.archive-image-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to top,
+      rgba(20, 18, 15, 0.74),
+      rgba(20, 18, 15, 0.04) 64%
+    );
+}
+
+.archive-image-content {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  padding: 22px;
+  color: #fff;
+}
+
+.archive-image-content h2 {
+  margin: 5px 0 7px;
+  font-size:
+    clamp(
+      1.05rem,
+      2vw,
+      1.45rem
+    );
+  line-height: 1.16;
+}
+
+.archive-image-content
+  .eyebrow,
+.archive-image-content
+  .muted {
+  color:
+    rgba(
+      255,
+      255,
+      255,
+      0.82
+    );
 }
 
 .archive-preview-placeholder {

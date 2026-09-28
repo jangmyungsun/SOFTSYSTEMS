@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -185,6 +186,31 @@ export default function ArchiveCard({
     getSafeArray(
       entry.attachments
     );
+
+  const previewImageAttachment =
+    useMemo(
+      () =>
+        attachments.find(
+          (attachment) =>
+            isImageAttachment(
+              attachment
+            )
+        ) || null,
+      [attachments]
+    );
+
+  const previewImageId =
+    String(
+      previewImageAttachment?.id ||
+        ""
+    ).trim();
+
+  const previewImageUrl =
+    previewImageId
+      ? attachmentUrls[
+          previewImageId
+        ] || ""
+      : "";
 
   const attachmentSummary =
     useMemo(() => {
@@ -396,6 +422,49 @@ export default function ArchiveCard({
       }
     };
 
+  useEffect(() => {
+    if (
+      !previewImageAttachment ||
+      !previewImageId ||
+      previewImageUrl
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadPreview =
+      async () => {
+        try {
+          const signedUrl =
+            await fetchAttachmentUrl(
+              previewImageId
+            );
+
+          if (!cancelled) {
+            setAttachmentUrls(
+              (previous) => ({
+                ...previous,
+                [previewImageId]:
+                  signedUrl,
+              })
+            );
+          }
+        } catch {
+          /* Keep the text preview if the image preview cannot be loaded. */
+        }
+      };
+
+    loadPreview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    previewImageId,
+    previewImageUrl,
+  ]);
+
   const openModal = () => {
     setIsOpen(true);
 
@@ -446,6 +515,43 @@ export default function ArchiveCard({
               <div className="archive-video-content">
                 <p className="eyebrow">
                   {t("common.video")}
+                </p>
+
+                <h2>
+                  <TranslateButton
+                    text={entry.title || ""}
+                    sourceLanguage="en"
+                    contentKey={`archive:${entry.id || entry.title || "entry"}:title`}
+                    className="translate-block"
+                    as="span"
+                    showControls={false}
+                  />
+                </h2>
+
+                <p className="muted">
+                  {entry.entry_date}
+                </p>
+              </div>
+            </>
+          ) : previewImageUrl ? (
+            <>
+              <img
+                className="archive-preview-image archive-attachment-cover-image"
+                src={previewImageUrl}
+                alt={
+                  previewImageAttachment?.original_filename ||
+                  entry.title ||
+                  ""
+                }
+              />
+
+              <div className="archive-image-shade" />
+
+              <div className="archive-image-content">
+                <p className="eyebrow">
+                  {t(`archive.types.${toValueKey(entry.type)}`) !== `archive.types.${toValueKey(entry.type)}`
+                    ? t(`archive.types.${toValueKey(entry.type)}`)
+                    : formatLabel(entry.type)}
                 </p>
 
                 <h2>
