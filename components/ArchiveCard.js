@@ -396,6 +396,27 @@ export default function ArchiveCard({
       }
     };
 
+  const openModal = () => {
+    setIsOpen(true);
+
+    attachments
+      .filter((attachment) =>
+        isImageAttachment(attachment)
+      )
+      .forEach((attachment) => {
+        const attachmentId = String(
+          attachment?.id || ""
+        ).trim();
+
+        if (
+          attachmentId &&
+          !attachmentUrls[attachmentId]
+        ) {
+          loadImagePreview(attachment);
+        }
+      });
+  };
+
   return (
     <>
       <article
@@ -524,9 +545,7 @@ export default function ArchiveCard({
           <button
             type="button"
             className="archive-view-button"
-            onClick={() =>
-              setIsOpen(true)
-            }
+            onClick={openModal}
           >
             {t("common.viewMore")}
           </button>

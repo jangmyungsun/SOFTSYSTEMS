@@ -1135,6 +1135,7 @@ export default function ArchivePage() {
         let savedEntryId = "";
         let savedOwnerId =
           String(user.id || "");
+        let savedArchiveRow = null;
         let sourceTable =
           "archive_items";
 
@@ -1217,6 +1218,9 @@ export default function ArchivePage() {
             );
           }
 
+          savedArchiveRow =
+            savedArchive;
+
           savedEntryId =
             savedArchive.id ||
             editingEntry.id;
@@ -1278,6 +1282,9 @@ export default function ArchivePage() {
               "The saved Archive ID was not returned."
             );
           }
+
+          savedArchiveRow =
+            savedArchive;
 
           savedEntryId =
             savedArchive.id;
@@ -1357,6 +1364,60 @@ export default function ArchivePage() {
           }
         }
 
+        if (attachmentFailures.length) {
+          let refreshedAttachments = [];
+
+          try {
+            const attachmentMap =
+              await loadAttachmentMap([
+                savedEntryId,
+              ]);
+
+            refreshedAttachments =
+              attachmentMap.get(
+                String(savedEntryId)
+              ) || [];
+          } catch (refreshError) {
+            console.warn(
+              "Archive attachments could not be refreshed after a partial upload:",
+              refreshError
+            );
+          }
+
+          setEmbeddingStatus(
+            t(
+              "archiveForm.partialUploadSaved"
+            )
+          );
+
+          if (
+            sourceTable ===
+            "archive_items" &&
+            savedArchiveRow
+          ) {
+            setEditingEntry(
+              normalizeEntry(
+                {
+                  ...savedArchiveRow,
+                  attachments:
+                    refreshedAttachments,
+                },
+                "archive_items"
+              )
+            );
+            setShowForm(true);
+          }
+
+          await loadArchive();
+          router.refresh();
+
+          window.alert(
+            `${t("archiveForm.partialUploadSaved")}\n\n${attachmentFailures.join("\n")}`
+          );
+
+          return;
+        }
+
         setEmbeddingStatus(
           "Creating Archive memory…"
         );
@@ -1385,20 +1446,6 @@ export default function ArchivePage() {
             `Archive was saved, but semantic memory failed: ${
               embeddingError.message
             }`
-          );
-        }
-
-        if (
-          attachmentFailures.length
-        ) {
-          setEmbeddingStatus(
-            t(
-              "archiveForm.partialUploadSaved"
-            )
-          );
-
-          window.alert(
-            `${t("archiveForm.partialUploadSaved")}\n\n${attachmentFailures.join("\n")}`
           );
         }
 

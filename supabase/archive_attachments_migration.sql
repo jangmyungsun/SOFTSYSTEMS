@@ -1,3 +1,8 @@
+-- Canonical Archive attachment schema for SOFTSYSTEMS.
+-- New Archive entries are stored in public.archive_items.
+-- If you already created archive_attachments with a different schema, run
+-- supabase/archive_attachments_repair.sql instead of this file.
+
 create table if not exists public.archive_attachments (
   id uuid primary key default gen_random_uuid(),
   archive_id uuid not null references public.archive_items(id) on delete cascade,
