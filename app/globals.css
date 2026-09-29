@@ -4106,3 +4106,151 @@ body {
     line-height: 1.45;
   }
 }
+
+
+/* =========================================================
+   PRACTICE RHYTHM + ABOUT COPY REFINEMENT
+   ========================================================= */
+
+.home-metric-rhythm .home-rhythm-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.home-metric-rhythm .home-rhythm-list p {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 7px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.home-metric-rhythm .home-rhythm-list strong {
+  justify-self: start;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.home-metric-rhythm .home-rhythm-list .home-rhythm-average {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: italic;
+  letter-spacing: 0.015em;
+}
+
+.about-intro,
+.about-copy-section,
+.about-contact-section {
+  max-width: 940px;
+}
+
+.about-intro h1 {
+  margin-bottom: 20px;
+}
+
+.about-intro .subtitle {
+  max-width: 780px;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: clamp(16px, 1.6vw, 20px);
+  line-height: 1.75;
+}
+
+.about-copy-section {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.32fr) minmax(0, 1fr);
+  column-gap: clamp(28px, 6vw, 88px);
+  row-gap: 18px;
+}
+
+.about-copy-section h2 {
+  grid-row: 1 / span 2;
+  margin: 4px 0 0;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.about-copy-section p {
+  grid-column: 2;
+  max-width: 720px;
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.85;
+}
+
+.about-contact-section .grid.three {
+  margin-top: 20px;
+}
+
+@media (max-width: 700px) {
+  .home-metric-rhythm .home-rhythm-list p {
+    font-size: 11px;
+    gap: 5px;
+  }
+
+  .home-metric-rhythm .home-rhythm-list .home-rhythm-average {
+    font-size: 9px;
+  }
+
+  .about-copy-section {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .about-copy-section h2,
+  .about-copy-section p {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .about-copy-section p {
+    font-size: 14px;
+    line-height: 1.8;
+  }
+}
+
+
+/* ---------- PDF first-page previews ---------- */
+.archive-pdf-preview-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fffaf4;
+  pointer-events: none;
+}
+
+.archive-attachment-pdf-preview {
+  width: 72px;
+  height: 92px;
+  border: 1px solid var(--book-line-soft);
+  background: #fffaf4;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.archive-pdf-preview-load {
+  width: 72px;
+  height: 92px;
+}
+
+.archive-attachment-item:has(.archive-attachment-pdf-preview),
+.archive-attachment-item:has(.archive-pdf-preview-load) {
+  align-items: start;
+}
+
+@media (max-width: 580px) {
+  .archive-attachment-pdf-preview,
+  .archive-pdf-preview-load {
+    width: 58px;
+    height: 76px;
+  }
+}

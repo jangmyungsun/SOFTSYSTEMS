@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 
-const SIGNED_URL_TTL_SECONDS = 60;
+const SIGNED_URL_TTL_SECONDS = 600;
 
 function getAuthToken(request) {
   const header = request.headers.get("authorization") || "";

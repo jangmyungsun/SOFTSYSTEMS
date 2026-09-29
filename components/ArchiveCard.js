@@ -12,6 +12,7 @@ import {
   formatAttachmentSize,
   getAttachmentTypeLabelKey,
   isImageAttachment,
+  isPdfAttachment,
 } from "../lib/archiveAttachments";
 
 function toValueKey(value) {
@@ -147,6 +148,14 @@ function getYoutubeEmbedUrl(url) {
   return `https://www.youtube.com/embed/${videoId}`;
 }
 
+function getPdfPreviewUrl(url) {
+  if (!url) {
+    return "";
+  }
+
+  return `${url}#page=1&view=FitH&toolbar=0&navpanes=0&scrollbar=0`;
+}
+
 export default function ArchiveCard({
   entry,
   admin = false,
@@ -199,18 +208,44 @@ export default function ArchiveCard({
       [attachments]
     );
 
-  const previewImageId =
+  const previewPdfAttachment =
+    useMemo(
+      () =>
+        attachments.find(
+          (attachment) =>
+            isPdfAttachment(
+              attachment
+            )
+        ) || null,
+      [attachments]
+    );
+
+  // When a PDF is attached, use its first page as the archive cover preview.
+  // Fall back to the first attached image when there is no PDF.
+  const previewAttachment =
+    previewPdfAttachment ||
+    previewImageAttachment;
+
+  const previewAttachmentId =
     String(
-      previewImageAttachment?.id ||
+      previewAttachment?.id ||
         ""
     ).trim();
 
-  const previewImageUrl =
-    previewImageId
+  const previewAttachmentUrl =
+    previewAttachmentId
       ? attachmentUrls[
-          previewImageId
+          previewAttachmentId
         ] || ""
       : "";
+
+  const previewIsPdf =
+    Boolean(
+      previewAttachment &&
+        isPdfAttachment(
+          previewAttachment
+        )
+    );
 
   const attachmentSummary =
     useMemo(() => {
@@ -402,7 +437,7 @@ export default function ArchiveCard({
       }
     };
 
-  const loadImagePreview =
+  const loadAttachmentPreview =
     async (
       attachment
     ) => {
@@ -440,9 +475,9 @@ export default function ArchiveCard({
 
   useEffect(() => {
     if (
-      !previewImageAttachment ||
-      !previewImageId ||
-      previewImageUrl
+      !previewAttachment ||
+      !previewAttachmentId ||
+      previewAttachmentUrl
     ) {
       return;
     }
@@ -454,20 +489,20 @@ export default function ArchiveCard({
         try {
           const signedUrl =
             await fetchAttachmentUrl(
-              previewImageId
+              previewAttachmentId
             );
 
           if (!cancelled) {
             setAttachmentUrls(
               (previous) => ({
                 ...previous,
-                [previewImageId]:
+                [previewAttachmentId]:
                   signedUrl,
               })
             );
           }
         } catch {
-          /* Keep the text preview if the image preview cannot be loaded. */
+          /* Keep the text preview if an attachment preview cannot be loaded. */
         }
       };
 
@@ -477,16 +512,18 @@ export default function ArchiveCard({
       cancelled = true;
     };
   }, [
-    previewImageId,
-    previewImageUrl,
+    previewAttachmentId,
+    previewAttachmentUrl,
   ]);
 
   const openModal = () => {
     setIsOpen(true);
 
     attachments
-      .filter((attachment) =>
-        isImageAttachment(attachment)
+      .filter(
+        (attachment) =>
+          isImageAttachment(attachment) ||
+          isPdfAttachment(attachment)
       )
       .forEach((attachment) => {
         const attachmentId = String(
@@ -497,7 +534,7 @@ export default function ArchiveCard({
           attachmentId &&
           !attachmentUrls[attachmentId]
         ) {
-          loadImagePreview(attachment);
+          loadAttachmentPreview(attachment);
         }
       });
   };
@@ -540,13 +577,25 @@ export default function ArchiveCard({
 
               <span className="archive-media-index">VIDEO</span>
             </>
-          ) : previewImageUrl ? (
+          ) : previewAttachmentUrl && previewIsPdf ? (
+            <>
+              <iframe
+                className="archive-pdf-preview-frame"
+                src={getPdfPreviewUrl(previewAttachmentUrl)}
+                title={`${previewAttachment?.original_filename || entry.title || "PDF"} — page 1`}
+                tabIndex={-1}
+                aria-hidden="true"
+                loading="lazy"
+              />
+              <span className="archive-media-index">PDF · P.01</span>
+            </>
+          ) : previewAttachmentUrl ? (
             <>
               <img
                 className="archive-preview-image archive-attachment-cover-image"
-                src={previewImageUrl}
+                src={previewAttachmentUrl}
                 alt={
-                  previewImageAttachment?.original_filename ||
+                  previewAttachment?.original_filename ||
                   entry.title ||
                   ""
                 }
@@ -843,6 +892,10 @@ export default function ArchiveCard({
                     isImageAttachment(
                       attachment
                     );
+                  const isPdf =
+                    isPdfAttachment(
+                      attachment
+                    );
 
                   return (
                     <article
@@ -871,7 +924,7 @@ export default function ArchiveCard({
                             type="button"
                             className="archive-attachment-preview-load"
                             onClick={() =>
-                              loadImagePreview(
+                              loadAttachmentPreview(
                                 attachment
                               )
                             }
@@ -879,6 +932,34 @@ export default function ArchiveCard({
                             {t(
                               "common.image"
                             )}
+                          </button>
+                        )
+                      ) : isPdf ? (
+                        attachmentUrls[
+                          attachmentId
+                        ] ? (
+                          <iframe
+                            src={getPdfPreviewUrl(
+                              attachmentUrls[
+                                attachmentId
+                              ]
+                            )}
+                            title={`${attachment.original_filename || "PDF"} — page 1`}
+                            className="archive-attachment-pdf-preview"
+                            tabIndex={-1}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="archive-attachment-preview-load archive-pdf-preview-load"
+                            onClick={() =>
+                              loadAttachmentPreview(
+                                attachment
+                              )
+                            }
+                          >
+                            PDF
                           </button>
                         )
                       ) : (
