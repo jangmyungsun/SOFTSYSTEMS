@@ -30,7 +30,6 @@ export default function Navigation() {
       const {
         data: { session: currentSession },
       } = await supabase.auth.getSession();
-
       setSession(currentSession);
     }
 
@@ -38,11 +37,9 @@ export default function Navigation() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
-        setSession(nextSession);
-      }
-    );
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -53,16 +50,10 @@ export default function Navigation() {
   }
 
   return (
-    <nav className="nav score-nav">
+    <nav className="nav book-nav">
       <Link href="/" className="nav-brand" aria-label="SOFTSYSTEMS home">
         SOFTSYSTEMS
       </Link>
-
-      <div className="nav-score-line" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-      </div>
 
       <div className="nav-links">
         {links.map(([href, label, external]) =>
@@ -105,11 +96,7 @@ export default function Navigation() {
         </label>
 
         {isAuthenticated ? (
-          <button
-            type="button"
-            className="nav-action"
-            onClick={handleSignOut}
-          >
+          <button type="button" className="nav-action" onClick={handleSignOut}>
             {t("nav.logout")}
           </button>
         ) : null}
