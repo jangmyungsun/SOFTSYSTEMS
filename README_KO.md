@@ -1,34 +1,23 @@
-# Introduce my self 페이지 패치
+# SOFTSYSTEMS — 메뉴 정리 + Visitor Letters 안의 Introduce my self + HEIC
 
-이번 패치는 현재 최신 SOFTSYSTEMS 소스(MP4/Idea/Book/Wine/PDF preview 포함) 기준입니다.
+이번 패치는 이전 HEIC/메뉴 가독성 패치를 포함한 통합본입니다.
 
-## 추가된 기능
+## 변경사항
+- 상단 메뉴에서 `Archive` 제거
+  - Archive는 Input 흐름에서 접근하는 구조를 유지합니다.
+- 상단 메뉴에서 독립 `Introduce my self` 제거
+- `Visitor Letters` 페이지의 편지 작성 폼 바로 아래에
+  `Introduce my self →` 링크 추가
+- 상단 메뉴 글자 크기를 한 단계 더 키워 가독성 개선
+- HEIC / HEIF 첨부 지원 유지
+- 기존 MP4 / MOV / AVI / PDF / Idea / Book / Wine 등의 최신 기능 유지
 
-- 상단 Navigation에서 `Visitor Letters` 다음에 `Introduce my self` 링크 추가
-- 새 페이지: `/introduce-my-self`
-- 요청한 한국어 자기소개 전체를 기본 내용으로 표시
-- 로그인 상태에서는 페이지 우측 상단에 `Edit` 버튼 표시
-- `Edit` → 내용 수정 → `Save`로 Supabase에 영구 저장
-- 간단한 Markdown 지원
-  - `**굵게**`
-  - `*기울임*`
-  - `[링크](https://...)`
-- 페이지 방문 통계에서도 `/introduce-my-self`가 `Introduce my self`로 표시
-
-## 먼저 한 번 실행할 SQL
-
-Supabase SQL Editor에서 아래 파일을 **한 번만** 실행해 주세요.
-
-`supabase/introduce_my_self_page.sql`
-
-이 SQL은 `public.site_pages` 테이블을 만들고, 페이지는 누구나 읽을 수 있지만 수정은 로그인한 소유자 계정이 하도록 설정합니다. 최초 저장 시 해당 페이지가 그 로그인 계정에 귀속됩니다.
-
-## 덮어쓸 / 추가할 파일
-
-- `app/introduce-my-self/page.js` (새 파일)
+## 덮어쓸 파일
 - `components/Navigation.js`
-- `app/api/visitors/stats/route.js`
+- `app/letters/page.js`
 - `app/globals.css`
-- `supabase/introduce_my_self_page.sql` (새 migration)
+- `components/ArchiveForm.js`
+- `lib/archiveAttachments.js`
+- `lib/i18n.js`
 
-DB migration을 실행하지 않아도 기본 자기소개 문구는 화면에 보이지만, **Edit → Save로 영구 저장하려면 SQL 실행이 필요합니다.**
+DB / SQL 변경은 필요 없습니다.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 import { getIntlLocale } from "../../lib/i18n";
 import { useLanguage } from "../../components/LanguageProvider";
@@ -328,6 +329,13 @@ export default function VisitorLettersPage() {
 
         {statusMessage ? <p className="status success">{statusMessage}</p> : null}
         {errorMessage ? <p className="status error">{errorMessage}</p> : null}
+
+        <div className="visitor-intro-link-wrap">
+          <Link href="/introduce-my-self" className="visitor-intro-link">
+            <span>Introduce my self</span>
+            <span aria-hidden="true">→</span>
+          </Link>
+        </div>
       </section>
 
       {session ? (

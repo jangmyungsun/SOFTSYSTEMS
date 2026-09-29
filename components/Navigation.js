@@ -20,10 +20,8 @@ export default function Navigation() {
     ["/input", t("nav.input")],
     ["/process", t("nav.process")],
     ["https://617068.cargo.site/", t("nav.output"), true],
-    ["/archive", "Archive"],
     ["/about", t("nav.about")],
     ["/letters", t("nav.letters")],
-    ["/introduce-my-self", "Introduce my self"],
   ];
 
   useEffect(() => {
