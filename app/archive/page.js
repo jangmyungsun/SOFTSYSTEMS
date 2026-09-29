@@ -46,6 +46,10 @@ const FILTERS = [
     label: "Video",
   },
   {
+    value: "book",
+    label: "Book",
+  },
+  {
     value: "reference",
     label: "Reference",
   },
