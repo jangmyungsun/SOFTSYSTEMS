@@ -682,148 +682,7 @@ export default function Home() {
 
   return (
     <>
-      <section className="grid four">
-        <div className="panel">
-          <p className="label">
-            {t("home.practiceRhythm")}
-          </p>
-
-          <div className="big">
-            {homeState.making.toFixed(
-              1
-            )}
-            h
-          </div>
-
-          <p className="muted">
-            {t("home.making")} {" "}
-            {t("home.perDayThisMonth", {
-              hours: homeState.making.toFixed(1),
-            })}
-          </p>
-
-          <p className="muted">
-            {t("home.learning")} {" "}
-            {t("home.perDayThisMonth", {
-              hours: homeState.learning.toFixed(1),
-            })}
-          </p>
-
-          <p className="muted">
-            {t("home.bodyMoving")} {" "}
-            {t("home.perDayThisMonth", {
-              hours: movementAverage.toFixed(1),
-            })}
-          </p>
-        </div>
-
-        <div className="panel">
-          <p className="label">
-            {t("home.bodyWeather")}
-          </p>
-
-          <div className="big">
-            {t(`values.${toValueKey(homeState.bodyWeather)}`) !== `values.${toValueKey(homeState.bodyWeather)}`
-              ? t(`values.${toValueKey(homeState.bodyWeather)}`)
-              : homeState.bodyWeather}
-          </div>
-
-          <p className="muted">
-            {t("home.thisWeek")}
-          </p>
-        </div>
-
-        <div className="panel">
-          <p className="label">
-            {t("home.energyTone")}
-          </p>
-
-          <div className="big">
-            {t(`values.${toValueKey(homeState.energyTone)}`) !== `values.${toValueKey(homeState.energyTone)}`
-              ? t(`values.${toValueKey(homeState.energyTone)}`)
-              : homeState.energyTone}
-          </div>
-
-          <p className="muted">
-            {t("home.thisWeek")}
-          </p>
-        </div>
-
-        <div className="panel">
-          <p className="label">
-            {t("home.currentMode")}
-          </p>
-
-          <div className="big">
-            {t(`values.${toValueKey(homeState.mode)}`) !== `values.${toValueKey(homeState.mode)}`
-              ? t(`values.${toValueKey(homeState.mode)}`)
-              : homeState.mode}
-          </div>
-        </div>
-      </section>
-
-      <section className="panel soft-suggestion">
-        <p className="eyebrow">
-          {t("home.today")}
-        </p>
-
-        <h2>
-          {t("home.softSuggestion")}
-        </h2>
-
-        {loading && (
-          <p className="muted">
-            {t("home.loadingSuggestion")}
-          </p>
-        )}
-
-        {!loading &&
-          errorMessage && (
-            <p className="muted">
-              {errorMessage}
-            </p>
-          )}
-
-        {!loading &&
-          !errorMessage &&
-          guidance && (
-            <>
-              {guidance.state && (
-                <p className="label">
-                  <TranslateButton
-                    text={guidance.state}
-                    sourceLanguage="en"
-                    contentKey={`guidance:${guidance.guidance_date || guidance.generated_at || "latest"}:state`}
-                    className="translate-block"
-                    as="span"
-                    showControls={false}
-                  />
-                </p>
-              )}
-
-              <p className="soft-suggestion-reading">
-                <TranslateButton
-                  text={guidance.suggested_gesture || guidance.reading || ""}
-                  sourceLanguage="en"
-                  contentKey={`guidance:${guidance.guidance_date || guidance.generated_at || "latest"}:primary`}
-                  className="translate-block"
-                  as="span"
-                  showControls={false}
-                />
-              </p>
-            </>
-          )}
-
-        {!loading &&
-          !errorMessage &&
-          !guidance && (
-            <p className="muted">
-              {t("home.noSuggestion")}
-            </p>
-          )}
-      </section>
-
-      <section className="panel">
+      <section className="panel home-archive-first">
         <div className="entry-head">
           <div>
             <p className="eyebrow">
@@ -867,6 +726,97 @@ export default function Home() {
               {t("home.noArchiveEntries")}
             </p>
           )}
+      </section>
+
+
+      <section className="home-overview-compact">
+        <div className="home-metrics-compact">
+          <div className="home-metric home-metric-rhythm">
+            <p className="label">{t("home.practiceRhythm")}</p>
+            <div className="home-metric-value">
+              {homeState.making.toFixed(1)}h
+            </div>
+            <div className="home-rhythm-lines">
+              <p>{t("home.making")} {t("home.perDayThisMonth", { hours: homeState.making.toFixed(1) })}</p>
+              <p>{t("home.learning")} {t("home.perDayThisMonth", { hours: homeState.learning.toFixed(1) })}</p>
+              <p>{t("home.bodyMoving")} {t("home.perDayThisMonth", { hours: movementAverage.toFixed(1) })}</p>
+            </div>
+          </div>
+
+          <div className="home-metric">
+            <p className="label">{t("home.bodyWeather")}</p>
+            <div className="home-metric-value home-metric-word">
+              {t(`values.${toValueKey(homeState.bodyWeather)}`) !== `values.${toValueKey(homeState.bodyWeather)}`
+                ? t(`values.${toValueKey(homeState.bodyWeather)}`)
+                : homeState.bodyWeather}
+            </div>
+            <p className="home-metric-note">{t("home.thisWeek")}</p>
+          </div>
+
+          <div className="home-metric">
+            <p className="label">{t("home.energyTone")}</p>
+            <div className="home-metric-value home-metric-word">
+              {t(`values.${toValueKey(homeState.energyTone)}`) !== `values.${toValueKey(homeState.energyTone)}`
+                ? t(`values.${toValueKey(homeState.energyTone)}`)
+                : homeState.energyTone}
+            </div>
+            <p className="home-metric-note">{t("home.thisWeek")}</p>
+          </div>
+
+          <div className="home-metric">
+            <p className="label">{t("home.currentMode")}</p>
+            <div className="home-metric-value home-metric-word">
+              {t(`values.${toValueKey(homeState.mode)}`) !== `values.${toValueKey(homeState.mode)}`
+                ? t(`values.${toValueKey(homeState.mode)}`)
+                : homeState.mode}
+            </div>
+          </div>
+        </div>
+
+        <section className="home-suggestion-compact">
+          <div className="home-suggestion-heading">
+            <span className="eyebrow">{t("home.today")}</span>
+            <span className="home-suggestion-title">{t("home.softSuggestion")}</span>
+          </div>
+
+          {loading && <p className="home-suggestion-text muted">{t("home.loadingSuggestion")}</p>}
+
+          {!loading && errorMessage && (
+            <p className="home-suggestion-text muted">{errorMessage}</p>
+          )}
+
+          {!loading && !errorMessage && guidance && (
+            <div className="home-suggestion-copy">
+              {guidance.state && (
+                <p className="home-suggestion-state">
+                  <TranslateButton
+                    text={guidance.state}
+                    sourceLanguage="en"
+                    contentKey={`guidance:${guidance.guidance_date || guidance.generated_at || "latest"}:state`}
+                    className="translate-block"
+                    as="span"
+                    showControls={false}
+                  />
+                </p>
+              )}
+
+              <p className="home-suggestion-text">
+                <TranslateButton
+                  text={guidance.suggested_gesture || guidance.reading || ""}
+                  sourceLanguage="en"
+                  contentKey={`guidance:${guidance.guidance_date || guidance.generated_at || "latest"}:primary`}
+                  className="translate-block"
+                  as="span"
+                  showControls={false}
+                />
+              </p>
+            </div>
+          )}
+
+          {!loading && !errorMessage && !guidance && (
+            <p className="home-suggestion-text muted">{t("home.noSuggestion")}</p>
+          )}
+        </section>
       </section>
 
       <section className="panel">

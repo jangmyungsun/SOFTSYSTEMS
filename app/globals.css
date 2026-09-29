@@ -3484,3 +3484,332 @@ body::before {
     padding: 14px 10px;
   }
 }
+
+/* =========================================================
+   HOME — ARCHIVE FIRST / READABILITY REFINEMENT
+   ========================================================= */
+
+:root {
+  /* Keep the printed-book mood, but prioritize legibility. */
+  --font-typewriter: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --font-book: "SUIT", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --book-ink: #211e1f;
+  --book-muted: #665f61;
+}
+
+body {
+  font-family: var(--font-book);
+  font-size: 15px;
+  line-height: 1.62;
+}
+
+/* Typewriter feeling stays in metadata and headings only. */
+.eyebrow,
+.label,
+.book-nav,
+.archive-caption-meta,
+.archive-open-link,
+.archive-attachment-hint,
+.archive-result-count,
+.archive-tools-panel .artistic-type {
+  font-family: var(--font-typewriter);
+}
+
+/* Make the opening page smaller so content begins immediately. */
+.book-hero.book-hero-compact {
+  padding: 8px 0 18px;
+  margin-bottom: 10px;
+}
+
+.book-hero-compact .book-hero-topline {
+  margin-bottom: 18px;
+}
+
+.book-hero-compact .book-hero-title {
+  max-width: 680px;
+  font-family: var(--font-book);
+  font-size: clamp(24px, 3.1vw, 40px);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+}
+
+.book-hero-compact .book-hero-subtitle {
+  width: min(560px, 100%);
+  margin-top: 9px !important;
+  color: var(--book-muted);
+  font-family: var(--font-book);
+  font-size: 11px !important;
+  line-height: 1.55 !important;
+}
+
+/* Compact home status strip: four readings + today's suggestion in one shallow block. */
+.home-overview-compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(240px, 0.75fr);
+  gap: 0;
+  margin: 0 0 18px;
+  border-top: 1px solid var(--book-line);
+  border-bottom: 1px solid var(--book-line);
+}
+
+.home-metrics-compact {
+  display: grid;
+  grid-template-columns: 1.55fr repeat(3, minmax(0, 0.8fr));
+  min-width: 0;
+}
+
+.home-metric {
+  min-width: 0;
+  padding: 10px 12px 9px;
+  border-right: 1px solid var(--book-line-soft);
+}
+
+.home-metric .label {
+  margin: 0 0 5px;
+  color: var(--book-muted);
+  font-size: 7px;
+  line-height: 1.2;
+  letter-spacing: 0.11em;
+}
+
+.home-metric-value {
+  color: var(--book-ink);
+  font-family: var(--font-book);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+}
+
+.home-metric-word {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-rhythm-lines {
+  margin-top: 6px;
+}
+
+.home-rhythm-lines p,
+.home-metric-note {
+  margin: 0;
+  color: var(--book-muted);
+  font-size: 7.5px;
+  line-height: 1.42;
+}
+
+.home-suggestion-compact {
+  min-width: 0;
+  padding: 9px 12px 10px 14px;
+}
+
+.home-suggestion-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-bottom: 5px;
+}
+
+.home-suggestion-heading .eyebrow {
+  margin: 0;
+  font-size: 7px;
+  line-height: 1;
+  letter-spacing: 0.11em;
+}
+
+.home-suggestion-title {
+  color: var(--book-ink);
+  font-family: var(--font-book);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.home-suggestion-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.home-suggestion-state,
+.home-suggestion-text {
+  margin: 0;
+}
+
+.home-suggestion-state {
+  color: var(--book-muted);
+  font-family: var(--font-typewriter);
+  font-size: 7px;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+}
+
+.home-suggestion-text {
+  max-width: 46ch;
+  color: var(--book-ink);
+  font-family: var(--font-book);
+  font-size: 9.5px;
+  line-height: 1.42;
+}
+
+/* Let the Archive read as the first substantial content block. */
+.home-overview-compact + .panel {
+  margin-top: 0;
+  padding-top: 14px;
+}
+
+.home-overview-compact + .panel .entry-head {
+  margin-bottom: 12px;
+}
+
+.home-overview-compact + .panel .entry-head h2 {
+  margin-bottom: 0;
+  font-family: var(--font-book);
+  font-size: clamp(18px, 2vw, 26px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  text-transform: none;
+}
+
+/* Improve archive readability without losing the book/publication feel. */
+.archive-card-title,
+.archive-text-sheet-title,
+.archive-modal-head h2,
+.archive-intro-panel h2 {
+  font-family: var(--font-book);
+}
+
+.archive-card-title {
+  font-weight: 500;
+}
+
+.archive-text-sheet .archive-preview-excerpt,
+.archive-modal-body,
+.archive-modal-body p,
+.subtitle,
+.muted {
+  font-family: var(--font-book);
+}
+
+@media (max-width: 900px) {
+  .home-overview-compact {
+    grid-template-columns: 1fr;
+  }
+
+  .home-suggestion-compact {
+    border-top: 1px solid var(--book-line-soft);
+  }
+
+  .home-metrics-compact {
+    grid-template-columns: 1.4fr repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 580px) {
+  body {
+    font-size: 14px;
+  }
+
+  .book-hero.book-hero-compact {
+    padding: 6px 0 12px;
+    margin-bottom: 7px;
+  }
+
+  .book-hero-compact .book-hero-topline {
+    margin-bottom: 12px;
+  }
+
+  .book-hero-compact .book-hero-title {
+    font-size: clamp(21px, 6.7vw, 30px);
+  }
+
+  .book-hero-compact .book-hero-subtitle {
+    margin-top: 7px !important;
+    font-size: 9.5px !important;
+  }
+
+  .home-overview-compact {
+    margin-bottom: 12px;
+  }
+
+  .home-metrics-compact {
+    grid-template-columns: 1.4fr repeat(3, minmax(0, 1fr));
+  }
+
+  .home-metric {
+    padding: 7px 5px 6px;
+  }
+
+  .home-metric .label {
+    font-size: 5.4px;
+    letter-spacing: 0.06em;
+  }
+
+  .home-metric-value {
+    font-size: 13px;
+  }
+
+  .home-metric-word {
+    font-size: 8.5px;
+  }
+
+  .home-rhythm-lines p,
+  .home-metric-note {
+    font-size: 5.3px;
+    line-height: 1.35;
+  }
+
+  .home-suggestion-compact {
+    padding: 7px 6px 8px;
+  }
+
+  .home-suggestion-heading {
+    margin-bottom: 3px;
+  }
+
+  .home-suggestion-heading .eyebrow,
+  .home-suggestion-state {
+    font-size: 5.4px;
+  }
+
+  .home-suggestion-title {
+    font-size: 7px;
+  }
+
+  .home-suggestion-text {
+    max-width: none;
+    font-size: 7px;
+    line-height: 1.35;
+  }
+
+  .home-overview-compact + .panel {
+    padding-top: 10px;
+  }
+}
+
+/* Archive is intentionally the first substantial block on Home. */
+.home-archive-first {
+  margin-top: 0;
+  padding-top: 12px;
+  margin-bottom: 14px;
+}
+
+.home-archive-first .entry-head {
+  margin-bottom: 12px;
+}
+
+.home-archive-first .entry-head h2 {
+  margin-bottom: 0;
+  font-family: var(--font-book);
+  font-size: clamp(18px, 2vw, 26px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  text-transform: none;
+}
+
+.home-archive-first + .home-overview-compact {
+  margin-top: 4px;
+}

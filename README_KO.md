@@ -1,19 +1,19 @@
-# SOFTSYSTEMS — Book/Print Light Hero Patch
+# SOFTSYSTEMS — Archive First / Readable Home Patch
 
-이 패치는 기존 Book/Print 리디자인 위에 덮어쓰는 보정 패치입니다.
+이번 수정은 Home에서 **Archive가 실제로 가장 먼저 보이도록 순서를 변경**한 버전입니다.
 
-## 변경 내용
-- 메인 배경을 훨씬 밝은 blush / paper tone으로 변경
-- 본문/타이포 대비를 높여 가독성 개선
-- `A caring system for creative life.` 제목 크기 축소
-- 제목을 화면 중앙이 아니라 위쪽으로 올림
-- Hero 높이를 크게 줄여 첫 화면에서 아래 Home 내용이 함께 보이도록 변경
-- 제목 아래 `01 / INPUT`, `02 / PROCESS`, `03 / OUTPUT`, `04 / ARCHIVE` 완전 제거
-- Hero 안의 장식용 fragment 텍스트도 제거해서 핵심 문구만 남김
-- Archive 3열 규칙 및 기존 업로드/DB 기능은 변경하지 않음
+변경사항:
+- Hero 바로 아래에 Latest Archive 배치
+- Practice Rhythm / Body Weather / Energy Tone / Current Mode는 Archive 아래의 얕은 상태 스트립으로 축소
+- Soft Suggestion도 같은 상태 스트립 안에 압축
+- Hero 높이/제목 크기 추가 축소
+- 본문/제목 폰트를 SUIT 기반으로 바꿔 가독성 개선
+- typewriter 느낌은 작은 metadata와 label에만 유지
+- Archive는 기존대로 3열 유지
+- Supabase/첨부/데이터 로직 변경 없음
 
-## 덮어쓸 파일
-- `components/SiteHero.js`
+덮어쓸 파일:
+- `app/page.js`
 - `app/globals.css`
 
-덮어쓴 뒤 Vercel에서 redeploy 하면 됩니다.
+SQL 실행은 필요 없습니다. 덮어쓴 뒤 Vercel 재배포만 하면 됩니다.
