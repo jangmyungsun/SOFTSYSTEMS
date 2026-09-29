@@ -249,6 +249,19 @@ export default function ArchiveCard({
       );
     }, [attachments]);
 
+  const typeKey =
+    toValueKey(entry.type) ||
+    "archive";
+
+  const translatedTypeKey =
+    `archive.types.${typeKey}`;
+
+  const typeLabel =
+    t(translatedTypeKey) !==
+    translatedTypeKey
+      ? t(translatedTypeKey)
+      : formatLabel(entry.type);
+
   const isVideo =
     entry.type === "video";
 
@@ -489,13 +502,25 @@ export default function ArchiveCard({
   return (
     <>
       <article
-        className={
+        className={`archive-preview-card ${
           isVideo
-            ? "archive-preview-card archive-video-card"
-            : "archive-preview-card archive-text-card"
-        }
+            ? "archive-video-card"
+            : "archive-text-card"
+        } stitch-${typeKey}`}
       >
-        <div className="archive-preview-main">
+        <div
+          className="archive-preview-main archive-preview-trigger"
+          role="button"
+          tabIndex={0}
+          onClick={openModal}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              openModal();
+            }
+          }}
+          aria-label={`${entry.title || typeLabel} — ${t("common.viewMore")}`}
+        >
           {isVideo ? (
             <>
               {thumbnail ? (
@@ -510,28 +535,7 @@ export default function ArchiveCard({
                 </div>
               )}
 
-              <div className="archive-video-shade" />
-
-              <div className="archive-video-content">
-                <p className="eyebrow">
-                  {t("common.video")}
-                </p>
-
-                <h2>
-                  <TranslateButton
-                    text={entry.title || ""}
-                    sourceLanguage="en"
-                    contentKey={`archive:${entry.id || entry.title || "entry"}:title`}
-                    className="translate-block"
-                    as="span"
-                    showControls={false}
-                  />
-                </h2>
-
-                <p className="muted">
-                  {entry.entry_date}
-                </p>
-              </div>
+              <span className="archive-media-index">VIDEO</span>
             </>
           ) : previewImageUrl ? (
             <>
@@ -544,64 +548,27 @@ export default function ArchiveCard({
                   ""
                 }
               />
-
-              <div className="archive-image-shade" />
-
-              <div className="archive-image-content">
-                <p className="eyebrow">
-                  {t(`archive.types.${toValueKey(entry.type)}`) !== `archive.types.${toValueKey(entry.type)}`
-                    ? t(`archive.types.${toValueKey(entry.type)}`)
-                    : formatLabel(entry.type)}
-                </p>
-
-                <h2>
-                  <TranslateButton
-                    text={entry.title || ""}
-                    sourceLanguage="en"
-                    contentKey={`archive:${entry.id || entry.title || "entry"}:title`}
-                    className="translate-block"
-                    as="span"
-                    showControls={false}
-                  />
-                </h2>
-
-                <p className="muted">
-                  {entry.entry_date}
-                </p>
-              </div>
+              <span className="archive-media-index">IMAGE</span>
             </>
           ) : (
-            <div className="archive-text-content">
-              <div>
-                <p className="eyebrow">
-                  {t(`archive.types.${toValueKey(entry.type)}`) !== `archive.types.${toValueKey(entry.type)}`
-                    ? t(`archive.types.${toValueKey(entry.type)}`)
-                    : formatLabel(entry.type)}
-                </p>
-
-                <h2>
-                  <TranslateButton
-                    text={entry.title || ""}
-                    sourceLanguage="en"
-                    contentKey={`archive:${entry.id || entry.title || "entry"}:title`}
-                    className="translate-block"
-                    as="span"
-                    showControls={false}
-                  />
-                </h2>
-
-                <p className="muted">
-                  {entry.entry_date}
-                </p>
-              </div>
-
+            <div className="archive-text-sheet">
+              <span className="archive-text-sheet-index">{typeLabel}</span>
+              <p className="archive-text-sheet-title">
+                <TranslateButton
+                  text={entry.title || ""}
+                  sourceLanguage="en"
+                  contentKey={`archive:${entry.id || entry.title || "entry"}:title`}
+                  className="translate-block"
+                  as="span"
+                  showControls={false}
+                />
+              </p>
               <p className="archive-preview-excerpt">
                 <TranslateButton
-                  text={shortenText(
-                    entry.body,
-                    190
-                  ) ||
-                    t("common.noPreviewText")}
+                  text={
+                    shortenText(entry.body, 150) ||
+                    t("common.noPreviewText")
+                  }
                   sourceLanguage="en"
                   contentKey={`archive:${entry.id || entry.title || "entry"}:excerpt`}
                   className="translate-block"
@@ -609,112 +576,130 @@ export default function ArchiveCard({
                   showControls={false}
                 />
               </p>
+              <div className="archive-text-score" aria-hidden="true">
+                <i />
+                <b />
+                <i />
+                <span />
+                <i />
+              </div>
+            </div>
+          )}
 
-              {tags.length > 0 && (
-                <div className="tag-list archive-preview-tags">
-                  {tags
-                    .slice(0, 3)
-                    .map(
-                      (
-                        tag,
-                        index
-                      ) => (
-                        <span
-                          className="tag"
-                          key={`${tag}-${index}`}
-                        >
-                          {tag}
-                        </span>
-                      )
-                    )}
-                </div>
-              )}
+          <span className="stitch-corner stitch-corner-tl" aria-hidden="true" />
+          <span className="stitch-corner stitch-corner-tr" aria-hidden="true" />
+          <span className="stitch-corner stitch-corner-bl" aria-hidden="true" />
+          <span className="stitch-corner stitch-corner-br" aria-hidden="true" />
+        </div>
 
-              {attachmentSummary.total >
-                0 && (
-                <p className="muted archive-attachment-hint">
-                  {attachmentSummary.imageCount >
-                  0
-                    ? `${t("common.image")} · `
-                    : attachmentSummary.bookCount >
-                      0
-                    ? `${t("common.bookFile")} · `
-                    : `${t("common.document")} · `}
-                  {attachmentSummary.total} {t("common.attachments")}
-                </p>
-              )}
+        <div className="archive-card-caption">
+          <div className="archive-caption-meta">
+            <p className="eyebrow">{typeLabel}</p>
+            <p className="archive-caption-date">{entry.entry_date}</p>
+          </div>
+
+          <button
+            type="button"
+            className="archive-card-title-button"
+            onClick={openModal}
+          >
+            <span className="archive-card-title">
+              <TranslateButton
+                text={entry.title || ""}
+                sourceLanguage="en"
+                contentKey={`archive:${entry.id || entry.title || "entry"}:title`}
+                className="translate-block"
+                as="span"
+                showControls={false}
+              />
+            </span>
+          </button>
+
+          <div className="archive-caption-bottom">
+            <div className="archive-mini-stitch" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
+
+            <button
+              type="button"
+              className="archive-open-link"
+              onClick={openModal}
+            >
+              open ↗
+            </button>
+          </div>
+
+          {attachmentSummary.total > 0 && (
+            <p className="archive-attachment-hint">
+              {attachmentSummary.imageCount > 0
+                ? t("common.image")
+                : attachmentSummary.bookCount > 0
+                ? t("common.bookFile")
+                : t("common.document")}
+              {" · "}
+              {String(attachmentSummary.total).padStart(2, "0")}
+            </p>
+          )}
+
+          {tags.length > 0 && (
+            <div className="tag-list archive-preview-tags">
+              {tags.slice(0, 3).map((tag, index) => (
+                <span className="tag" key={`${tag}-${index}`}>
+                  {tag}
+                </span>
+              ))}
             </div>
           )}
         </div>
 
-        <div className="archive-preview-footer">
-          <button
-            type="button"
-            className="archive-view-button"
-            onClick={openModal}
-          >
-            {t("common.viewMore")}
-          </button>
-        </div>
-
         {admin && (
+          <details className="archive-admin-menu">
+            <summary aria-label="Manage archive entry">•••</summary>
+            <div className="archive-admin-menu-popover">
+              <button
+                type="button"
+                disabled={disableActions}
+                onClick={() => onEdit?.(entry)}
+              >
+                {t("common.edit")}
+              </button>
+
+              <button
+                type="button"
+                disabled={disableActions}
+                onClick={() => onToggle?.(entry)}
+              >
+                {toggleLabel ||
+                  (entry.is_public
+                    ? t("common.private")
+                    : t("common.public"))}
+              </button>
+
+              {canDelete && (
+                <button
+                  type="button"
+                  disabled={disableActions}
+                  onClick={() => onDelete?.(entry)}
+                >
+                  {deleting
+                    ? deleteLabel || t("common.delete")
+                    : t("common.delete")}
+                </button>
+              )}
+            </div>
+          </details>
+        )}
+
+        {!admin && canDelete && (
           <div className="archive-card-actions">
             <button
               type="button"
-              disabled={
-                disableActions
-              }
-              onClick={() =>
-                onEdit?.(entry)
-              }
-            >
-              {t("common.edit")}
-            </button>
-
-            <button
-              type="button"
-              disabled={
-                disableActions
-              }
-              onClick={() =>
-                onToggle?.(entry)
-              }
-            >
-              {toggleLabel ||
-                (entry.is_public
-                  ? t("common.private")
-                  : t("common.public"))}
-            </button>
-
-            {canDelete && (
-              <button
-                type="button"
-                disabled={
-                  disableActions
-                }
-                onClick={() =>
-                  onDelete?.(entry)
-                }
-              >
-                {deleting
-                  ? deleteLabel || t("common.delete")
-                  : t("common.delete")}
-              </button>
-            )}
-          </div>
-        )}
-
-        {!admin &&
-          canDelete && (
-            <div className="archive-card-actions">
-              <button
-              type="button"
-              disabled={
-                disableActions
-              }
-              onClick={() =>
-                onDelete?.(entry)
-              }
+              disabled={disableActions}
+              onClick={() => onDelete?.(entry)}
             >
               {deleting
                 ? deleteLabel || t("common.delete")

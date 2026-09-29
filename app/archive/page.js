@@ -1643,7 +1643,7 @@ export default function ArchivePage() {
 
   return (
     <>
-      <section className="panel">
+      <section className="panel archive-intro-panel">
         <div className="entry-head">
           <div>
             <p className="eyebrow">
@@ -1703,6 +1703,18 @@ export default function ArchivePage() {
               {t("archive.publicNotice")}
             </p>
           )}
+
+        <div className="archive-score-rule" aria-hidden="true">
+          <span>2026</span>
+          <i />
+          <span>WRITING</span>
+          <i />
+          <span>IMAGE</span>
+          <i />
+          <span>PROCESS</span>
+          <i />
+          <span>REFERENCE</span>
+        </div>
       </section>
 
       {embeddingStatus && (
@@ -1723,7 +1735,7 @@ export default function ArchivePage() {
 
       {user &&
         showForm && (
-          <section className="panel">
+          <section className="panel archive-form-panel">
             <ArchiveForm
               key={
                 editingEntry?.id ||
@@ -1754,8 +1766,8 @@ export default function ArchivePage() {
           </section>
         )}
 
-      <section className="panel">
-        <div className="grid two">
+      <section className="panel archive-tools-panel">
+        <div className="grid two archive-search-grid">
           <label>
             {t("archive.search")}
 
@@ -1808,15 +1820,8 @@ export default function ArchivePage() {
           )}
         </div>
 
-        <p className="muted">
-          {
-            filteredEntries.length
-          }{" "}
-          {t("archive.archiveLabel")}{" "}
-          {filteredEntries.length ===
-          1
-            ? t("archive.entry")
-            : t("archive.entries")}
+        <p className="muted archive-result-count">
+          {String(filteredEntries.length).padStart(2, "0")} · {t("archive.archiveLabel")} {filteredEntries.length === 1 ? t("archive.entry") : t("archive.entries")}
         </p>
       </section>
 
