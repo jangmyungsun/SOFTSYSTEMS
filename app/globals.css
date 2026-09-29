@@ -3994,3 +3994,115 @@ body {
     line-height: 1.42;
   }
 }
+
+/* =========================================================
+   HOME OVERVIEW — slightly larger, more readable type
+   ========================================================= */
+.home-metric .label {
+  font-size: 10px;
+  line-height: 1.28;
+  letter-spacing: 0.095em;
+}
+
+.home-metric-value {
+  font-size: 22px;
+  line-height: 1.08;
+}
+
+.home-metric-word {
+  font-size: 16px;
+  line-height: 1.22;
+}
+
+.home-rhythm-lines p,
+.home-metric-note {
+  font-size: 10px;
+  line-height: 1.52;
+}
+
+.home-suggestion-heading .eyebrow {
+  font-size: 9.5px;
+  line-height: 1.15;
+}
+
+.home-suggestion-title {
+  font-size: 13px;
+  line-height: 1.28;
+}
+
+.home-suggestion-state {
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.home-suggestion-text {
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+@media (max-width: 900px) {
+  .home-metric .label {
+    font-size: 9px;
+  }
+
+  .home-metric-value {
+    font-size: 20px;
+  }
+
+  .home-metric-word {
+    font-size: 14px;
+  }
+
+  .home-rhythm-lines p,
+  .home-metric-note {
+    font-size: 9px;
+  }
+
+  .home-suggestion-heading .eyebrow,
+  .home-suggestion-state {
+    font-size: 8.5px;
+  }
+
+  .home-suggestion-title {
+    font-size: 12px;
+  }
+
+  .home-suggestion-text {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 580px) {
+  .home-metric .label {
+    font-size: 7.2px;
+    letter-spacing: 0.06em;
+  }
+
+  .home-metric-value {
+    font-size: 16px;
+  }
+
+  .home-metric-word {
+    font-size: 10.5px;
+  }
+
+  .home-rhythm-lines p,
+  .home-metric-note {
+    font-size: 7.2px;
+    line-height: 1.45;
+  }
+
+  .home-suggestion-heading .eyebrow,
+  .home-suggestion-state {
+    font-size: 7.2px;
+  }
+
+  .home-suggestion-title {
+    font-size: 9.2px;
+  }
+
+  .home-suggestion-text {
+    font-size: 9.2px;
+    line-height: 1.45;
+  }
+}
