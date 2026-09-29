@@ -219,6 +219,7 @@ export default function ArchiveCard({
           attachments.length,
         imageCount: 0,
         bookCount: 0,
+        videoCount: 0,
         documentCount: 0,
       };
 
@@ -235,6 +236,8 @@ export default function ArchiveCard({
             type === "book"
           ) {
             summary.bookCount += 1;
+          } else if (type === "video") {
+            summary.videoCount += 1;
           } else if (
             type ===
             "document"
@@ -626,6 +629,8 @@ export default function ArchiveCard({
                 ? t("common.image")
                 : attachmentSummary.bookCount > 0
                 ? t("common.bookFile")
+                : attachmentSummary.videoCount > 0
+                ? t("common.video")
                 : t("common.document")}
               {" · "}
               {String(attachmentSummary.total).padStart(2, "0")}

@@ -1,16 +1,24 @@
-# Archive Book Type 추가 패치
+# Archive MOV / AVI 첨부 지원 패치
 
-New Archive의 Type에 `Book`을 추가했습니다.
+Archive 첨부파일에 MOV 및 AVI 비디오 파일을 추가할 수 있도록 수정한 패치입니다.
 
-적용 파일:
+## 변경 사항
+- 파일 선택기에서 `.mov`, `.avi` 허용
+- MOV MIME (`video/quicktime`) 지원
+- AVI MIME (`video/x-msvideo`, `video/avi`, `video/msvideo`) 지원
+- 브라우저가 MOV/AVI MIME을 비워 두거나 `application/octet-stream`으로 전달하는 경우에도 확장자를 확인해 허용
+- 첨부 유형을 `Video`로 표시
+- Archive 카드 첨부 요약에서도 비디오 파일을 `Video`로 표시
+- 첨부 도움말에 MOV / AVI 추가
+
+## 덮어쓸 파일
 - `components/ArchiveForm.js`
-- `app/archive/page.js`
+- `components/ArchiveCard.js`
+- `lib/archiveAttachments.js`
 - `lib/i18n.js`
 
-변경 내용:
-- New Archive 타입 목록에 `Book` 추가
-- Archive 필터에도 `Book` 추가
-- EN/KO/JA 타입 라벨 추가
-- Archive 설명 문구에도 books/책 반영
+## 참고
+기존 첨부 파일 크기 제한인 파일당 25MB는 그대로 유지했습니다.
+25MB가 넘는 MOV/AVI까지 올리고 싶다면 별도로 업로드 크기 제한을 조정해야 합니다.
 
-DB 스키마 변경은 필요 없습니다. 현재 Archive type 값은 텍스트로 저장되므로 `book` 값이 그대로 저장됩니다.
+Supabase SQL 변경은 필요하지 않습니다.
