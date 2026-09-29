@@ -1,19 +1,16 @@
-# SOFTSYSTEMS — Archive First / Readable Home Patch
+# SOFTSYSTEMS warm overview first patch
 
-이번 수정은 Home에서 **Archive가 실제로 가장 먼저 보이도록 순서를 변경**한 버전입니다.
+이번 패치는 홈 화면에서 상태 요약을 Archive 위로 올리고, 가독성을 조금 키우며,
+배경을 더 밝고 노란 기가 살짝 도는 핑크/크림 종이색으로 조정합니다.
 
-변경사항:
-- Hero 바로 아래에 Latest Archive 배치
-- Practice Rhythm / Body Weather / Energy Tone / Current Mode는 Archive 아래의 얕은 상태 스트립으로 축소
-- Soft Suggestion도 같은 상태 스트립 안에 압축
-- Hero 높이/제목 크기 추가 축소
-- 본문/제목 폰트를 SUIT 기반으로 바꿔 가독성 개선
-- typewriter 느낌은 작은 metadata와 label에만 유지
-- Archive는 기존대로 3열 유지
-- Supabase/첨부/데이터 로직 변경 없음
+## 변경점
+- Practice Rhythm / Body Weather / Energy Tone / Current Mode / Soft Suggestion을 **Latest Archive 위로 이동**
+- 해당 영역의 라벨, 수치, 설명, Soft Suggestion 텍스트를 한 단계 크게 조정
+- 배경색을 `#f8efe4` 중심의 warm blush / cream 톤으로 변경
+- 기존 Archive 3열 및 Supabase/첨부 기능은 그대로 유지
 
-덮어쓸 파일:
+## 덮어쓸 파일
 - `app/page.js`
 - `app/globals.css`
 
-SQL 실행은 필요 없습니다. 덮어쓴 뒤 Vercel 재배포만 하면 됩니다.
+적용 후 Vercel에서 재배포하세요.

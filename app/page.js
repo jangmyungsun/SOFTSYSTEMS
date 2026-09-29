@@ -682,53 +682,6 @@ export default function Home() {
 
   return (
     <>
-      <section className="panel home-archive-first">
-        <div className="entry-head">
-          <div>
-            <p className="eyebrow">
-              {t("home.input")}
-            </p>
-
-            <h2>
-              {t("home.latestArchive")}
-            </h2>
-          </div>
-
-          <a href="/archive">
-            {t("home.viewAll")}
-          </a>
-        </div>
-
-        {archiveEntries.length >
-          0 && (
-          <div className="archive-grid">
-            {archiveEntries.map(
-              (entry) => (
-                <ArchiveCard
-                  key={
-                    entry.id
-                  }
-                  entry={
-                    entry
-                  }
-                  requestAccessToken={
-                    getAccessToken
-                  }
-                />
-              )
-            )}
-          </div>
-        )}
-
-        {!archiveEntries.length &&
-          !loading && (
-            <p className="muted">
-              {t("home.noArchiveEntries")}
-            </p>
-          )}
-      </section>
-
-
       <section className="home-overview-compact">
         <div className="home-metrics-compact">
           <div className="home-metric home-metric-rhythm">
@@ -818,6 +771,54 @@ export default function Home() {
           )}
         </section>
       </section>
+
+
+      <section className="panel home-archive-first">
+        <div className="entry-head">
+          <div>
+            <p className="eyebrow">
+              {t("home.input")}
+            </p>
+
+            <h2>
+              {t("home.latestArchive")}
+            </h2>
+          </div>
+
+          <a href="/archive">
+            {t("home.viewAll")}
+          </a>
+        </div>
+
+        {archiveEntries.length >
+          0 && (
+          <div className="archive-grid">
+            {archiveEntries.map(
+              (entry) => (
+                <ArchiveCard
+                  key={
+                    entry.id
+                  }
+                  entry={
+                    entry
+                  }
+                  requestAccessToken={
+                    getAccessToken
+                  }
+                />
+              )
+            )}
+          </div>
+        )}
+
+        {!archiveEntries.length &&
+          !loading && (
+            <p className="muted">
+              {t("home.noArchiveEntries")}
+            </p>
+          )}
+      </section>
+
 
       <section className="panel">
         <div className="entry-head">
