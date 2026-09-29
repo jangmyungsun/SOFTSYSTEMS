@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import TranslateButton from "./TranslateButton";
+import PdfFirstPagePreview from "./PdfFirstPagePreview";
 import { useLanguage } from "./LanguageProvider";
 import {
   formatAttachmentSize,
@@ -21,6 +22,19 @@ function toValueKey(value) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
+}
+
+function normalizeArchiveType(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-");
+
+  if (normalized === "reflection") {
+    return "idea";
+  }
+
+  return normalized || "idea";
 }
 
 function formatLabel(value) {
@@ -148,13 +162,6 @@ function getYoutubeEmbedUrl(url) {
   return `https://www.youtube.com/embed/${videoId}`;
 }
 
-function getPdfPreviewUrl(url) {
-  if (!url) {
-    return "";
-  }
-
-  return `${url}#page=1&view=FitH&toolbar=0&navpanes=0&scrollbar=0`;
-}
 
 export default function ArchiveCard({
   entry,
@@ -287,8 +294,11 @@ export default function ArchiveCard({
       );
     }, [attachments]);
 
+  const normalizedType =
+    normalizeArchiveType(entry.type);
+
   const typeKey =
-    toValueKey(entry.type) ||
+    toValueKey(normalizedType) ||
     "archive";
 
   const translatedTypeKey =
@@ -298,10 +308,10 @@ export default function ArchiveCard({
     t(translatedTypeKey) !==
     translatedTypeKey
       ? t(translatedTypeKey)
-      : formatLabel(entry.type);
+      : formatLabel(normalizedType);
 
   const isVideo =
-    entry.type === "video";
+    normalizedType === "video";
 
   const thumbnail =
     isVideo
@@ -477,6 +487,7 @@ export default function ArchiveCard({
     if (
       !previewAttachment ||
       !previewAttachmentId ||
+      previewIsPdf ||
       previewAttachmentUrl
     ) {
       return;
@@ -522,8 +533,7 @@ export default function ArchiveCard({
     attachments
       .filter(
         (attachment) =>
-          isImageAttachment(attachment) ||
-          isPdfAttachment(attachment)
+          isImageAttachment(attachment)
       )
       .forEach((attachment) => {
         const attachmentId = String(
@@ -577,15 +587,13 @@ export default function ArchiveCard({
 
               <span className="archive-media-index">VIDEO</span>
             </>
-          ) : previewAttachmentUrl && previewIsPdf ? (
+          ) : previewIsPdf && previewAttachmentId ? (
             <>
-              <iframe
+              <PdfFirstPagePreview
+                attachmentId={previewAttachmentId}
+                requestAccessToken={requestAccessToken}
                 className="archive-pdf-preview-frame"
-                src={getPdfPreviewUrl(previewAttachmentUrl)}
                 title={`${previewAttachment?.original_filename || entry.title || "PDF"} — page 1`}
-                tabIndex={-1}
-                aria-hidden="true"
-                loading="lazy"
               />
               <span className="archive-media-index">PDF · P.01</span>
             </>
@@ -935,33 +943,12 @@ export default function ArchiveCard({
                           </button>
                         )
                       ) : isPdf ? (
-                        attachmentUrls[
-                          attachmentId
-                        ] ? (
-                          <iframe
-                            src={getPdfPreviewUrl(
-                              attachmentUrls[
-                                attachmentId
-                              ]
-                            )}
-                            title={`${attachment.original_filename || "PDF"} — page 1`}
-                            className="archive-attachment-pdf-preview"
-                            tabIndex={-1}
-                            loading="lazy"
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            className="archive-attachment-preview-load archive-pdf-preview-load"
-                            onClick={() =>
-                              loadAttachmentPreview(
-                                attachment
-                              )
-                            }
-                          >
-                            PDF
-                          </button>
-                        )
+                        <PdfFirstPagePreview
+                          attachmentId={attachmentId}
+                          requestAccessToken={requestAccessToken}
+                          title={`${attachment.original_filename || "PDF"} — page 1`}
+                          className="archive-attachment-pdf-preview"
+                        />
                       ) : (
                         <div className="archive-attachment-file-badge">
                           {t(

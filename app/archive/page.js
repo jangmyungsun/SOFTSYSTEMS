@@ -34,8 +34,8 @@ const FILTERS = [
     label: "Essay",
   },
   {
-    value: "reflection",
-    label: "Reflection",
+    value: "idea",
+    label: "Idea",
   },
   {
     value: "project-log",
@@ -48,6 +48,10 @@ const FILTERS = [
   {
     value: "book",
     label: "Book",
+  },
+  {
+    value: "wine",
+    label: "Wine",
   },
   {
     value: "reference",
@@ -76,12 +80,28 @@ function normalizeTags(value) {
   return [];
 }
 
+function normalizeArchiveType(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-");
+
+  return normalized === "reflection"
+    ? "idea"
+    : normalized || "idea";
+}
+
 function normalizeEntry(
   entry,
   sourceTable = ""
 ) {
   return {
     ...entry,
+
+    type:
+      normalizeArchiveType(
+        entry?.type
+      ),
 
     entry_date:
       entry?.entry_date ||
@@ -813,8 +833,17 @@ export default function ArchivePage() {
           );
 
         if (uploadError) {
+          const uploadMessage =
+            String(uploadError.message || "");
+          const storageLimitError =
+            /maximum|too large|payload|size limit|exceeded/i.test(
+              uploadMessage
+            );
+
           errors.push(
-            `${file.name}: ${uploadError.message}`
+            storageLimitError
+              ? `${file.name}: ${t("archiveForm.storageLimitReached")}`
+              : `${file.name}: ${uploadMessage}`
           );
 
           continue;

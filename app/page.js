@@ -177,9 +177,25 @@ function normalizeTags(value) {
   return [];
 }
 
+function normalizeArchiveType(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-");
+
+  return normalized === "reflection"
+    ? "idea"
+    : normalized || "idea";
+}
+
 function normalizeArchiveEntry(entry) {
   return {
     ...entry,
+
+    type:
+      normalizeArchiveType(
+        entry?.type
+      ),
 
     entry_date:
       entry?.entry_date ||
@@ -686,13 +702,23 @@ export default function Home() {
         <div className="home-metrics-compact">
           <div className="home-metric home-metric-rhythm">
             <p className="label">{t("home.practiceRhythm")}</p>
-            <div className="home-metric-value">
-              {homeState.making.toFixed(1)}h
-            </div>
-            <div className="home-rhythm-lines">
-              <p>{t("home.making")} {t("home.perDayThisMonth", { hours: homeState.making.toFixed(1) })}</p>
-              <p>{t("home.learning")} {t("home.perDayThisMonth", { hours: homeState.learning.toFixed(1) })}</p>
-              <p>{t("home.bodyMoving")} {t("home.perDayThisMonth", { hours: movementAverage.toFixed(1) })}</p>
+            <div className="home-rhythm-lines home-rhythm-list">
+              <p>
+                <span>{t("home.making")}</span>
+                <span aria-hidden="true">—</span>
+                <strong>{homeState.making.toFixed(1)}h</strong>
+              </p>
+              <p>
+                <span>{t("home.learning")}</span>
+                <span aria-hidden="true">—</span>
+                <strong>{homeState.learning.toFixed(1)}h</strong>
+              </p>
+              <p>
+                <span>{t("home.bodyMoving")}</span>
+                <span aria-hidden="true">—</span>
+                <strong>{movementAverage.toFixed(1)}h</strong>
+              </p>
+              <p className="home-rhythm-average">{t("home.dailyAverageThisMonth")}</p>
             </div>
           </div>
 

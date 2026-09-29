@@ -133,6 +133,7 @@ export async function GET(request, context) {
     }
 
     const download = request.nextUrl.searchParams.get("download") === "1";
+    const raw = request.nextUrl.searchParams.get("raw") === "1";
     const user = await getAuthenticatedUser(request);
     const { attachment, archive } = await getAttachmentWithArchive(attachmentId);
 
@@ -142,6 +143,32 @@ export async function GET(request, context) {
 
     if (!canAccessAttachment({ archive, user })) {
       return NextResponse.json({ error: "Attachment access is not allowed." }, { status: 403 });
+    }
+
+    if (raw) {
+      const { data: rawFile, error: rawError } = await supabaseAdmin.storage
+        .from(attachment.storage_bucket)
+        .download(attachment.storage_path);
+
+      if (rawError || !rawFile) {
+        throw rawError || new Error("Attachment download failed.");
+      }
+
+      const rawBuffer = await rawFile.arrayBuffer();
+      const contentType =
+        attachment.mime_type ||
+        rawFile.type ||
+        "application/octet-stream";
+
+      return new NextResponse(rawBuffer, {
+        status: 200,
+        headers: {
+          "Content-Type": contentType,
+          "Content-Disposition": "inline",
+          "Cache-Control": "private, max-age=300",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
     }
 
     const options = download

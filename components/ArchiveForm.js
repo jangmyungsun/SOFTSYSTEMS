@@ -20,8 +20,8 @@ const ARCHIVE_TYPES = [
     label: "Essay",
   },
   {
-    value: "reflection",
-    label: "Reflection",
+    value: "idea",
+    label: "Idea",
   },
   {
     value: "project-log",
@@ -44,6 +44,17 @@ const ARCHIVE_TYPES = [
     label: "Reference",
   },
 ];
+
+function normalizeArchiveType(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-");
+
+  return normalized === "reflection"
+    ? "idea"
+    : normalized || "idea";
+}
 
 function getTodayString() {
   return new Date()
@@ -82,7 +93,7 @@ function textToTags(text) {
 
 function makeEmptyForm() {
   return {
-    type: "reflection",
+    type: "idea",
     title: "",
     entry_date:
       getTodayString(),
@@ -103,6 +114,11 @@ function prepareInitialForm(
   return {
     ...makeEmptyForm(),
     ...initial,
+
+    type:
+      normalizeArchiveType(
+        initial.type
+      ),
 
     entry_date:
       initial.entry_date ||
@@ -599,8 +615,8 @@ export default function ArchiveForm({
               "essay"
                 ? t("archiveForm.placeholders.essay")
                 : form.type ===
-                  "reflection"
-                ? t("archiveForm.placeholders.reflection")
+                  "idea"
+                ? t("archiveForm.placeholders.idea")
                 : form.type ===
                   "project-log"
                 ? t("archiveForm.placeholders.project_log")
@@ -666,6 +682,12 @@ export default function ArchiveForm({
           <p className="muted attachment-help">
             {t(
               "archiveForm.acceptedFileTypes"
+            )}
+          </p>
+
+          <p className="muted attachment-help">
+            {t(
+              "archiveForm.maxFileSizeHelp"
             )}
           </p>
 
