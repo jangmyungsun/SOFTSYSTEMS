@@ -3342,3 +3342,145 @@ select {
     font-size: 6px;
   }
 }
+
+/* =========================================================
+   BOOK / PRINT — LIGHTER, COMPACT HERO REFINEMENT
+   ========================================================= */
+
+:root {
+  --book-paper: #f5ecea;
+  --book-paper-light: #fbf6f4;
+  --book-paper-deep: #eadbd9;
+  --book-ink: #252121;
+  --book-muted: #746b6c;
+  --book-line: rgba(37, 33, 33, 0.18);
+  --book-line-soft: rgba(37, 33, 33, 0.09);
+  --book-white: #fffafa;
+}
+
+html,
+body {
+  background: var(--book-paper);
+  color: var(--book-ink);
+}
+
+body {
+  background:
+    linear-gradient(rgba(255,255,255,0.18), rgba(255,255,255,0.18)),
+    var(--book-paper);
+}
+
+body::before {
+  opacity: 0.07;
+}
+
+.book-nav {
+  margin-bottom: 18px;
+}
+
+.book-hero.book-hero-compact {
+  min-height: 0;
+  display: block;
+  padding: 18px 0 34px;
+  margin-bottom: 22px;
+  overflow: visible;
+}
+
+.book-hero-compact .book-hero-topline {
+  margin-bottom: 34px;
+}
+
+.book-hero-compact .book-hero-stage {
+  min-height: 0;
+  display: block;
+  padding: 0;
+}
+
+.book-hero-compact .book-hero-copy {
+  width: min(720px, 78%);
+  margin: 0;
+  text-align: left;
+}
+
+.book-hero-compact .book-hero-title {
+  max-width: 780px;
+  margin: 0;
+  font-size: clamp(26px, 3.8vw, 48px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+.book-hero-compact .book-hero-subtitle {
+  width: min(520px, 100%);
+  margin: 16px 0 0 !important;
+  color: var(--book-muted);
+  font-size: 12px !important;
+  line-height: 1.75 !important;
+}
+
+/* Old decorative fragments/index are intentionally removed from the hero. */
+.book-hero-compact .book-fragment,
+.book-hero-compact .book-hero-index {
+  display: none !important;
+}
+
+/* The first home content should enter the initial viewport instead of sitting below a full-screen title. */
+.book-hero-compact + .grid.four,
+.book-hero-compact + section {
+  margin-top: 0;
+}
+
+.grid.four > .panel {
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+
+@media (max-width: 900px) {
+  .book-hero.book-hero-compact {
+    padding: 14px 0 28px;
+  }
+
+  .book-hero-compact .book-hero-copy {
+    width: min(680px, 86%);
+  }
+
+  .book-hero-compact .book-hero-title {
+    font-size: clamp(25px, 5.8vw, 42px);
+  }
+}
+
+@media (max-width: 580px) {
+  .book-nav {
+    margin-bottom: 8px;
+  }
+
+  .book-hero.book-hero-compact {
+    min-height: 0;
+    padding: 12px 0 24px;
+    margin-bottom: 14px;
+  }
+
+  .book-hero-compact .book-hero-topline {
+    margin-bottom: 24px;
+  }
+
+  .book-hero-compact .book-hero-copy {
+    width: 92%;
+  }
+
+  .book-hero-compact .book-hero-title {
+    font-size: clamp(23px, 7.7vw, 34px);
+    line-height: 1.1;
+  }
+
+  .book-hero-compact .book-hero-subtitle {
+    width: 94%;
+    margin-top: 12px !important;
+    font-size: 9.5px !important;
+    line-height: 1.65 !important;
+  }
+
+  .grid.four > .panel {
+    padding: 14px 10px;
+  }
+}
