@@ -147,6 +147,54 @@ function getYoutubeEmbedUrl(url) {
   return `https://www.youtube.com/embed/${videoId}`;
 }
 
+
+function ThreadCorner({ className = "", accent = false }) {
+  return (
+    <svg
+      className={`thread-corner-svg ${className}`.trim()}
+      viewBox="0 0 54 38"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      preserveAspectRatio="none"
+    >
+      <defs>
+        <linearGradient id={`thread-corner-gradient-${accent ? "accent" : "plain"}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={accent ? "#2c8a95" : "#ded4c1"} />
+          <stop offset="45%" stopColor="#f7f1e5" />
+          <stop offset="100%" stopColor={accent ? "#d7cdc0" : "#cfc4b0"} />
+        </linearGradient>
+        <filter id={`thread-corner-shadow-${accent ? "accent" : "plain"}`} x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0.3" dy="0.8" stdDeviation="0.8" floodColor="rgba(20,18,15,0.22)" />
+        </filter>
+      </defs>
+
+      <circle cx="11" cy="11" r="2.6" className="thread-hole-fill" />
+      <circle cx="11" cy="11" r="2.6" className="thread-hole-ring" />
+      <circle cx="42" cy="26" r="2.6" className="thread-hole-fill" />
+      <circle cx="42" cy="26" r="2.6" className="thread-hole-ring" />
+
+      <path
+        d="M11 11 C 17 17, 22 23, 27 21 C 32 19, 35 21, 42 26"
+        stroke={`url(#thread-corner-gradient-${accent ? "accent" : "plain"})`}
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        filter={`url(#thread-corner-shadow-${accent ? "accent" : "plain"})`}
+      />
+      <path
+        d="M11 11 C 17 17, 22 23, 27 21 C 32 19, 35 21, 42 26"
+        stroke="rgba(255,255,255,0.6)"
+        strokeWidth="1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M7 8 C 9 6, 10 5, 12 6" className="thread-tail" />
+      <path d="M42 26 C 46 27, 48 30, 50 33" className="thread-tail" />
+    </svg>
+  );
+}
+
 export default function ArchiveCard({
   entry,
   admin = false,
@@ -586,10 +634,8 @@ export default function ArchiveCard({
             </div>
           )}
 
-          <span className="stitch-corner stitch-corner-tl" aria-hidden="true" />
-          <span className="stitch-corner stitch-corner-tr" aria-hidden="true" />
-          <span className="stitch-corner stitch-corner-bl" aria-hidden="true" />
-          <span className="stitch-corner stitch-corner-br" aria-hidden="true" />
+          <ThreadCorner className="thread-corner thread-corner-tl" accent />
+          <ThreadCorner className="thread-corner thread-corner-br" />
         </div>
 
         <div className="archive-card-caption">
@@ -616,14 +662,6 @@ export default function ArchiveCard({
           </button>
 
           <div className="archive-caption-bottom">
-            <div className="archive-mini-stitch" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-              <span />
-              <span />
-            </div>
-
             <button
               type="button"
               className="archive-open-link"

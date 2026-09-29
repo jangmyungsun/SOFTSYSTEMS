@@ -2433,3 +2433,330 @@ select {
     padding: 22px 18px;
   }
 }
+
+/* =========================================================
+   THREAD MINIMAL REFINEMENT
+   Cleaner layout + more material thread feeling
+   ========================================================= */
+
+:root {
+  --paper: #f7f3eb;
+  --bg: #f4efe6;
+  --ink: #171614;
+  --muted: #706b63;
+  --line: rgba(23, 22, 20, 0.14);
+  --paper-shadow: rgba(23, 22, 20, 0.045);
+  --thread: #2e8a95;
+  --thread-ivory: #ddd3c0;
+}
+
+html,
+body {
+  background: var(--paper);
+}
+
+body {
+  color: var(--ink);
+}
+
+body::before {
+  opacity: 0.08;
+  background-image:
+    radial-gradient(circle at 22% 15%, rgba(0, 0, 0, 0.05) 0 0.6px, transparent 0.8px);
+  background-size: 12px 12px;
+}
+
+.app {
+  width: min(1280px, 94vw);
+  margin: 22px auto 72px;
+}
+
+.score-nav {
+  gap: 14px;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+}
+
+.score-nav .nav-links,
+.score-nav .nav-utilities {
+  gap: 12px;
+}
+
+.score-nav .nav-links a::after {
+  background: rgba(23, 22, 20, 0.34);
+  height: 1px;
+}
+
+.thread-hero {
+  min-height: min(500px, 62vh);
+  padding-top: clamp(46px, 7vw, 96px);
+}
+
+.thread-title-shell {
+  position: relative;
+  width: min(1020px, 96%);
+  padding-bottom: 40px;
+}
+
+.thread-title {
+  position: relative;
+  z-index: 2;
+  max-width: 10.5ch;
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: clamp(38px, 7vw, 92px);
+  font-weight: 300;
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+  text-wrap: balance;
+}
+
+.hero-thread-svg {
+  position: absolute;
+  left: 2px;
+  right: 0;
+  bottom: -6px;
+  width: min(760px, 82%);
+  height: 92px;
+  overflow: visible;
+  z-index: 1;
+}
+
+.thread-hole-fill {
+  fill: var(--paper);
+}
+
+.thread-hole-ring {
+  fill: none;
+  stroke: rgba(23, 22, 20, 0.34);
+  stroke-width: 1;
+}
+
+.thread-tail {
+  fill: none;
+  stroke: rgba(110, 104, 95, 0.85);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+}
+
+.hero-subtitle {
+  max-width: 510px !important;
+  margin-top: 10px !important;
+  font-size: 12px !important;
+  line-height: 1.8 !important;
+}
+
+.hero-score {
+  margin-top: clamp(38px, 6vw, 72px);
+}
+
+.archive-intro-panel,
+.archive-tools-panel {
+  padding-top: 10px;
+}
+
+.archive-tools-panel .artistic-type.selected::after,
+.archive-score-rule i,
+.hero-score i {
+  background: rgba(23, 22, 20, 0.18);
+}
+
+.archive-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: clamp(12px, 1.55vw, 22px);
+}
+
+.archive-preview-card {
+  padding-bottom: 6px;
+}
+
+.archive-preview-main,
+.archive-preview-trigger {
+  border: 1px solid rgba(23, 22, 20, 0.1);
+  background: #ece8df;
+  box-shadow: 0 10px 24px var(--paper-shadow);
+}
+
+.archive-preview-trigger:hover {
+  border-color: rgba(23, 22, 20, 0.2);
+}
+
+.archive-preview-image {
+  filter: saturate(0.96) contrast(0.99);
+}
+
+.archive-preview-card:hover .archive-preview-image {
+  transform: scale(1.006);
+}
+
+.archive-media-index {
+  left: 12px;
+  bottom: 11px;
+  padding: 2px 0;
+  background: transparent;
+  font-size: 8px;
+  letter-spacing: 0.18em;
+}
+
+.archive-text-sheet {
+  padding: 18px 18px 16px;
+  background: transparent;
+}
+
+.archive-text-sheet-index {
+  letter-spacing: 0.16em;
+}
+
+.archive-text-sheet-title {
+  margin-top: 18px;
+}
+
+.archive-text-sheet .archive-preview-excerpt {
+  max-width: 26ch;
+}
+
+.archive-text-score,
+.stitch-project_log .archive-preview-main::after,
+.stitch-video .archive-preview-main::after,
+.stitch-corner,
+.archive-mini-stitch {
+  display: none !important;
+}
+
+.thread-corner-svg {
+  position: absolute;
+  z-index: 4;
+  width: 44px;
+  height: 32px;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.thread-corner {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.thread-corner-tl {
+  top: 8px;
+  left: 8px;
+}
+
+.thread-corner-br {
+  right: 7px;
+  bottom: 6px;
+  transform: rotate(180deg);
+}
+
+.archive-card-caption {
+  padding: 13px 1px 2px;
+}
+
+.archive-caption-meta .eyebrow,
+.archive-caption-date,
+.archive-attachment-hint,
+.archive-preview-tags .tag,
+.archive-open-link {
+  font-size: 8px;
+  letter-spacing: 0.14em;
+}
+
+.archive-card-title-button {
+  margin-top: 9px;
+}
+
+.archive-card-title {
+  font-size: clamp(13px, 1.4vw, 17px);
+  line-height: 1.3;
+}
+
+.archive-caption-bottom {
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.archive-open-link {
+  color: var(--muted);
+}
+
+.archive-open-link:hover {
+  color: var(--ink);
+}
+
+.archive-preview-tags {
+  margin-top: 10px;
+}
+
+.archive-admin-menu summary {
+  border-color: rgba(23, 22, 20, 0.12);
+  background: rgba(247, 243, 235, 0.92);
+}
+
+.archive-modal-backdrop {
+  background: rgba(241, 236, 228, 0.88);
+}
+
+.archive-modal {
+  box-shadow: 0 22px 58px rgba(23, 22, 20, 0.08);
+}
+
+.archive-attachment-item::after {
+  background: linear-gradient(90deg, var(--thread-ivory) 0%, var(--thread) 100%);
+  height: 2px;
+  border-radius: 999px;
+  box-shadow: 0 1px 2px rgba(23, 22, 20, 0.12);
+}
+
+@media (max-width: 900px) {
+  .archive-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 12px;
+  }
+
+  .thread-title-shell {
+    width: 100%;
+  }
+
+  .hero-thread-svg {
+    width: min(620px, 88%);
+    height: 86px;
+  }
+}
+
+@media (max-width: 580px) {
+  .thread-title {
+    font-size: clamp(29px, 10vw, 47px);
+  }
+
+  .hero-thread-svg {
+    width: 88%;
+    height: 72px;
+    bottom: -2px;
+  }
+
+  .archive-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px;
+  }
+
+  .thread-corner-svg {
+    width: 26px;
+    height: 19px;
+  }
+
+  .archive-card-title {
+    font-size: 8.9px;
+    line-height: 1.24;
+  }
+
+  .archive-caption-meta .eyebrow,
+  .archive-caption-date,
+  .archive-attachment-hint,
+  .archive-open-link,
+  .archive-preview-tags .tag,
+  .archive-media-index {
+    font-size: 5.5px;
+  }
+}
