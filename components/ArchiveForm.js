@@ -695,7 +695,7 @@ export default function ArchiveForm({
             <input
               type="file"
               multiple
-              accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.epub,.txt,.doc,.docx,.mov,.avi,image/jpeg,image/png,image/webp,image/gif,application/pdf,application/epub+zip,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,video/quicktime,video/x-msvideo,video/avi,video/msvideo"
+              accept=".jpg,.jpeg,.png,.webp,.gif,.heic,.heif,.pdf,.epub,.txt,.doc,.docx,.mp4,.mov,.avi,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/heic-sequence,image/heif-sequence,application/pdf,application/epub+zip,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,video/mp4,video/quicktime,video/x-msvideo,video/avi,video/msvideo"
               onChange={
                 handleFileSelection
               }
