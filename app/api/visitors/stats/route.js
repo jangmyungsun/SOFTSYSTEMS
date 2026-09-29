@@ -151,6 +151,10 @@ function getPageLabel(path) {
     return "Visitor Letters";
   }
 
+  if (normalized === "/introduce-my-self") {
+    return "Introduce my self";
+  }
+
   return normalized;
 }
 

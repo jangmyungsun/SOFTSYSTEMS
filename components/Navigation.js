@@ -23,6 +23,7 @@ export default function Navigation() {
     ["/archive", "Archive"],
     ["/about", t("nav.about")],
     ["/letters", t("nav.letters")],
+    ["/introduce-my-self", "Introduce my self"],
   ];
 
   useEffect(() => {
